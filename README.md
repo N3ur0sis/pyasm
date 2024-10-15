@@ -11,3 +11,8 @@ cmake -S . -B build/
 cmake --build build/
 ```
 
+# To run
+
+````shell
+./build/pyasm examples/variable.mpy
+````
