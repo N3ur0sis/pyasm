@@ -12,6 +12,7 @@ enum class TokenType{
   IDF,
   OP_PLUS,
   OP_DIV,
+  OP_MOINS,
   OP_MUL,
   OP_MOD,
   KW_AND,
@@ -64,6 +65,7 @@ class Lexer {
       {"/", TokenType::OP_DIV},
       {"*", TokenType::OP_MUL},
       {"%", TokenType::OP_MOD},
+      {"-", TokenType::OP_MOINS}
     };
     m_scope.push(0);
   }

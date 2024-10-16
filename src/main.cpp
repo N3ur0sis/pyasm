@@ -51,6 +51,9 @@ int main(int argc, char* argv[]){
         if(type == TokenType::OP_MUL) {
             std::cout << "Type : MUL" << ", Value :" << value  << std::endl;
         }
+        if(type == TokenType::OP_MOINS) {
+            std::cout << "Type : MUL" << ", Value :" << value  << std::endl;
+        }
         if(type == TokenType::IDF) {
             std::cout << "Type : IDF"  << ", Value :" << value << std::endl;
         }
