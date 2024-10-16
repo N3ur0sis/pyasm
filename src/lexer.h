@@ -11,6 +11,9 @@ enum class TokenType{
   INTEGER,
   IDF,
   OP_PLUS,
+  OP_DIV,
+  OP_MUL,
+  OP_MOD,
   KW_AND,
   KW_DEF,
   KW_ELSE,
@@ -56,6 +59,12 @@ class Lexer {
     {"return", TokenType::KW_RETURN},
     {"none", TokenType::KW_NONE},
     };
+    m_ope_simple = {
+      {"+", TokenType::OP_PLUS},
+      {"/", TokenType::OP_DIV},
+      {"*", TokenType::OP_MUL},
+      {"%", TokenType::OP_MOD},
+    };
     m_scope.push(0);
   }
 
@@ -95,10 +104,11 @@ class Lexer {
       }
 
       //Op
-      else if(lookahead() == '+'){
-        buffer.push_back(progress());
-        tokens.push_back({.type = TokenType::OP_PLUS, .value = buffer });
-        buffer.clear();
+      else if(m_ope_simple.contains(std::string(1, lookahead()))){
+          buffer.push_back(progress());
+          tokens.push_back({.type=m_ope_simple[buffer], .value=buffer });
+          buffer.clear();
+          continue;
       }
 
       //Space
@@ -106,7 +116,7 @@ class Lexer {
         progress();
         continue;
       }
-
+    
       //Newline
       else if(lookahead() == '\n') {
         tokens.push_back({.type = TokenType::NEWLINE, .value = ""});
@@ -140,6 +150,7 @@ class Lexer {
   private:
     std::string m_src;
     std::unordered_map<std::string, TokenType> m_keywords;
+    std::unordered_map<std::string, TokenType> m_ope_simple;
     std::stack<int> m_scope;
     int m_pos = -1;
 

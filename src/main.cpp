@@ -42,6 +42,15 @@ int main(int argc, char* argv[]){
         if(type == TokenType::OP_PLUS) {
             std::cout << "Type : PLUS" << ", Value :" << value  << std::endl;
         }
+        if(type == TokenType::OP_DIV) {
+            std::cout << "Type : DIV" << ", Value :" << value  << std::endl;
+        }
+        if(type == TokenType::OP_MOD) {
+            std::cout << "Type : MOD" << ", Value :" << value  << std::endl;
+        }
+        if(type == TokenType::OP_MUL) {
+            std::cout << "Type : MUL" << ", Value :" << value  << std::endl;
+        }
         if(type == TokenType::IDF) {
             std::cout << "Type : IDF"  << ", Value :" << value << std::endl;
         }
