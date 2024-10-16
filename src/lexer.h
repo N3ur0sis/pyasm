@@ -60,10 +60,12 @@ class Lexer {
   }
 
   std::vector<Token> tokenize(){
-    std::vector<Token> tokens;
+  std::vector<Token> tokens;
 
     std::string buffer;
     while(lookahead()){
+
+      //Ident AND KeyWord
       if(std::isalpha(lookahead()) || lookahead() == '_'){
         buffer.push_back(progress());
         while(lookahead() && std::isalnum(lookahead()) || lookahead() == '_'){
@@ -77,8 +79,10 @@ class Lexer {
         tokens.push_back({.type=TokenType::IDF, .value=buffer });
         buffer.clear();
         continue;
-        //Repeat for all keyword
-      }else if(std::isdigit(lookahead())){
+      }
+
+      //Integer
+      else if(std::isdigit(lookahead())){
         if(lookahead() == '0'){
           buffer.push_back(progress());
         }else{
@@ -88,14 +92,23 @@ class Lexer {
         }
         tokens.push_back({.type = TokenType::INTEGER, .value = buffer });
         buffer.clear();
-      }else if(lookahead() == '+'){
+      }
+
+      //Op
+      else if(lookahead() == '+'){
         buffer.push_back(progress());
         tokens.push_back({.type = TokenType::OP_PLUS, .value = buffer });
         buffer.clear();
-      }else if(lookahead() == ' ' || lookahead() == '\t' || lookahead() == '\r'){
+      }
+
+      //Space
+      else if(lookahead() == ' ' || lookahead() == '\t' || lookahead() == '\r'){
         progress();
         continue;
-      }else if(lookahead() == '\n') {
+      }
+
+      //Newline
+      else if(lookahead() == '\n') {
         tokens.push_back({.type = TokenType::NEWLINE, .value = ""});
         progress();
         int n = 0;
@@ -113,7 +126,10 @@ class Lexer {
             std::cerr << "Lexer: Indentation Error!" << std::endl;
           }
         }
-      }else {
+      }
+      
+      //Error
+      else {
         std::cerr << "Unexpected character: " << lookahead() << "tu est con" << std::endl;
         exit(EXIT_FAILURE);
       }
