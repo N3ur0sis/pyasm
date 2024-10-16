@@ -11,7 +11,19 @@ enum class TokenType{
   INTEGER,
   IDF,
   OP_PLUS,
+  KW_AND,
+  KW_DEF,
+  KW_ELSE,
+  KW_FOR,
+  KW_IF,
+  KW_TRUE,
+  KW_FALSE,
+  KW_IN,
+  KW_NOT,
+  KW_OR,
+  KW_PRINT,
   KW_RETURN,
+  KW_NONE,
   NEWLINE,
   BEGIN,
   END
@@ -29,7 +41,21 @@ class Lexer {
 
   public:
   explicit Lexer(std::string src) : m_src(std::move(src)) {
-    m_keywords = {{"return", TokenType::KW_RETURN}};
+    m_keywords = {
+    {"and", TokenType::KW_AND},
+    {"def", TokenType::KW_DEF},
+    {"else", TokenType::KW_ELSE},
+    {"for", TokenType::KW_FOR},
+    {"if", TokenType::KW_IF},
+    {"true", TokenType::KW_TRUE},
+    {"false", TokenType::KW_FALSE},
+    {"in", TokenType::KW_IN},
+    {"not", TokenType::KW_NOT},
+    {"or", TokenType::KW_OR},
+    {"print", TokenType::KW_PRINT},
+    {"return", TokenType::KW_RETURN},
+    {"none", TokenType::KW_NONE},
+    };
     m_scope.push(0);
   }
 
