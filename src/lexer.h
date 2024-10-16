@@ -103,7 +103,7 @@ class Lexer {
         buffer.clear();
       }
 
-      //Op
+      //Op Simple
       else if(m_ope_simple.contains(std::string(1, lookahead()))){
           buffer.push_back(progress());
           tokens.push_back({.type=m_ope_simple[buffer], .value=buffer });
