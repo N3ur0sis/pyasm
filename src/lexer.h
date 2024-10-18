@@ -11,7 +11,6 @@ enum class TokenType{
   INTEGER,
   IDF,
   OP_PLUS,
-  OP_DIV,
   OP_MOINS,
   OP_MUL,
   OP_MOD,
@@ -62,7 +61,6 @@ class Lexer {
     };
     m_ope_simple = {
       {"+", TokenType::OP_PLUS},
-      {"/", TokenType::OP_DIV},
       {"*", TokenType::OP_MUL},
       {"%", TokenType::OP_MOD},
       {"-", TokenType::OP_MOINS}
