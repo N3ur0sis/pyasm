@@ -64,6 +64,12 @@ int main(int argc, char* argv[]){
         case TokenType::END:
             std::cout << "Type : END" << ", Value : NULL" << std::endl;
             break;
+        case TokenType::STRING:
+            std::cout << "Type : STRING" << ", Value :" << value << std::endl;
+            break;
+        case TokenType::ENDOFFILE:
+            std::cout << "Type : ENDOFFILE" << ", Value : NULL" << std::endl;
+            break;
         default:
             std::cout << "Type : UNKNOWN" << ", Value :" << value << std::endl;
             break;

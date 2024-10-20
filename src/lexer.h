@@ -29,7 +29,9 @@ enum class TokenType{
   KW_NONE,
   NEWLINE,
   BEGIN,
-  END
+  END,
+  STRING,
+  ENDOFFILE // strangely enough, naming this token EOF instead of ENDOFFILE generates errors... i'm guessing the EOF identifier is already defined. Don't care enough to find out why/where/how though
 };
 
 struct Token{
@@ -66,12 +68,13 @@ class Lexer {
       {"-", TokenType::OP_MOINS}
     };
     m_scope.push(0);
+    m_src.insert(0,1,'\n'); // to avoid erroneous parsing of first line indentation
   }
 
   std::vector<Token> tokenize(){
-  std::vector<Token> tokens;
-
+    std::vector<Token> tokens;
     std::string buffer;
+
     while(lookahead()){
 
       //Ident AND KeyWord
@@ -122,7 +125,7 @@ class Lexer {
         tokens.push_back({.type = TokenType::NEWLINE, .value = ""});
         progress();
         int n = 0;
-        while(lookahead() == ' '){ progress(); n++;}
+        while(lookahead() == ' ' || lookahead() == '\t'){ progress(); n++;}
         if(n == m_scope.top()){}
         else if(n > m_scope.top()) {
           m_scope.push(n);
@@ -134,16 +137,53 @@ class Lexer {
           }
           if(n != m_scope.top()) {
             std::cerr << "Lexer: Indentation Error!" << std::endl;
+            exit(EXIT_FAILURE);
           }
         }
       }
-      
+
+      // Strings
+      else if (lookahead() == '"') {
+        progress();
+        while (true) {
+          if (!(lookahead())) {
+            std::cerr << "Lexer: Reached end of file without closing string started at..." << std::endl; // todo rajouter la gestion des lignes/caractères pour l'affichage de l'erreur
+            exit(EXIT_FAILURE);
+          }
+          else if (lookahead() == '"') {
+            progress();
+            break;
+          }
+          else if (lookahead() == '\\') {
+            progress();
+            if (!(lookahead())) continue;
+            else if (lookahead() == '"' || lookahead() == '\\') buffer.push_back(progress()); // manages "\\" in addition to what's required
+            else if (lookahead() == 'n') {
+              progress();
+              buffer.push_back('\n');
+            }
+            else buffer.push_back('\\');
+          }
+          else buffer.push_back(progress());
+        }
+        tokens.push_back({.type = TokenType::STRING, .value = buffer});
+        buffer.clear();
+      }
+
+      // Commentary
+      else if (lookahead() == '#') {
+        while (lookahead() && lookahead() != '\n') progress();
+      }
+
       //Error
       else {
-        std::cerr << "Unexpected character: " << lookahead() << "tu est con" << std::endl;
+        std::cerr << "Lexer: Unexpected character: " << lookahead() << "tu est con" << std::endl;
         exit(EXIT_FAILURE);
       }
+
     }
+    // EOF
+    tokens.push_back({.type = TokenType::ENDOFFILE, .value = ""});
     return tokens;
   }
 
