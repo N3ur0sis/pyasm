@@ -1,0 +1,10 @@
+def square(x):
+ return x*x
+
+def comp(a,b):
+ if a<=b :
+  return True
+ else:
+  return False
+ return None
+
