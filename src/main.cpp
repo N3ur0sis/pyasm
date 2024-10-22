@@ -52,6 +52,45 @@ int main(int argc, char* argv[]){
         case TokenType::OP_MOINS:
             std::cout << "Type : MOINS" << ", Value :" << value << std::endl;
             break;
+        case TokenType::OP_NEQ:
+            std::cout << "Type : NEQ" << ", Value :" << value << std::endl;
+            break;
+        case TokenType::OP_LT:
+            std::cout << "Type : LT" << ", Value :" << value << std::endl;
+            break;
+        case TokenType::OP_LE:
+            std::cout << "Type : LE" << ", Value :" << value << std::endl;
+            break;
+        case TokenType::OP_GT:
+            std::cout << "Type : GT" << ", Value :" << value << std::endl;
+            break;
+        case TokenType::OP_GE:
+            std::cout << "Type : GE" << ", Value :" << value << std::endl;
+            break;
+        case TokenType::OP_AFF:
+            std::cout << "Type : AFF" << ", Value :" << value << std::endl;
+            break;
+        case TokenType::OP_DIV:
+            std::cout << "Type : DIV" << ", Value :" << value << std::endl;
+            break;
+        case TokenType::CAR_LPAREN:
+            std::cout << "Type : LPAREN" << ", Value :" << value << std::endl;
+            break;
+        case TokenType::CAR_RPAREN:
+            std::cout << "Type : RPAREN" << ", Value :" << value << std::endl;
+            break;
+        case TokenType::CAR_LBRACKET:
+            std::cout << "Type : LBRACKET" << ", Value :" << value << std::endl;
+            break;
+        case TokenType::CAR_RBRACKET:
+            std::cout << "Type : RBRACKET" << ", Value :" << value << std::endl;
+            break;
+        case TokenType::CAR_COMMA:
+            std::cout << "Type : COMMA" << ", Value :" << value << std::endl;
+            break;
+        case TokenType::CAR_COLON:
+            std::cout << "Type : COLON" << ", Value :" << value << std::endl;
+            break;
         case TokenType::IDF:
             std::cout << "Type : IDF" << ", Value :" << value << std::endl;
             break;

@@ -14,6 +14,20 @@ enum class TokenType{
   OP_MOINS,
   OP_MUL,
   OP_MOD,
+  OP_EQ,
+  OP_NEQ,
+  OP_LT,
+  OP_LE,
+  OP_GT,
+  OP_GE,
+  OP_AFF,
+  OP_DIV,
+  CAR_LPAREN,
+  CAR_RPAREN,
+  CAR_LBRACKET,
+  CAR_RBRACKET,
+  CAR_COMMA,
+  CAR_COLON,
   KW_AND,
   KW_DEF,
   KW_ELSE,
@@ -65,7 +79,25 @@ class Lexer {
       {"+", TokenType::OP_PLUS},
       {"*", TokenType::OP_MUL},
       {"%", TokenType::OP_MOD},
-      {"-", TokenType::OP_MOINS}
+      {"-", TokenType::OP_MOINS},
+      {"<", TokenType::OP_LT},
+      {">", TokenType::OP_GT},
+      {"=", TokenType::OP_AFF}
+    };
+    m_ope_double = {
+      {"==", TokenType::OP_EQ},
+      {"!=", TokenType::OP_NEQ},
+      {"<=", TokenType::OP_LE},
+      {">=", TokenType::OP_GE},
+      {"//", TokenType::OP_DIV}
+    };
+    m_brakets = {
+      {"(", TokenType::CAR_LPAREN},
+      {")", TokenType::CAR_RPAREN},
+      {"[", TokenType::CAR_LBRACKET},
+      {"]", TokenType::CAR_RBRACKET},
+      {",", TokenType::CAR_COMMA},
+      {":", TokenType::CAR_COLON}
     };
     m_scope.push(0);
     m_src.insert(0,1,'\n'); // to avoid erroneous parsing of first line indentation
@@ -106,12 +138,62 @@ class Lexer {
         buffer.clear();
       }
 
-      //Op Simple
+      //Op Simple sauf '=', '<', '>'
       else if(m_ope_simple.contains(std::string(1, lookahead()))){
           buffer.push_back(progress());
           tokens.push_back({.type=m_ope_simple[buffer], .value=buffer });
           buffer.clear();
           continue;
+      }
+
+      //Op Double et '=', '<', '>'
+      else if(lookahead() && (lookahead() == '<' || lookahead() == '>' || lookahead() == '=')){
+        buffer.push_back(progress());
+        if(lookahead() == '='){
+          buffer.push_back(progress());
+          tokens.push_back({.type=m_ope_double[buffer], .value=buffer });
+          buffer.clear();
+          continue;
+        }
+        else{
+          tokens.push_back({.type=m_ope_simple[buffer], .value=buffer });
+          buffer.clear();
+          continue;
+        }
+      }
+      else if(lookahead() && lookahead() == '!'){
+        buffer.push_back(progress());
+        if(lookahead() && lookahead() == '='){
+          buffer.push_back(progress());
+          tokens.push_back({.type=TokenType::OP_NEQ, .value=buffer });
+          buffer.clear();
+          continue;
+        }
+        else{
+          std::cerr << "Unexpected character: " << lookahead() << std::endl;
+          exit(EXIT_FAILURE);
+        }
+      }
+      else if(lookahead() && lookahead() == '/'){
+        buffer.push_back(progress());
+        if(lookahead() && lookahead() == '/'){
+          buffer.push_back(progress());
+          tokens.push_back({.type=TokenType::OP_DIV, .value=buffer });
+          buffer.clear();
+          continue;
+        }
+        else{
+          std::cerr << "Unexpected character: " << lookahead() << std::endl;
+          exit(EXIT_FAILURE);
+        }
+      }
+
+      //Brakets
+      else if(m_brakets.contains(std::string(1, lookahead()))){
+        buffer.push_back(progress());
+        tokens.push_back({.type=m_brakets[buffer], .value=buffer });
+        buffer.clear();
+        continue;
       }
 
       //Space
@@ -191,6 +273,8 @@ class Lexer {
     std::string m_src;
     std::unordered_map<std::string, TokenType> m_keywords;
     std::unordered_map<std::string, TokenType> m_ope_simple;
+    std::unordered_map<std::string, TokenType> m_ope_double;
+    std::unordered_map<std::string, TokenType> m_brakets;
     std::stack<int> m_scope;
     int m_pos = -1;
 
