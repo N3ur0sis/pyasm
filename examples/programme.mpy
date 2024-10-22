@@ -16,6 +16,7 @@ def test_lexical(x):
 def main():
  n = 10
  tableau = test_lexical(n)
- str = "j'ai crée un tableau"
+ str = "j'ai crée  un tableau"
 
 main()
+

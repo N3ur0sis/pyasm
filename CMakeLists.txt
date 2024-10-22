@@ -6,4 +6,5 @@ set(CMAKE_CXX_STANDARD 20)
 
 add_executable(pyasm
         src/main.cpp
-        src/lexer.h)
+        src/lexer.h
+        src/lexer.cpp)

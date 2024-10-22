@@ -8,9 +8,6 @@
 
 #include "lexer.h"
 
-
-
-
 int main(int argc, char* argv[]){
 
     if(argc != 2) {
@@ -49,7 +46,7 @@ int main(int argc, char* argv[]){
         case TokenType::OP_MUL:
             std::cout << "Type : MUL" << ", Value :" << value << std::endl;
             break;
-        case TokenType::OP_MOINS:
+        case TokenType::OP_MINUS:
             std::cout << "Type : MOINS" << ", Value :" << value << std::endl;
             break;
         case TokenType::OP_NEQ:
@@ -109,6 +106,9 @@ int main(int argc, char* argv[]){
         case TokenType::ENDOFFILE:
             std::cout << "Type : ENDOFFILE" << ", Value : NULL" << std::endl;
             break;
+        case TokenType::KW_DEF:
+            std::cout << "Type : DEF" << ", Value : NULL" << std::endl;
+        break;
         default:
             std::cout << "Type : UNKNOWN" << ", Value :" << value << std::endl;
             break;
