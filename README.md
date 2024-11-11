@@ -1,4 +1,4 @@
-# [Project Name] Compiler
+# PYASM Compiler
 
 
     How to Use the Template:
@@ -26,20 +26,20 @@
 
 ## Introduction
 
-The **[Project Name] Compiler** is a [insert language(s)] compiler designed to [brief description of the compiler's purpose]. It translates [language name] source code into [output (e.g., machine code, bytecode, intermediate representation)] and includes optimizations for [specific features or targets].
+The **PyAsm Compiler** is a C++ compiler designed to translates MiniPython (mpy) source code into AST representation and includes error checking at different compiling stage.
 
 ### Team
 
-- Willie Dietrich
-- Geoffrey Streich
-- Casey Cronin
-- Wilson Rogahn DVM
+- Aymeric ROBERT
+- Baptiste PACHOT
+- Alexis CHAVY
+- Johan Kasczyk
 
-### Why use [Project Name]?
+### Why use PyAsm?
 
-- Fast and efficient compilation
-- Support for [languages or standards]
-- [Any unique features or goals]
+- Don't use It.
+- Fast compilation and easy to use.
+
 
 ## Features
 
