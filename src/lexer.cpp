@@ -20,12 +20,15 @@ Lexer::Lexer(std::string src) : m_src(std::move(src)) {
 
     m_ope_simple = {
         {"+", TokenType::OP_PLUS}, {"*", TokenType::OP_MUL},
-        {"%", TokenType::OP_MOD}, {"-", TokenType::OP_MINUS}
+        {"%", TokenType::OP_MOD}, {"-", TokenType::OP_MINUS},
+        {"<", TokenType::OP_LE}, {">", TokenType::OP_GE},
+        {"=", TokenType::OP_EQ}
+
     };
 
     m_ope_double = {
-        {"==", TokenType::OP_EQ}, {"!=", TokenType::OP_NEQ},
-        {"<=", TokenType::OP_LE}, {">=", TokenType::OP_GE},
+        {"==", TokenType::OP_EQ_EQ}, {"!=", TokenType::OP_NEQ},
+        {"<=", TokenType::OP_LE_EQ}, {">=", TokenType::OP_GE_EQ},
         {"//", TokenType::OP_DIV}
     };
 
@@ -50,12 +53,13 @@ std::vector<Token> Lexer::tokenize() {
         else if (std::isdigit(lookahead())) {
             handleInteger(tokens, buffer);
         }
-        else if (m_ope_simple.contains(std::string(1, lookahead()))) {
-            handleSimpleOperator(tokens, buffer);
-        }
         else if (isDoubleOperatorStart(lookahead())) {
             handleDoubleOperator(tokens, buffer);
         }
+        else if (m_ope_simple.contains(std::string(1, lookahead()))) {
+            handleSimpleOperator(tokens, buffer);
+        }
+        
         else if (lookahead() == '!') {
             handleNotEqual(tokens, buffer);
         }
@@ -129,13 +133,15 @@ void Lexer::handleSimpleOperator(std::vector<Token>& tokens, std::string& buffer
 
 void Lexer::handleDoubleOperator(std::vector<Token>& tokens, std::string& buffer) {
     buffer.push_back(progress());
-    if (lookahead() == '=') {
+    if(lookahead() == '='){
         buffer.push_back(progress());
-        tokens.push_back({.type = m_ope_double[buffer], .value = buffer});
-    } else {
-        tokens.push_back({.type = m_ope_simple[buffer], .value = buffer});
+        tokens.push_back({.type=m_ope_double[buffer], .value=buffer });
+        buffer.clear();
     }
-    buffer.clear();
+    else if(isalnum(lookahead()) || isspace(lookahead())){
+        tokens.push_back({.type=m_ope_simple[buffer], .value=buffer });
+        buffer.clear();
+    }
 }
 
 void Lexer::handleNotEqual(std::vector<Token>& tokens, std::string& buffer) {
@@ -287,10 +293,13 @@ std::string Lexer::tokenTypeToString(TokenType type) {
         case TokenType::OP_MINUS: return "Operator: -";
         case TokenType::OP_MUL: return "Operator: *";
         case TokenType::OP_MOD: return "Operator: %";
-        case TokenType::OP_EQ: return "Operator: ==";
+        case TokenType::OP_EQ: return "Operator: =";
+        case TokenType::OP_EQ_EQ: return "Operator: ==";
+        case TokenType::OP_GE: return "Operator: >";
+        case TokenType::OP_LE: return "Operator: <";
         case TokenType::OP_NEQ: return "Operator: !=";
-        case TokenType::OP_LE: return "Operator: <=";
-        case TokenType::OP_GE: return "Operator: >=";
+        case TokenType::OP_LE_EQ: return "Operator: <=";
+        case TokenType::OP_GE_EQ: return "Operator: >=";
         case TokenType::OP_DIV: return "Operator: /";
         case TokenType::CAR_LPAREN: return "Symbol: (";
         case TokenType::CAR_RPAREN: return "Symbol: )";
