@@ -4,7 +4,7 @@ Parser::Parser(const std::vector<Token>& tokens) : m_tokens(tokens), m_pos(0) {}
 
 bool Parser::parse() {
     m_pos = 0;
-    return file() && match(TokenType::ENDOFFILE);
+    return match(TokenType::ENDOFFILE);
 }
 
 Token Parser::peek() {

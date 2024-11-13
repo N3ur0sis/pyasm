@@ -24,15 +24,6 @@ int main(int argc, char* argv[]) {
         // Tokenization step
         auto tokens = lexer.tokenize();
         lexer.displayTokens(tokens);
-
-        // Parsing step
-        Parser parser(tokens);
-        if (parser.parse()) {
-            std::cout << "Parsing completed successfully." << std::endl;
-        } else {
-            std::cerr << "Parsing failed." << std::endl;
-            return EXIT_FAILURE;
-        }
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
         return EXIT_FAILURE;
