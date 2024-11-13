@@ -2,6 +2,7 @@
 #include <fstream>
 #include <sstream>
 #include "lexer.h"
+#include "parser.h"
 
 int main(int argc, char* argv[]) {
     if (argc != 2) {
@@ -20,10 +21,20 @@ int main(int argc, char* argv[]) {
     Lexer lexer(srcStream.str());
 
     try {
+        // Tokenization step
         auto tokens = lexer.tokenize();
         lexer.displayTokens(tokens);
+
+        // Parsing step
+        Parser parser(tokens);
+        if (parser.parse()) {
+            std::cout << "Parsing completed successfully." << std::endl;
+        } else {
+            std::cerr << "Parsing failed." << std::endl;
+            return EXIT_FAILURE;
+        }
     } catch (const std::exception& e) {
-        std::cerr << "Lexer error: " << e.what() << std::endl;
+        std::cerr << "Error: " << e.what() << std::endl;
         return EXIT_FAILURE;
     }
 

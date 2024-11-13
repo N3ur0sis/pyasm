@@ -35,6 +35,8 @@ public:
 
     std::vector<Token> tokenize();
     void displayTokens(const std::vector<Token>& tokens);
+    static std::string tokenTypeToString(TokenType type);
+
 
 private:
     std::string m_src;
@@ -69,6 +71,5 @@ private:
 
     // Utility functions
     bool isDoubleOperatorStart(char ch) const;
-    std::string tokenTypeToString(TokenType type);
-
+    
 };
