@@ -21,9 +21,17 @@ int main(int argc, char* argv[]) {
     Lexer lexer(srcStream.str());
 
     try {
-        // Tokenization step
         auto tokens = lexer.tokenize();
-        lexer.displayTokens(tokens);
+        lexer.displayTokens(tokens); // Print tokens for debugging
+        Parser parser(tokens);
+
+        auto ast = parser.parse();
+        if (ast) {
+            std::cout << "Abstract Syntax Tree:" << std::endl;
+            parser.print(ast);
+        } else {
+            std::cerr << "Failed to parse input." << std::endl;
+        }
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
         return EXIT_FAILURE;
