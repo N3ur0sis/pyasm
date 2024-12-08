@@ -9,4 +9,5 @@ add_executable(pyasm
         src/lexer.h
         src/lexer.cpp
         src/parser.h
+        src/parser.cpp
         src/parser.cpp)

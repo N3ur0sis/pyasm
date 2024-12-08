@@ -1,2 +1,1 @@
-123
-my_variable
+(123 + 456) * my_variable
