@@ -82,7 +82,9 @@ std::shared_ptr<ASTNode> Parser::parsePrimary() {
     }
     if (expect(TokenType::CAR_LBRACKET)) {
         auto expr = parseE();
-        expect(TokenType::CAR_RBRACKET);
+        if (!expect(TokenType::CAR_RBRACKET)) {
+            std::cerr << "Expected ']'" << std::endl;
+        };
         return expr;
     }
     std::cerr << "Unexpected token: " << tok.value << std::endl;
