@@ -29,6 +29,8 @@ private:
     std::shared_ptr<ASTNode> parseRoot(); // Parse root program
     std::shared_ptr<ASTNode> parseExpr(); // Parse an expression
     std::shared_ptr<ASTNode> parsePrimary(); // Parse a single value
+    std::shared_ptr<ASTNode> parseE();
+    std::shared_ptr<ASTNode> parseEPrime();
     std::shared_ptr<ASTNode> parseOrExpr();
     std::shared_ptr<ASTNode> parseAndExpr();
     std::shared_ptr<ASTNode> parseCompExpr();
