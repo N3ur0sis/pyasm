@@ -53,25 +53,45 @@ std::shared_ptr<ASTNode> Parser::parseExpr() {
 
 std::shared_ptr<ASTNode> Parser::parsePrimary() {
     Token tok = peek();
-    if (expect(TokenType::INTEGER)) return std::make_shared<ASTNode>("Integer", tok.value);
-    if (expect(TokenType::IDF)) return std::make_shared<ASTNode>("Identifier", tok.value);
+    if (expect(TokenType::INTEGER)) {
+        return std::make_shared<ASTNode>("Integer", tok.value);
+    }
+    if (expect(TokenType::IDF)) {
+        auto idNode = std::make_shared<ASTNode>("Identifier", tok.value); 
+        if (expect(TokenType::CAR_LPAREN)) {
+            auto funcCallNode = std::make_shared<ASTNode>("FunctionCall");
+            funcCallNode->children.push_back(idNode);
+            auto paramListNode = std::make_shared<ASTNode>("ParameterList");
+            while (true) {
+                auto exprNode = parseExpr();
+                paramListNode->children.push_back(exprNode);
+                if (!expect(TokenType::CAR_COMMA)) {
+                    break;
+                }
+            }
+            funcCallNode->children.push_back(paramListNode);
+            expect(TokenType::CAR_RPAREN);
+            return funcCallNode;
+        }
+        return idNode;
+    }
     if (expect(TokenType::CAR_LPAREN)) {
         auto expr = parseExpr();
-        expect(TokenType::CAR_RPAREN); // Ensure closing parenthesis
+        expect(TokenType::CAR_RPAREN);
         return expr;
     }
     if (expect(TokenType::CAR_LBRACKET)) {
         auto expr = parseE();
-        expect(TokenType::CAR_RBRACKET); // Ensure closing parenthesis
+        expect(TokenType::CAR_RBRACKET);
         return expr;
     }
     std::cerr << "Unexpected token: " << tok.value << std::endl;
     return nullptr;
 }
+
 std::shared_ptr<ASTNode> Parser::parseE() {
     auto exprNode = parseExpr(); 
     auto ePrimeNode = parseEPrime(); 
-    
     auto listNode = std::make_shared<ASTNode>("List");
     listNode->children.push_back(exprNode);
     if (ePrimeNode) {
@@ -85,7 +105,6 @@ std::shared_ptr<ASTNode> Parser::parseE() {
             } 
         }
     }
-    
     return listNode;
 }
 
@@ -94,12 +113,10 @@ std::shared_ptr<ASTNode> Parser::parseEPrime() {
         auto exprNode = parseExpr(); 
         auto ePrimeNode = parseEPrime();  
         auto commaNode = std::make_shared<ASTNode>("EPrime");
-
         commaNode->children.push_back(exprNode);
         if (ePrimeNode) {
             commaNode->children.push_back(ePrimeNode);
         }
-        
         return commaNode;
     }
     return nullptr;
