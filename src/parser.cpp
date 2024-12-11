@@ -31,7 +31,14 @@ bool Parser::expect(TokenType type) {
     }
     return false;
 }
-
+bool Parser::expectR(TokenType type) {
+    if (peek().type == type) {
+        next();
+        return true;
+    }
+    std::cerr << "Expected " << Lexer::tokenTypeToString(type) << std::endl;
+    return false;
+}
 void Parser::skipNewlines() {
     while (peek().type == TokenType::NEWLINE) next();
 }
@@ -70,21 +77,19 @@ std::shared_ptr<ASTNode> Parser::parsePrimary() {
                 }
             }
             funcCallNode->children.push_back(paramListNode);
-            expect(TokenType::CAR_RPAREN);
+            expectR(TokenType::CAR_RPAREN);
             return funcCallNode;
         }
         return idNode;
     }
     if (expect(TokenType::CAR_LPAREN)) {
         auto expr = parseExpr();
-        expect(TokenType::CAR_RPAREN);
+        expectR(TokenType::CAR_RPAREN);
         return expr;
     }
     if (expect(TokenType::CAR_LBRACKET)) {
         auto expr = parseE();
-        if (!expect(TokenType::CAR_RBRACKET)) {
-            std::cerr << "Expected ']'" << std::endl;
-        };
+        expectR(TokenType::CAR_RBRACKET);
         return expr;
     }
     std::cerr << "Unexpected token: " << tok.value << std::endl;
