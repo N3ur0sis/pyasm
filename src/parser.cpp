@@ -55,7 +55,7 @@ std::shared_ptr<ASTNode> Parser::parseRoot() {
     auto root = std::make_shared<ASTNode>("Program");
     while (peek().type != TokenType::ENDOFFILE) {
         skipNewlines();
-        auto expr = parseExpr();
+        auto expr = parseSimpleStmt();
         if (expr) root->children.push_back(expr);
         skipNewlines();
     }
@@ -223,15 +223,8 @@ std::shared_ptr<ASTNode> Parser::parseFactor() {
 /*
 // test -> "=" expr .   # Locally Implemented in parseSimpleStmt
 // test -> expr_prime term_prime arith_expr_prime comp_expr_prime and_expr_prime or_expr_prime .
-std::shared_ptr<ASTNode> Parser::parseTest(){
-    auto nodeExpr = parseExprPrime();
-    auto nodeTerm = parseTermPrime();
-    auto nodeArith = parseArithExprPrime();
-    auto nodeComp = parseCompExprPrime();
-    auto nodeAnd = parseAndExprPrime();
-    auto nodeOr = parseOrExprPrime();
-}
 */
+
 
 // expr_prime -> "(" E ")" . || .
 std::shared_ptr<ASTNode> Parser::parseExprPrime() {
@@ -257,8 +250,10 @@ std::shared_ptr<ASTNode> Parser::parseSimpleStmt() {
             opNode->children.push_back(parseExpr());
             return opNode;
         }
-        auto exprNode = parseTest();                       // test -> expr_prime term_prime arith_expr_prime comp_expr_prime and_expr_prime or_expr_prime .
-        // ???? JE FAIS QUOI ICI ?????        
+        
+        auto testNode = parseTest(idNode);
+        return testNode;            // test -> expr_prime term_prime arith_expr_prime comp_expr_prime and_expr_prime or_expr_prime .
+           
     }
     if (expect(TokenType::KW_RETURN)) {
         auto returnNode = std::make_shared<ASTNode>("Return");
@@ -292,3 +287,58 @@ std::shared_ptr<ASTNode> Parser::parseStmtSeconde() {
     return nullptr;
 }
 */
+
+std::shared_ptr<ASTNode> Parser::parseTest(const std::shared_ptr<ASTNode>& idNode) {
+    auto testNode = std::make_shared<ASTNode>("Multiple");
+
+    // Si l'identifiant est suivi de parenthèses, il s'agit d'un appel de fonction
+    if (peek().type == TokenType::CAR_LPAREN) {
+        auto funcCallNode = std::make_shared<ASTNode>("FunctionCall");
+        funcCallNode->children.push_back(idNode);
+
+        // Parsing des paramètres
+        auto paramListNode = std::make_shared<ASTNode>("ParameterList");
+        expectR(TokenType::CAR_LPAREN);
+        while (peek().type != TokenType::CAR_RPAREN) {
+            auto exprNode = parseExpr();
+            if (exprNode) {
+                paramListNode->children.push_back(exprNode);
+            }
+            if (!expect(TokenType::CAR_COMMA)) break;
+        }
+        expectR(TokenType::CAR_RPAREN);
+
+        funcCallNode->children.push_back(paramListNode);
+        testNode = funcCallNode;
+    }
+
+    // Parsing des opérations arithmétiques, logiques ou relationnelles
+    auto exprNode = parseExpr(); // Parse l'expression principale
+    if (!exprNode) {
+        return testNode;
+    }
+
+    exprNode->children.push_back(testNode);
+    
+    /*
+    // Vérification des opérateurs relationnels
+    if (peek().type == TokenType::OP_EQ || peek().type == TokenType::OP_NEQ ||
+        peek().type == TokenType::OP_LE || peek().type == TokenType::OP_GE) {
+        auto compOp = next();
+        auto compNode = std::make_shared<ASTNode>("Compare", compOp.value);
+        compNode->children.push_back(exprNode);
+        compNode->children.push_back(parseExpr());
+        testNode->children.push_back(compNode);
+    }
+
+    // Parsing des opérateurs logiques
+    while (peek().type == TokenType::KW_AND || peek().type == TokenType::KW_OR) {
+        auto logicOp = next();
+        auto logicNode = std::make_shared<ASTNode>(logicOp.type == TokenType::KW_AND ? "And" : "Or");
+        logicNode->children.push_back(testNode->children.back());
+        logicNode->children.push_back(parseExpr());
+        testNode->children.push_back(logicNode);
+    }
+    */
+    return exprNode;
+}

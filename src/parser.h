@@ -38,8 +38,9 @@ private:
     std::shared_ptr<ASTNode> parseTerm();
     std::shared_ptr<ASTNode> parseFactor();
     std::shared_ptr<ASTNode> parseOperator(TokenType type, const std::string& opName);
-    std::shared_ptr<ASTNode> parseTest();
+    std::shared_ptr<ASTNode> parseTest(const std::shared_ptr<ASTNode>& idNode);
     std::shared_ptr<ASTNode> parseExprPrime();
     std::shared_ptr<ASTNode> parseSimpleStmt();
     std::shared_ptr<ASTNode> parseStmtSeconde();
+    
 };
