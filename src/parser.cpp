@@ -1,6 +1,9 @@
 #include "parser.h"
 #include <iostream>
 
+// UTIL
+
+
 Parser::Parser(const std::vector<Token>& tokens) : tokens(tokens), pos(0) {}
 
 std::shared_ptr<ASTNode> Parser::parse() {
@@ -43,6 +46,11 @@ void Parser::skipNewlines() {
     while (peek().type == TokenType::NEWLINE) next();
 }
 
+
+//FONCTIONS PARSEUR 
+
+
+// file -> N D stmt S eof .                                         ?????????
 std::shared_ptr<ASTNode> Parser::parseRoot() {
     auto root = std::make_shared<ASTNode>("Program");
     while (peek().type != TokenType::ENDOFFILE) {
@@ -54,10 +62,12 @@ std::shared_ptr<ASTNode> Parser::parseRoot() {
     return root;
 }
 
+// expr -> or_expr .
 std::shared_ptr<ASTNode> Parser::parseExpr() {
     return parseOrExpr();
 }
 
+// primary -> const . || ident expr_prime . || ( expr ) . || [ e ] . || not primary .
 std::shared_ptr<ASTNode> Parser::parsePrimary() {
     Token tok = peek();
     if (expect(TokenType::INTEGER)) {
@@ -92,10 +102,16 @@ std::shared_ptr<ASTNode> Parser::parsePrimary() {
         expectR(TokenType::CAR_RBRACKET);
         return expr;
     }
+    if (expect(TokenType::KW_NOT)) {
+        auto notNode = std::make_shared<ASTNode>("Not");
+        notNode->children.push_back(parsePrimary());
+        return notNode;
+    }
     std::cerr << "Unexpected token: " << tok.value << std::endl;
     return nullptr;
 }
 
+// E -> expr E_prime . || .
 std::shared_ptr<ASTNode> Parser::parseE() {
     auto exprNode = parseExpr(); 
     auto ePrimeNode = parseEPrime(); 
@@ -115,6 +131,7 @@ std::shared_ptr<ASTNode> Parser::parseE() {
     return listNode;
 }
 
+// E_prime -> , expr E_prime . || .
 std::shared_ptr<ASTNode> Parser::parseEPrime() {
     if (expect(TokenType::CAR_COMMA)) {
         auto exprNode = parseExpr(); 
@@ -128,6 +145,8 @@ std::shared_ptr<ASTNode> Parser::parseEPrime() {
     }
     return nullptr;
 }
+
+// or_expr -> and_expr or_expr_prime .
 std::shared_ptr<ASTNode> Parser::parseOrExpr() {
     auto left = parseAndExpr();
     while (expect(TokenType::KW_OR)) {
@@ -139,6 +158,7 @@ std::shared_ptr<ASTNode> Parser::parseOrExpr() {
     return left;
 }
 
+// and_expr -> comp_expr and_expr_prime .
 std::shared_ptr<ASTNode> Parser::parseAndExpr() {
     auto left = parseCompExpr();
     while (expect(TokenType::KW_AND)) {
@@ -150,6 +170,7 @@ std::shared_ptr<ASTNode> Parser::parseAndExpr() {
     return left;
 }
 
+// comp_expr -> arith_expr comp_expr_prime .
 std::shared_ptr<ASTNode> Parser::parseCompExpr() {
     auto left = parseArithExpr();
     if (peek().type == TokenType::OP_EQ || peek().type == TokenType::OP_NEQ ||
@@ -163,6 +184,7 @@ std::shared_ptr<ASTNode> Parser::parseCompExpr() {
     return left;
 }
 
+// arith_expr -> term arith_expr_prime .
 std::shared_ptr<ASTNode> Parser::parseArithExpr() {
     auto left = parseTerm();
     while (peek().type == TokenType::OP_PLUS || peek().type == TokenType::OP_MINUS) {
@@ -175,6 +197,7 @@ std::shared_ptr<ASTNode> Parser::parseArithExpr() {
     return left;
 }
 
+// term -> factor term_prime .
 std::shared_ptr<ASTNode> Parser::parseTerm() {
     auto left = parseFactor();
     while (peek().type == TokenType::OP_MUL || peek().type == TokenType::OP_DIV || peek().type == TokenType::OP_MOD) {
@@ -187,6 +210,7 @@ std::shared_ptr<ASTNode> Parser::parseTerm() {
     return left;
 }
 
+// factor -> unary primary .
 std::shared_ptr<ASTNode> Parser::parseFactor() {
     if (expect(TokenType::OP_MINUS)) {
         auto opNode = std::make_shared<ASTNode>("UnaryOp", "-");
@@ -196,3 +220,75 @@ std::shared_ptr<ASTNode> Parser::parseFactor() {
     return parsePrimary();
 }
 
+/*
+// test -> "=" expr .   # Locally Implemented in parseSimpleStmt
+// test -> expr_prime term_prime arith_expr_prime comp_expr_prime and_expr_prime or_expr_prime .
+std::shared_ptr<ASTNode> Parser::parseTest(){
+    auto nodeExpr = parseExprPrime();
+    auto nodeTerm = parseTermPrime();
+    auto nodeArith = parseArithExprPrime();
+    auto nodeComp = parseCompExprPrime();
+    auto nodeAnd = parseAndExprPrime();
+    auto nodeOr = parseOrExprPrime();
+}
+*/
+
+// expr_prime -> "(" E ")" . || .
+std::shared_ptr<ASTNode> Parser::parseExprPrime() {
+    if (expect(TokenType::CAR_LPAREN)) {
+        auto exprNode = parseE();
+        expectR(TokenType::CAR_RPAREN);
+        return exprNode;
+    }
+    return nullptr;
+}
+
+
+//simple_stmt -> ident test .
+//simple_stmt -> "return" expr .
+//simple_stmt -> "print" "(" expr ")" .
+std::shared_ptr<ASTNode> Parser::parseSimpleStmt() {
+    Token tok = peek();
+    if (expect(TokenType::IDF)) {               
+        auto idNode = std::make_shared<ASTNode>("Identifier", tok.value);
+        if (expect(TokenType::OP_EQ)) {                                     // test -> "=" expr .
+            auto opNode = std::make_shared<ASTNode>("Affect", "=");
+            opNode->children.push_back(idNode);
+            opNode->children.push_back(parseExpr());
+            return opNode;
+        }
+        auto exprNode = parseTest();                       // test -> expr_prime term_prime arith_expr_prime comp_expr_prime and_expr_prime or_expr_prime .
+        // ???? JE FAIS QUOI ICI ?????        
+    }
+    if (expect(TokenType::KW_RETURN)) {
+        auto returnNode = std::make_shared<ASTNode>("Return");
+        returnNode->children.push_back(parseExpr());
+        return returnNode;
+    }
+    if (expect(TokenType::KW_PRINT)) {
+        expectR(TokenType::CAR_LPAREN);
+        auto printNode = std::make_shared<ASTNode>("Print");
+        printNode->children.push_back(parseExpr());
+        expectR(TokenType::CAR_RPAREN);
+        return printNode;
+    }
+    std::cerr << "Unexpected token: " << tok.value << std::endl;
+    return nullptr;
+}
+
+
+//Attend parseSuite() pour fonctionner :
+
+/*
+// stmt_seconde -> else ":" suite .
+// stmt_seconde -> .
+std::shared_ptr<ASTNode> Parser::parseStmtSeconde() {
+    if (expect(TokenType::KW_ELSE)) {
+        expectR(TokenType::CAR_COLON);
+        auto elseNode = std::make_shared<ASTNode>("Else");
+        elseNode->children.push_back(parseSuite());
+        return elseNode;
+    }
+    return nullptr;
+}
+*/
