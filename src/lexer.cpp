@@ -98,9 +98,9 @@ void Lexer::handleIdentifierOrKeyword(std::vector<Token>& tokens, std::string& b
         buffer.push_back(progress());
     }
     if (m_keywords.contains(buffer)) {
-        tokens.push_back({.type = m_keywords[buffer], .value = buffer});
+        tokens.push_back({ .line = m_line,.type = m_keywords[buffer], .value = buffer});
     } else {
-        tokens.push_back({.type = TokenType::IDF, .value = buffer});
+        tokens.push_back({ .line = m_line,.type = TokenType::IDF, .value = buffer});
     }
     buffer.clear();
 }
@@ -121,13 +121,13 @@ void Lexer::handleInteger(std::vector<Token>& tokens, std::string& buffer) {
             reportError("Identifier name too long");
         }
     }
-    tokens.push_back({.type = TokenType::INTEGER, .value = buffer});
+    tokens.push_back({ .line = m_line,.type = TokenType::INTEGER, .value = buffer});
     buffer.clear();
 }
 
 void Lexer::handleSimpleOperator(std::vector<Token>& tokens, std::string& buffer) {
     buffer.push_back(progress());
-    tokens.push_back({.type = m_ope_simple[buffer], .value = buffer});
+    tokens.push_back({ .line = m_line,.type = m_ope_simple[buffer], .value = buffer});
     buffer.clear();
 }
 
@@ -148,7 +148,7 @@ void Lexer::handleNotEqual(std::vector<Token>& tokens, std::string& buffer) {
     buffer.push_back(progress());
     if (lookahead() == '=') {
         buffer.push_back(progress());
-        tokens.push_back({.type = TokenType::OP_NEQ, .value = buffer});
+        tokens.push_back({ .line = m_line,.type = TokenType::OP_NEQ, .value = buffer});
     } else {
         reportError("Expected '=' after '!'");
     }
@@ -159,7 +159,7 @@ void Lexer::handleDivision(std::vector<Token>& tokens, std::string& buffer) {
     buffer.push_back(progress());
     if (lookahead() == '/') {
         buffer.push_back(progress());
-        tokens.push_back({.type = TokenType::OP_DIV, .value = buffer});
+        tokens.push_back({ .line = m_line,.type = TokenType::OP_DIV, .value = buffer});
     } else {
         reportError("Expected '/' after '/'");
     }
@@ -168,12 +168,12 @@ void Lexer::handleDivision(std::vector<Token>& tokens, std::string& buffer) {
 
 void Lexer::handleBracket(std::vector<Token>& tokens, std::string& buffer) {
     buffer.push_back(progress());
-    tokens.push_back({.type = m_brackets[buffer], .value = buffer});
+    tokens.push_back({ .line = m_line,.type = m_brackets[buffer], .value = buffer});
     buffer.clear();
 }
 
 void Lexer::handleNewline(std::vector<Token>& tokens) {
-    tokens.push_back({.type = TokenType::NEWLINE, .value = ""});
+    tokens.push_back({ .line = m_line,.type = TokenType::NEWLINE, .value = ""});
     m_line++;
     progress();
 
@@ -200,7 +200,7 @@ void Lexer::handleString(std::vector<Token>& tokens, std::string& buffer) {
             buffer.push_back(progress());
         }
     }
-    tokens.push_back({.type = TokenType::STRING, .value = buffer});
+    tokens.push_back({ .line = m_line,.type = TokenType::STRING, .value = buffer});
     buffer.clear();
 }
 
@@ -213,19 +213,19 @@ void Lexer::skipComment() {
 void Lexer::endOfFile(std::vector<Token>& tokens) {
     while (m_scope.top() != 0) {
         m_scope.pop();
-        tokens.push_back({.type = TokenType::END, .value = ""});
+        tokens.push_back({ .line = m_line,.type = TokenType::END, .value = ""});
     }
-    tokens.push_back({.type = TokenType::ENDOFFILE, .value = ""});
+    tokens.push_back({ .line = m_line,.type = TokenType::ENDOFFILE, .value = ""});
 }
 
 void Lexer::manageIndentation(std::vector<Token>& tokens, int n) {
     if (n > m_scope.top()) {
         m_scope.push(n);
-        tokens.push_back({.type = TokenType::BEGIN, .value = ""});
+        tokens.push_back({ .line = m_line,.type = TokenType::BEGIN, .value = ""});
     } else if (n < m_scope.top()) {
         while (n < m_scope.top()) {
             m_scope.pop();
-            tokens.push_back({.type = TokenType::END, .value = ""});
+            tokens.push_back({ .line = m_line,.type = TokenType::END, .value = ""});
         }
         if (n != m_scope.top()) {
             reportError("Indentation error");
@@ -260,6 +260,7 @@ char Lexer::lookahead(int ahead) const {
 
 /* Advance and return next character */
 char Lexer::progress() {
+
     return m_src[++m_pos];
 }
 

@@ -24,7 +24,7 @@ private:
     Token peek();       // Look the current token
     Token next();       // Consume the current token
     bool expect(TokenType type); // Match a token
-    bool expectR(TokenType type); // Match a token
+    bool expectR(TokenType type,int line); // Match a token
     void skipNewlines(); // Skip newline tokens
     std::shared_ptr<ASTNode> parseRoot(); // Parse root program
     std::shared_ptr<ASTNode> parseExpr(); // Parse an expression
