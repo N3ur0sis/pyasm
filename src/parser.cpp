@@ -175,6 +175,21 @@ std::shared_ptr<ASTNode> Parser::parsePrimary() {
             expectR(TokenType::CAR_RPAREN);
             return funcCallNode;
         }
+        
+        if (expect(TokenType::CAR_LBRACKET)){
+            auto node = std::make_shared<ASTNode>("ListCall");
+            node->children.push_back(idNode);
+            node->children.push_back(parseExpr());
+            expectR(TokenType::CAR_RBRACKET);
+            
+            if (expect(TokenType::OP_EQ)) {                                     // test -> "=" expr .
+                auto opNode = std::make_shared<ASTNode>("Affect", "=");
+                opNode->children.push_back(node);
+                opNode->children.push_back(parseExpr());
+                return opNode;
+            }
+            return node;
+        }
         return idNode;
     }
     if (expect(TokenType::CAR_LPAREN)) {
@@ -395,6 +410,20 @@ std::shared_ptr<ASTNode> Parser::parseSimpleStmt() {
             opNode->children.push_back(parseExpr());
             return opNode;
         }
+        if (expect(TokenType::CAR_LBRACKET)){
+            auto node = std::make_shared<ASTNode>("ListCall");
+            node->children.push_back(idNode);
+            node->children.push_back(parseExpr());
+            expectR(TokenType::CAR_RBRACKET);
+            
+            if (expect(TokenType::OP_EQ)) {                                     // test -> "=" expr .
+                auto opNode = std::make_shared<ASTNode>("Affect", "=");
+                opNode->children.push_back(node);
+                opNode->children.push_back(parseExpr());
+                return opNode;
+            }
+            return node;
+        }
         
         auto testNode = parseTest(idNode);
         return testNode;            // test -> expr_prime term_prime arith_expr_prime comp_expr_prime and_expr_prime or_expr_prime .
@@ -458,7 +487,7 @@ std::shared_ptr<ASTNode> Parser::parseTest(const std::shared_ptr<ASTNode>& idNod
 
         funcCallNode->children.push_back(paramListNode);
         currentNode = funcCallNode;
-    }
+    }/*
     if (peek().type == TokenType::CAR_LBRACKET) {
         auto listCallNode = std::make_shared<ASTNode>("ListCall");
         listCallNode->children.push_back(idNode);
@@ -470,7 +499,7 @@ std::shared_ptr<ASTNode> Parser::parseTest(const std::shared_ptr<ASTNode>& idNod
 
         listCallNode->children.push_back(exprNode);
         currentNode = listCallNode;
-    }
+    }*/
 
     // Parsing des opérations term_prime
     while (peek().type == TokenType::OP_MUL || peek().type == TokenType::OP_DIV || peek().type == TokenType::OP_MOD) {

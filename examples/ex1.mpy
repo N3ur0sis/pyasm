@@ -1,2 +1,1 @@
-
-res[i] = if True
+res[i] = res[i+1] +1
