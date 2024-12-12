@@ -207,6 +207,7 @@ std::shared_ptr<ASTNode> Parser::parsePrimary() {
         notNode->children.push_back(parsePrimary());
         return notNode;
     }
+
     std::cerr << "Unexpected token: " << tok.value << std::endl;
     return nullptr;
 }
@@ -453,7 +454,10 @@ std::shared_ptr<ASTNode> Parser::parseSimpleStmt() {
         std::cerr << "Unexpected token: " << tok.value << std::endl;
         return nullptr;
     }
-    
+    auto node = parseExpr();
+    if(node) {
+        return node;
+    }
     std::cerr << "Unexpected token: " << tok.value << std::endl;
     return nullptr;
 }
