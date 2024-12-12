@@ -259,9 +259,6 @@ std::shared_ptr<ASTNode> Parser::parseStmtSeconde() {
 
 
 
-// NE PAS TOUCHER
-
-
 //simple_stmt -> ident test .
 //simple_stmt -> "return" expr .
 //simple_stmt -> "print" "(" expr ")" .
@@ -299,73 +296,14 @@ std::shared_ptr<ASTNode> Parser::parseSimpleStmt() {
 
 
 
-// test -> "=" expr .   # Locally Implemented in parseSimpleStmt
+// test -> "=" expr .                                               # Locally Implemented in parseSimpleStmt
 // test -> expr_prime term_prime arith_expr_prime comp_expr_prime and_expr_prime or_expr_prime .
 std::shared_ptr<ASTNode> Parser::parseTest(const std::shared_ptr<ASTNode>& idNode) {
     auto testNode = std::make_shared<ASTNode>("Test");
     auto currentNode = idNode; // Commence avec l'identifiant fourni
 
-    // Parsing d'un potentiel expr_prime
-    auto exprPrimeNode = parseExprPrime();
-    exprPrimeNode->children.push_back(currentNode);
-    currentNode = exprPrimeNode;
-
-    // Parsing des opérations term_prime
-    while (peek().type == TokenType::OP_MUL || peek().type == TokenType::OP_DIV || peek().type == TokenType::OP_MOD) {
-        auto termOp = next();
-        auto opNode = std::make_shared<ASTNode>("TermOp", termOp.value);
-
-        // Le côté gauche de l'opération est le nœud courant
-        opNode->children.push_back(currentNode);
-
-        // Parsez le côté droit de l'opération
-        opNode->children.push_back(parseTerm());
-
-        // Le nouvel opérateur devient le nœud courant
-        currentNode = opNode;
-    }
-
-    // Ajoutez le nœud final au nœud Test
-    //testNode->children.push_back(currentNode);
-    
-    // Parsing des opérations arith_expr_prime
-    if (peek().type == TokenType::OP_PLUS || peek().type == TokenType::OP_MINUS) {
-        while (peek().type == TokenType::OP_PLUS || peek().type == TokenType::OP_MINUS) {
-            auto arithOp = next();
-            auto opNode = std::make_shared<ASTNode>("ArithOp", arithOp.value);
-
-            // Le côté gauche de l'opération est le nœud courant
-            opNode->children.push_back(currentNode);
-
-            // Parsez le côté droit de l'opération
-            opNode->children.push_back(parseTerm());
-
-            // Le nouvel opérateur devient le nœud courant
-            currentNode = opNode;
-        }
-
-        // Ajoutez le nœud final au nœud Test
-        testNode->children.push_back(currentNode);
-        
-    }
-
-    return testNode;
-}
-
-
-
-/*
-std::shared_ptr<ASTNode> Parser::parseTest(const std::shared_ptr<ASTNode>& idNode) {
-    auto testNode = std::make_shared<ASTNode>("Test");
-    testNode->children.push_back(idNode);
-    
-    
-    // Parsing d'un potentiel expr_prime
-    auto exprPrimeNode = parseExprPrime();
-    testNode->children.push_back(exprPrimeNode);
-    
-
-    // Si l'identifiant est suivi de parenthèses, il s'agit d'un appel de fonction
+    // Parsing de expr_prime
+    // Si l'identifiant est suivi de parenthèses, il s'agit ici d'un appel de fonction
     if (peek().type == TokenType::CAR_LPAREN) {
         auto funcCallNode = std::make_shared<ASTNode>("FunctionCall");
         funcCallNode->children.push_back(idNode);
@@ -383,55 +321,83 @@ std::shared_ptr<ASTNode> Parser::parseTest(const std::shared_ptr<ASTNode>& idNod
         expectR(TokenType::CAR_RPAREN);
 
         funcCallNode->children.push_back(paramListNode);
-        testNode->children.push_back(funcCallNode);
+        currentNode = funcCallNode;
     }
 
     // Parsing des opérations term_prime
     while (peek().type == TokenType::OP_MUL || peek().type == TokenType::OP_DIV || peek().type == TokenType::OP_MOD) {
         auto termOp = next();
         auto opNode = std::make_shared<ASTNode>("TermOp", termOp.value);
-        opNode->children.push_back(testNode);
-        opNode->children.push_back(parseFactor());
-        testNode = opNode;
-    }  
 
-    // Parsing des opérations arith_expr_prime
-    while (peek().type == TokenType::OP_PLUS || peek().type == TokenType::OP_MINUS) {
-        auto arithOp = next();
-        auto opNode = std::make_shared<ASTNode>("ArithOp", arithOp.value);
-        auto left = testNode->children.back();
-        opNode->children.push_back(left);
+        // Le côté gauche de l'opération est le nœud courant
+        opNode->children.push_back(currentNode);
+
+        // Parsez le côté droit de l'opération
         opNode->children.push_back(parseTerm());
-        testNode->children.push_back(opNode);
+
+        // Le nouvel opérateur devient le nœud courant
+        currentNode = opNode;
+    }
+    
+    // Parsing des opérations arith_expr_prime
+    if (peek().type == TokenType::OP_PLUS || peek().type == TokenType::OP_MINUS) {
+        while (peek().type == TokenType::OP_PLUS || peek().type == TokenType::OP_MINUS) {
+            auto arithOp = next();
+            auto opNode = std::make_shared<ASTNode>("ArithOp", arithOp.value);
+
+            // Le côté gauche de l'opération est le nœud courant
+            opNode->children.push_back(currentNode);
+
+            // Parsez le côté droit de l'opération
+            opNode->children.push_back(parseTerm());
+
+            // Le nouvel opérateur devient le nœud courant
+            currentNode = opNode;
+        }       
     }
 
     // Parsing des opérations comp_expr_prime
-    if (peek().type == TokenType::OP_EQ || peek().type == TokenType::OP_NEQ ||
-        peek().type == TokenType::OP_LE || peek().type == TokenType::OP_GE) {
+    if (peek().type == TokenType::OP_EQ_EQ || peek().type == TokenType::OP_NEQ ||
+        peek().type == TokenType::OP_LE || peek().type == TokenType::OP_GE ||
+        peek().type == TokenType::OP_LE_EQ || peek().type == TokenType::OP_GE_EQ) {
+        
         auto compOp = next();
         auto opNode = std::make_shared<ASTNode>("Compare", compOp.value);
-        opNode->children.push_back(testNode);
+
+        opNode->children.push_back(currentNode);
+
         opNode->children.push_back(parseArithExpr());
-        testNode = opNode;
+
+        currentNode = opNode;
     }
 
     // Parsing des opérations and_expr_prime
-    while (expect(TokenType::KW_AND)) {
-        auto opNode = std::make_shared<ASTNode>("And");
-        opNode->children.push_back(testNode);
-        opNode->children.push_back(parseCompExpr());
-        testNode = opNode;
+    if (peek().type == TokenType::KW_AND) {   
+        while (expect(TokenType::KW_AND)) {
+            auto opNode = std::make_shared<ASTNode>("And");
+
+            opNode->children.push_back(currentNode);
+
+            opNode->children.push_back(parseCompExpr());
+
+            currentNode = opNode;
+        }
     }
     
     // Parsing des opérations or_expr_prime
-    while (expect(TokenType::KW_OR)) {
-        auto opNode = std::make_shared<ASTNode>("Or");
-        opNode->children.push_back(testNode);
-        opNode->children.push_back(parseAndExpr());
-        testNode = opNode;
+    if (peek().type == TokenType::KW_OR) {
+        while (expect(TokenType::KW_OR)) {
+            auto opNode = std::make_shared<ASTNode>("Or");
+            
+            opNode->children.push_back(currentNode);
+            
+            opNode->children.push_back(parseAndExpr());
+            
+            currentNode = opNode;
+        }
     }
 
-
+    // Ajoutez le nœud final au nœud Test
+    testNode->children.push_back(currentNode);              // On peut peut-être enlever ce noeud "Test"
     return testNode;
 }
-*/
