@@ -1,1 +1,1 @@
-function(78, x, variable3) and (x * y + 3) or (z // 2) and (a % 5 == 10) or (b <= 7) and (c >= 3) or (d < 2) and (e > 1)
+- function(78, x, variable3) and (x * y + 3) or (z // 2) and (a % 5 == 10) or (b <= 7) and (c >= 3) or (d < 2) and (e > 1)

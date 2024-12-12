@@ -42,6 +42,5 @@ private:
     std::shared_ptr<ASTNode> parseExprPrime();
     std::shared_ptr<ASTNode> parseSimpleStmt();
     std::shared_ptr<ASTNode> parseStmtSeconde();
-    std::shared_ptr<ASTNode> parseArithExprPrime(const std::shared_ptr<ASTNode>& leftNode);
-    std::shared_ptr<ASTNode> parseTermPrime(const std::shared_ptr<ASTNode>& leftNode);
+    std::shared_ptr<ASTNode> parseStmt();
 };

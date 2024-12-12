@@ -231,7 +231,7 @@ std::shared_ptr<ASTNode> Parser::parseFactor() {
 }
 
 
-// expr_prime -> "(" E ")" . || .
+// expr_prime -> "(" E ")" . || .                                               # Probalement pas utilisée
 std::shared_ptr<ASTNode> Parser::parseExprPrime() {
     if (expect(TokenType::CAR_LPAREN)) {
         auto exprNode = parseE();
@@ -241,9 +241,47 @@ std::shared_ptr<ASTNode> Parser::parseExprPrime() {
     return nullptr;
 }
 
+
 //Attend parseSuite() pour fonctionner :
 
+
 /*
+//stmt -> simple_stmt NEWLINE .
+//stmt -> if expr ":" suite stmt_seconde .
+//stmt -> for ident in expr ":" suite .
+std::shared_ptr<ASTNode> Parser::parseStmt() {
+    Token tok = peek();
+    if (expect(TokenType::KW_IF)) {
+        auto ifNode = std::make_shared<ASTNode>("If");
+        ifNode->children.push_back(parseExpr());
+        expectR(TokenType::CAR_COLON);
+        ifNode->children.push_back(parseSuite());
+        ifNode->children.push_back(parseStmtSeconde());
+        return ifNode;
+    }
+    if (expect(TokenType::KW_FOR)) {
+        auto forNode = std::make_shared<ASTNode>("For");
+        Token tok = peek();
+        if (expect(TokenType::IDF)) {
+            auto idNode = std::make_shared<ASTNode>("Identifier", tok.value);
+            forNode->children.push_back(idNode);
+            expectR(TokenType::KW_IN);
+            forNode->children.push_back(parseExpr());
+            expectR(TokenType::CAR_COLON);
+            forNode->children.push_back(parseSuite());
+            return forNode;
+        }
+        std::cerr << "Unexpected token: " << tok.value << std::endl;
+    }
+    auto simpleStmt = parseSimpleStmt();
+    if (simpleStmt) {
+        expectR(TokenType::NEWLINE);
+        return simpleStmt;
+    }
+    std::cerr << "Unexpected token: " << tok.value << std::endl;
+    return nullptr;
+}
+
 // stmt_seconde -> else ":" suite .
 // stmt_seconde -> .
 std::shared_ptr<ASTNode> Parser::parseStmtSeconde() {
@@ -262,6 +300,7 @@ std::shared_ptr<ASTNode> Parser::parseStmtSeconde() {
 //simple_stmt -> ident test .
 //simple_stmt -> "return" expr .
 //simple_stmt -> "print" "(" expr ")" .
+//simple_stmt -> "-" indent expr_prime term_prime arith_expr_prime comp_expr_prime and_expr_prime or_expr_prime .
 std::shared_ptr<ASTNode> Parser::parseSimpleStmt() {
     Token tok = peek();
     if (expect(TokenType::IDF)) {               
@@ -289,6 +328,18 @@ std::shared_ptr<ASTNode> Parser::parseSimpleStmt() {
         expectR(TokenType::CAR_RPAREN);
         return printNode;
     }
+    if (expect(TokenType::OP_MINUS)) {
+        auto defNode = std::make_shared<ASTNode>("Negative", "-");
+        tok = peek();
+        if (expect(TokenType::IDF)) {
+            auto idNode = std::make_shared<ASTNode>("Identifier", tok.value);
+            auto testNode = parseTest(idNode);
+            defNode->children.push_back(testNode);
+            return defNode;
+        }
+        std::cerr << "Unexpected token: " << tok.value << std::endl;
+        return nullptr;
+    }
     
     std::cerr << "Unexpected token: " << tok.value << std::endl;
     return nullptr;
@@ -298,6 +349,7 @@ std::shared_ptr<ASTNode> Parser::parseSimpleStmt() {
 
 // test -> "=" expr .                                               # Locally Implemented in parseSimpleStmt
 // test -> expr_prime term_prime arith_expr_prime comp_expr_prime and_expr_prime or_expr_prime .
+// Fonction réutilisée pour compléter la 4e règle de simple_stmt
 std::shared_ptr<ASTNode> Parser::parseTest(const std::shared_ptr<ASTNode>& idNode) {
     auto testNode = std::make_shared<ASTNode>("Test");
     auto currentNode = idNode; // Commence avec l'identifiant fourni
