@@ -1,7 +1,7 @@
-def square(x):
+def square():
  return x*x
 
-def comp(a,b):
+def comp():
  if a<=b :
   return true
   #Doit retourner un idf et non un mot clé

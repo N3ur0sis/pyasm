@@ -51,15 +51,74 @@ void Parser::skipNewlines() {
 
 
 // file -> N D stmt S eof .
+// N -> NEWLINE .
+// N -> .
+// S -> stmt S .
+// S -> .
+// et un peu plus de tolérance avec les NEWLINES en trop que ce qui est rigoureusement spécifié dans la grammaire
 std::shared_ptr<ASTNode> Parser::parseRoot() {
     auto root = std::make_shared<ASTNode>("Program");
-    while (peek().type != TokenType::ENDOFFILE) {
+
+    skipNewlines();
+    auto def = parseDefinition();
+    while ( def != nullptr ) {
+        std::cout << "Nouvelle définition !" << std::endl;
+        root->children.push_back(def);
         skipNewlines();
-        auto expr = parseSimpleStmt();                     //Modifier ici l'entrée du parseur
+        def = parseDefinition();
+    }
+
+    skipNewlines();
+    auto old_pos = pos-1;
+    while (peek().type != TokenType::ENDOFFILE and old_pos < pos) {
+        old_pos = pos;
+        std::cout << "Nouveau statement" << std::endl;
+        auto expr = parseStmt();
         if (expr) root->children.push_back(expr);
         skipNewlines();
     }
     return root;
+}
+
+// D -> "def" ident "(" I ")" ":" suite D .
+// D -> .
+std::shared_ptr<ASTNode> Parser::parseDefinition() {
+    if (expect(TokenType::KW_DEF)) {
+        auto tok = peek();
+        auto def_root = std::make_shared<ASTNode>("FunctionDefinition",tok.value);
+        expectR(TokenType::IDF);
+        expectR(TokenType::CAR_LPAREN);
+        expectR(TokenType::CAR_RPAREN);
+        expectR(TokenType::CAR_COLON);
+        def_root->children.push_back(parseSuite());
+        return def_root;
+    }
+    else return nullptr;
+}
+
+// suite -> simple_stmt NEWLINE .
+// suite -> NEWLINE BEGIN stmt S END .
+// idem, plus de tolérance pour les newlines que ce qui est rigoureusement spécifié
+std::shared_ptr<ASTNode> Parser::parseSuite() {
+    if (expect(TokenType::NEWLINE)) {
+        expectR(TokenType::BEGIN);
+        auto suite_root = std::make_shared<ASTNode>("Scope");
+        skipNewlines();
+        auto old_pos = pos-1;
+        while (peek().type != TokenType::END and old_pos < pos) {
+            old_pos = pos;
+            auto expr = parseStmt();
+            if (expr) suite_root->children.push_back(expr);
+            skipNewlines();
+        }
+        expectR(TokenType::END);
+        return suite_root;
+    }
+    else {
+        auto simple_stmt = parseSimpleStmt();
+        expectR(TokenType::NEWLINE);
+        return simple_stmt;
+    }
 }
 
 // expr -> or_expr .
@@ -245,7 +304,7 @@ std::shared_ptr<ASTNode> Parser::parseExprPrime() {
 //Attend parseSuite() pour fonctionner :
 
 
-/*
+
 //stmt -> simple_stmt NEWLINE .
 //stmt -> if expr ":" suite stmt_seconde .
 //stmt -> for ident in expr ":" suite .
@@ -293,7 +352,6 @@ std::shared_ptr<ASTNode> Parser::parseStmtSeconde() {
     }
     return nullptr;
 }
-*/
 
 
 

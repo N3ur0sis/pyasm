@@ -43,4 +43,6 @@ private:
     std::shared_ptr<ASTNode> parseSimpleStmt();
     std::shared_ptr<ASTNode> parseStmtSeconde();
     std::shared_ptr<ASTNode> parseStmt();
+    std::shared_ptr<ASTNode> parseDefinition();
+    std::shared_ptr<ASTNode> parseSuite();
 };
