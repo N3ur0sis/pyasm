@@ -576,5 +576,5 @@ std::shared_ptr<ASTNode> Parser::parseTest(const std::shared_ptr<ASTNode>& idNod
 
     // Ajoutez le nœud final au nœud Test
     testNode->children.push_back(currentNode);              // On peut peut-être enlever ce noeud "Test"
-    return testNode;
+    return testNode->children.back();
 }
