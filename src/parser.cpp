@@ -80,19 +80,35 @@ std::shared_ptr<ASTNode> Parser::parseRoot() {
 
 // D -> "def" ident "(" I ")" ":" suite D .
 // D -> .
+// I -> ident I_prime .
+// I-> .
+// I_prime -> "," ident I_prime .
+// I_prime -> .
 std::shared_ptr<ASTNode> Parser::parseDefinition() {
     if (expect(TokenType::KW_DEF)) {
         auto tok = peek();
         auto def_root = std::make_shared<ASTNode>("FunctionDefinition",tok.value);
         expectR(TokenType::IDF);
         expectR(TokenType::CAR_LPAREN);
+        auto formal_param_list = std::make_shared<ASTNode>("FormalParameterList");
+        tok = peek();
+        if (expect(TokenType::IDF)) {
+            formal_param_list->children.push_back(std::make_shared<ASTNode>("Identifier", tok.value)); 
+            while (expect(TokenType::CAR_COMMA)) {
+                tok = peek();
+                expectR(TokenType::IDF);
+                formal_param_list->children.push_back(std::make_shared<ASTNode>("Identifier", tok.value));
+            }
+        }
         expectR(TokenType::CAR_RPAREN);
         expectR(TokenType::CAR_COLON);
+        def_root->children.push_back(formal_param_list);
         def_root->children.push_back(parseSuite());
         return def_root;
     }
     else return nullptr;
 }
+
 
 // suite -> simple_stmt NEWLINE .
 // suite -> NEWLINE BEGIN stmt S END .

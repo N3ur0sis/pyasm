@@ -1,16 +1,18 @@
-def somme():
+def somme(a,b):
  if a > 0:
   return a + b
  else:
   return -a
 
-def test_lexical():
+def test_lexical(x):
  res = [None] * 5
  for i in range(5):
   if i < x:
-   res[i] = somme(i, x)
+   # res[i] = somme(i, x)
+   res = somme(i, x)
   else:
-   res[i] = 0
+   # res[i] = 0
+   res = 0
  return res
 
 def main():

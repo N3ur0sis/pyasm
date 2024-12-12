@@ -1,1 +1,2 @@
-x == y or z <= y and b > a
+
+res[i] = if True
