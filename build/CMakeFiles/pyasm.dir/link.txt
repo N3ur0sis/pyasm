@@ -1,1 +1,1 @@
-/usr/bin/c++ CMakeFiles/pyasm.dir/src/main.cpp.o -o pyasm 
+/usr/bin/c++ CMakeFiles/pyasm.dir/src/main.cpp.o CMakeFiles/pyasm.dir/src/lexer.cpp.o CMakeFiles/pyasm.dir/src/parser.cpp.o -o pyasm 

@@ -81,12 +81,12 @@ clean: CMakeFiles/pyasm.dir/clean
 CMakeFiles/pyasm.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/pyasm.dir/build.make CMakeFiles/pyasm.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/pyasm.dir/build.make CMakeFiles/pyasm.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/root/pyasm/build/CMakeFiles --progress-num=1,2 "Built target pyasm"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/root/pyasm/build/CMakeFiles --progress-num=1,2,3,4 "Built target pyasm"
 .PHONY : CMakeFiles/pyasm.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/pyasm.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /root/pyasm/build/CMakeFiles 2
+	$(CMAKE_COMMAND) -E cmake_progress_start /root/pyasm/build/CMakeFiles 4
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/pyasm.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /root/pyasm/build/CMakeFiles 0
 .PHONY : CMakeFiles/pyasm.dir/rule

@@ -8,7 +8,9 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
+  "/root/pyasm/src/lexer.cpp" "CMakeFiles/pyasm.dir/src/lexer.cpp.o" "gcc" "CMakeFiles/pyasm.dir/src/lexer.cpp.o.d"
   "/root/pyasm/src/main.cpp" "CMakeFiles/pyasm.dir/src/main.cpp.o" "gcc" "CMakeFiles/pyasm.dir/src/main.cpp.o.d"
+  "/root/pyasm/src/parser.cpp" "CMakeFiles/pyasm.dir/src/parser.cpp.o" "gcc" "CMakeFiles/pyasm.dir/src/parser.cpp.o.d"
   )
 
 # Targets to which this target links.

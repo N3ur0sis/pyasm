@@ -142,6 +142,7 @@ std::shared_ptr<ASTNode> Parser::parseExpr() {
 
 // primary -> const . || ident expr_prime . || ( expr ) . || [ e ] . || not primary .
 std::shared_ptr<ASTNode> Parser::parsePrimary() {
+    skipNewlines();
     Token tok = peek();
     if (expect(TokenType::INTEGER)) {
         return std::make_shared<ASTNode>("Integer", tok.value);
@@ -208,7 +209,7 @@ std::shared_ptr<ASTNode> Parser::parsePrimary() {
         return notNode;
     }
 
-    std::cerr << "Unexpected token: " << tok.value << std::endl;
+    std::cerr << "Unexpected token: " << tok.value << "(Type : "<< Lexer::tokenTypeToString(tok.type)<<" ) "<< std::endl;
     return nullptr;
 }
 
