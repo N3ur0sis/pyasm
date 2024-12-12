@@ -130,6 +130,18 @@ std::shared_ptr<ASTNode> Parser::parsePrimary() {
     if (expect(TokenType::INTEGER)) {
         return std::make_shared<ASTNode>("Integer", tok.value);
     }
+    if (expect(TokenType::STRING)) {
+        return std::make_shared<ASTNode>("String", tok.value);
+    }
+    if (expect(TokenType::KW_TRUE)) {
+        return std::make_shared<ASTNode>("True");
+    }
+    if (expect(TokenType::KW_FALSE)) {
+        return std::make_shared<ASTNode>("False");
+    }
+    if (expect(TokenType::KW_NONE)) {
+        return std::make_shared<ASTNode>("None");
+    }
     if (expect(TokenType::IDF)) {
         auto idNode = std::make_shared<ASTNode>("Identifier", tok.value); 
         if (expect(TokenType::CAR_LPAREN)) {
@@ -430,6 +442,18 @@ std::shared_ptr<ASTNode> Parser::parseTest(const std::shared_ptr<ASTNode>& idNod
 
         funcCallNode->children.push_back(paramListNode);
         currentNode = funcCallNode;
+    }
+    if (peek().type == TokenType::CAR_LBRACKET) {
+        auto listCallNode = std::make_shared<ASTNode>("ListCall");
+        listCallNode->children.push_back(idNode);
+
+        // Parsing des paramètres
+        expectR(TokenType::CAR_LBRACKET);
+        auto exprNode = parseExpr();
+        expectR(TokenType::CAR_RBRACKET);
+
+        listCallNode->children.push_back(exprNode);
+        currentNode = listCallNode;
     }
 
     // Parsing des opérations term_prime
