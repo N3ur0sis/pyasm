@@ -50,7 +50,7 @@ void Parser::skipNewlines() {
 //FONCTIONS PARSEUR 
 
 
-// file -> N D stmt S eof .                                          ????????????
+// file -> N D stmt S eof .
 std::shared_ptr<ASTNode> Parser::parseRoot() {
     auto root = std::make_shared<ASTNode>("Program");
     while (peek().type != TokenType::ENDOFFILE) {
