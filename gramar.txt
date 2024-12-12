@@ -1,0 +1,91 @@
+file -> N D stmt S eof .
+
+N -> NEWLINE .
+N -> .
+
+D -> "def" ident "(" I ")" ":" suite D .
+D -> .
+
+S -> stmt S .
+S -> .
+
+suite -> simple_stmt NEWLINE .
+suite -> NEWLINE BEGIN stmt S END .
+
+stmt -> simple_stmt NEWLINE .
+stmt -> if expr ":" suite stmt_seconde .
+stmt -> for ident in expr ":" suite .
+
+stmt_seconde -> else ":" suite .
+stmt_seconde -> .
+
+simple_stmt -> ident test .
+simple_stmt -> "return" expr .
+simple_stmt -> "print" "(" expr ")" .
+simple_stmt -> "-" ident expr_prime term_prime arith_expr_prime comp_expr_prime and_expr_prime or_expr_prime  .
+
+
+test -> "=" expr .
+test -> expr_prime term_prime arith_expr_prime comp_expr_prime and_expr_prime or_expr_prime  .
+
+expr -> or_expr .
+
+or_expr -> and_expr or_expr_prime .
+
+or_expr_prime -> "or" and_expr or_expr_prime .
+or_expr_prime -> .
+
+and_expr -> comp_expr and_expr_prime .
+
+and_expr_prime -> "and" comp_expr and_expr_prime .
+and_expr_prime -> .
+
+comp_expr -> arith_expr comp_expr_prime .
+
+comp_expr_prime -> comp_op arith_expr .
+comp_expr_prime -> .
+
+arith_expr -> term arith_expr_prime .
+
+arith_expr_prime -> arith_op term arith_expr_prime .
+arith_expr_prime -> .
+
+term -> factor term_prime .
+
+term_prime -> term_op factor term_prime .
+term_prime -> .
+
+factor -> unary primary .
+
+unary -> "-" .
+unary -> .
+
+primary -> const .
+primary -> ident expr_prime .
+primary -> "(" expr ")" .
+primary -> "[" E "]" .
+primary -> not primary .
+
+
+expr_prime -> "(" E ")" .
+expr_prime -> .
+
+E -> expr E_prime .
+E -> .
+
+E_prime -> "," expr E_prime .
+E_prime -> .
+
+comp_op -> "<" .
+comp_op -> "<=" .
+comp_op -> ">" .
+comp_op -> ">=" .
+comp_op -> "==" .
+comp_op -> "!=" .
+
+arith_op -> "+" .
+arith_op -> "-" .
+
+term_op -> "*" .
+term_op -> "//" .
+term_op -> "%" .

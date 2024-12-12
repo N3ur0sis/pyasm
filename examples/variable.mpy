@@ -1,0 +1,10 @@
+
+		var1 + 6 # cette erreur d'indentation est en fait éliminée pdt l'analyse syntaxique, c'est tout à fait normal que ça crash pas
+			var2 - 8 # bite bite caca
+return var1 * var2
+
+""   #  string vide
+"\\" # si on enlève un backslash ça génère une erreur
+"\\n\n\a\"\\" # test des séquences d'échappement, censé produire \n<retour à la ligne>\a"\
+
+# sa mère la pute eeuh (les commentaires sont fonctionnels)
