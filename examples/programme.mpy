@@ -1,10 +1,10 @@
-def somme(a, b):
+def somme():
  if a > 0:
   return a + b
  else:
   return -a
 
-def test_lexical(x):
+def test_lexical():
  res = [None] * 5
  for i in range(5):
   if i < x:

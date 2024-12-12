@@ -3,7 +3,7 @@ def square():
 
 def comp():
  if a<=b :
-  return true
+  return bbla
   #Doit retourner un idf et non un mot clé
  else:
   return False

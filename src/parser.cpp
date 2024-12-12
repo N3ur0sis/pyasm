@@ -62,7 +62,6 @@ std::shared_ptr<ASTNode> Parser::parseRoot() {
     skipNewlines();
     auto def = parseDefinition();
     while ( def != nullptr ) {
-        std::cout << "Nouvelle définition !" << std::endl;
         root->children.push_back(def);
         skipNewlines();
         def = parseDefinition();
@@ -72,7 +71,6 @@ std::shared_ptr<ASTNode> Parser::parseRoot() {
     auto old_pos = pos-1;
     while (peek().type != TokenType::ENDOFFILE and old_pos < pos) {
         old_pos = pos;
-        std::cout << "Nouveau statement" << std::endl;
         auto expr = parseStmt();
         if (expr) root->children.push_back(expr);
         skipNewlines();

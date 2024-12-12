@@ -11,11 +11,11 @@ Lexer::Lexer(std::string src) : m_src(std::move(src)) {
     m_keywords = {
         {"and", TokenType::KW_AND}, {"def", TokenType::KW_DEF},
         {"else", TokenType::KW_ELSE}, {"for", TokenType::KW_FOR},
-        {"if", TokenType::KW_IF}, {"true", TokenType::KW_TRUE},
-        {"false", TokenType::KW_FALSE}, {"in", TokenType::KW_IN},
+        {"if", TokenType::KW_IF}, {"True", TokenType::KW_TRUE},
+        {"False", TokenType::KW_FALSE}, {"in", TokenType::KW_IN},
         {"not", TokenType::KW_NOT}, {"or", TokenType::KW_OR},
         {"print", TokenType::KW_PRINT}, {"return", TokenType::KW_RETURN},
-        {"none", TokenType::KW_NONE},
+        {"None", TokenType::KW_NONE},
     };
 
     m_ope_simple = {
