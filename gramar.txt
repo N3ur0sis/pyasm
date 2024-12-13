@@ -6,6 +6,12 @@ N -> .
 D -> "def" ident "(" I ")" ":" suite D .
 D -> .
 
+I -> ident I_prime .
+I-> .
+
+I_prime -> "," ident I_prime .
+I_prime -> .
+
 S -> stmt S .
 S -> .
 
