@@ -7,4 +7,3 @@ return var1 * var2
 "\\" # si on enlève un backslash ça génère une erreur
 "\\n\n\a\"\\" # test des séquences d'échappement, censé produire \n<retour à la ligne>\a"\
 
-# sa mère la pute eeuh (les commentaires sont fonctionnels)
