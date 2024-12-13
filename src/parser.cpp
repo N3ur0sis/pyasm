@@ -46,6 +46,11 @@ void Parser::skipNewlines() {
     while (peek().type == TokenType::NEWLINE) next();
 }
 
+void Parser::continueParsing(){
+    while (peek().type != TokenType::NEWLINE) {
+        next();
+    }
+}
 
 //FONCTIONS PARSEUR 
 
