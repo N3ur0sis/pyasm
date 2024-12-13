@@ -115,6 +115,7 @@ std::shared_ptr<ASTNode> Parser::parseDefinition() {
 // idem, plus de tolérance pour les newlines que ce qui est rigoureusement spécifié
 std::shared_ptr<ASTNode> Parser::parseSuite() {
     if (expect(TokenType::NEWLINE)) {
+        skipNewlines();
         expectR(TokenType::BEGIN);
         auto suite_root = std::make_shared<ASTNode>("Scope");
         skipNewlines();
