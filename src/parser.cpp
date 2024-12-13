@@ -1,6 +1,7 @@
 #include "parser.h"
 #include <iostream>
-
+#include <fstream>
+#include <sstream>
 // UTIL
 
 
@@ -587,4 +588,36 @@ std::shared_ptr<ASTNode> Parser::parseTest(const std::shared_ptr<ASTNode>& idNod
     // Ajoutez le nœud final au nœud Test
     testNode->children.push_back(currentNode);              // On peut peut-être enlever ce noeud "Test"
     return testNode->children.back();
+}
+
+
+void Parser::exportToDot(const std::shared_ptr<ASTNode>& node, std::ostream& out) {
+    static int counter = 0;
+    int currentId = counter++;
+    
+    // Écrire le nœud courant
+    out << "  node" << currentId << " [label=\"" << node->type;
+    if (!node->value.empty()) {
+        out << "\\n" << node->value;
+    }
+    out << "\"];\n";
+
+    // Écrire les relations parent-enfant
+    for (const auto& child : node->children) {
+        int childId = counter;
+        exportToDot(child, out);
+        out << "  node" << currentId << " -> node" << childId << ";\n";
+    }
+}
+
+void Parser::generateDotFile(const std::shared_ptr<ASTNode>& root, const std::string& filename) {
+    std::ofstream file(filename);
+    if (!file) {
+        throw std::runtime_error("Unable to open file for writing");
+    }
+
+    file << "digraph AST {\n";
+    file << "  node [shape=box];\n";
+    exportToDot(root, file);
+    file << "}\n";
 }

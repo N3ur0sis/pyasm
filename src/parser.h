@@ -16,6 +16,8 @@ public:
     explicit Parser(const std::vector<Token>& tokens);
     std::shared_ptr<ASTNode> parse(); // Entry point of the parser
     void print(const std::shared_ptr<ASTNode>& node, int depth = 0); // Print AST
+    void exportToDot(const std::shared_ptr<ASTNode>& node, std::ostream& out); // Export AST to DOT format
+    void generateDotFile(const std::shared_ptr<ASTNode>& root, const std::string& filename); // Generate DOT file
 
 private:
     const std::vector<Token>& tokens;

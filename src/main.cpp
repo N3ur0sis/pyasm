@@ -28,6 +28,7 @@ int main(int argc, char* argv[]) {
         auto ast = parser.parse();
         if (ast) {
             std::cout << "Abstract Syntax Tree:" << std::endl;
+            parser.generateDotFile(ast, "ast.dot");
             parser.print(ast);
         } else {
             std::cerr << "Failed to parse input." << std::endl;
