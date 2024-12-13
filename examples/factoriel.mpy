@@ -4,9 +4,5 @@ def factorial(n):
     else:
         return n * factorial(n - 1)
 
-for i in a:
-    ad
-
-if a:
-    b
-
+if __name__ == "__main__":
+    factorial(5)

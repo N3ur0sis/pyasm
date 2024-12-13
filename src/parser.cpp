@@ -605,8 +605,10 @@ void Parser::exportToDot(const std::shared_ptr<ASTNode>& node, std::ostream& out
     // Écrire les relations parent-enfant
     for (const auto& child : node->children) {
         int childId = counter;
-        exportToDot(child, out);
-        out << "  node" << currentId << " -> node" << childId << ";\n";
+        if (child) {
+            exportToDot(child, out);
+            out << "  node" << currentId << " -> node" << childId << ";\n";
+        }
     }
 }
 
