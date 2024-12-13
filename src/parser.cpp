@@ -438,7 +438,7 @@ std::shared_ptr<ASTNode> Parser::parseSimpleStmt() {
     if (expect(TokenType::KW_PRINT)) {
         expectR(TokenType::CAR_LPAREN);
         auto printNode = std::make_shared<ASTNode>("Print");
-        printNode->children.push_back(parseExpr());
+        printNode->children.push_back(parseE());
         expectR(TokenType::CAR_RPAREN);
         return printNode;
     }
