@@ -34,3 +34,7 @@
 build/*
 .idea/*
 .vscode/*
+
+# fichiers temporaires pour la visualisation de l'ast
+ast.dot
+ast.pdf
