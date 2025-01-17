@@ -34,3 +34,8 @@
 build/*
 .idea/*
 .vscode/*
+
+*.dot
+*.pdf
+
+
