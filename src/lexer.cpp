@@ -84,6 +84,8 @@ std::vector<Token> Lexer::tokenize() {
         }
         else {
             std::cerr << "Lexer: Unexpected character: " << lookahead() << " (line:" << m_line << ")" << std::endl;
+            m_errorManager.addError(Error{"Unexpected character: ", "Lexical", m_line});
+            //m_errorManager.addError("Lexer: Unexpected character: " + std::string(1, lookahead()) + " (line:" + std::to_string(m_line) + ")");
             exit(EXIT_FAILURE);
         }
     }
@@ -110,16 +112,20 @@ void Lexer::handleInteger(std::vector<Token>& tokens, std::string& buffer) {
     if (lookahead() == '0') {
         buffer.push_back(progress());
         if (std::isalnum(lookahead())) {
-            reportError("Integers cannot start with zeros");
+            reportError("Integers cannot start with zeros", m_line);
+            while (std::isalnum(lookahead())) {
+               progress();
+            }
+            return;
         }
     } else {
         while (lookahead() && std::isdigit(lookahead())) {
             buffer.push_back(progress());
         }
         if (std::isalpha(lookahead())) {
-            reportError("Identifier cannot start with a digit");
+            reportError("Identifier cannot start with a digit", m_line);
         } else if (buffer.size() > 79) {
-            reportError("Identifier name too long");
+            reportError("Identifier name too long", m_line);
         }
     }
     tokens.push_back({.type = TokenType::INTEGER, .value = buffer, .line = m_line});
@@ -151,7 +157,7 @@ void Lexer::handleNotEqual(std::vector<Token>& tokens, std::string& buffer) {
         buffer.push_back(progress());
         tokens.push_back({.type = TokenType::OP_NEQ, .value = buffer, .line = m_line});
     } else {
-        reportError("Expected '=' after '!'");
+        reportError("Expected '=' after '!'", m_line);
     }
     buffer.clear();
 }
@@ -162,7 +168,7 @@ void Lexer::handleDivision(std::vector<Token>& tokens, std::string& buffer) {
         buffer.push_back(progress());
         tokens.push_back({.type = TokenType::OP_DIV, .value = buffer, .line = m_line});
     } else {
-        reportError("Expected '/' after '/'");
+        reportError("Expected '/' after '/'", m_line);
     }
     buffer.clear();
 }
@@ -190,7 +196,7 @@ void Lexer::handleString(std::vector<Token>& tokens, std::string& buffer) {
     progress();  // Skip initial quote
     while (true) {
         if (!lookahead()) {
-            reportError("Reached end of file without closing string");
+            reportError("Reached end of file without closing string", m_line);
         } else if (lookahead() == '"') {
             progress();  // Skip closing quote
             break;
@@ -229,7 +235,7 @@ void Lexer::manageIndentation(std::vector<Token>& tokens, int n) {
             tokens.push_back({.type = TokenType::END, .value = "", .line = m_line});
         }
         if (n != m_scope.top()) {
-            reportError("Indentation error");
+            reportError("Indentation error", m_line);
         }
     }
 }
@@ -246,9 +252,10 @@ void Lexer::handleEscapeCharacter(std::string& buffer) {
 }
 
 /*  Error handling for the Lexer */
-void Lexer::reportError(const std::string& message) const {
-    std::cerr << "Lexer: " << message << " (line: " << m_line << ")" << std::endl;
-    exit(EXIT_FAILURE);
+void Lexer::reportError(const std::string& message, int line) const {
+    //std::cerr << "Lexer: " << message << " (line: " << m_line << ")" << std::endl;
+    m_errorManager.addError(Error{message, "Lexical", line});
+    //exit(EXIT_FAILURE);
 }
 
 

@@ -1,21 +1,25 @@
 #pragma once
-#define ERRORMANAGER_H
-
 #include <string>
 #include <queue>
 #include <iostream>
 
+struct Error {
+    std::string message;
+    std::string type;
+    int line;      
+};
+
 class ErrorManager {
 public:
-    // Ajouter un message d'erreur à la file
-    void addError(const std::string& errorMessage);
+    // Ajouter une erreur sous forme d'objet Error
+    void addError(const Error& error);
 
-    // Afficher tous les messages d'erreur et vider la file
+    // Afficher tous les messages d'erreur
     void displayErrors() const;
 
-    // Vérifier si la file contient des erreurs
+    // Vérifier si des erreurs existent
     bool hasErrors() const;
 
 private:
-    std::queue<std::string> errorQueue; // File pour stocker les messages d'erreur
+    std::queue<Error> errorQueue; // File pour stocker les objets Error
 };

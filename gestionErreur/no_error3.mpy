@@ -14,16 +14,11 @@ def fibonacci(n):
 
 def main():
     print("Factorial:")
-    for i in [1,2,  
-    3,4,   5]:
+    for i in [1,2,  3,4,   5]:
         print("Factorial of", i, "is", factorial(i))
     
-
-
     print("Fibon")
     for i in [1,2,3,4,5]:
         print("Fibon of", i, "is", fibonacci(i))
-
-
 
 main()

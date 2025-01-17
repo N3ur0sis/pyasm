@@ -1,6 +1,6 @@
-# Programme incorrect 3 (utilisation de variables non définies et conditions mal formées)
+# Programme incorrect 3 (conditions mal formées)
 if x == 10:
-    print("x is 10")  # Erreur : x n'est pas défini
+    print("x is 10")
 
 def test():
     if (5 > ):
