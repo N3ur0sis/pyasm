@@ -5,7 +5,8 @@
 // UTIL
 
 
-Parser::Parser(const std::vector<Token>& tokens) : tokens(tokens), pos(0) {}
+Parser::Parser(const std::vector<Token>& tokens, ErrorManager& errorManager) 
+    : tokens(tokens), pos(0), m_errorManager(errorManager) {}
 
 std::shared_ptr<ASTNode> Parser::parse() {
     return parseRoot();

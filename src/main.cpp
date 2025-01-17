@@ -16,14 +16,16 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
 
+    ErrorManager errorManager;
+
     std::stringstream srcStream;
     srcStream << srcFile.rdbuf();
-    Lexer lexer(srcStream.str());
+    Lexer lexer(srcStream.str(), errorManager);
 
     try {
         auto tokens = lexer.tokenize();
         lexer.displayTokens(tokens); // Print tokens for debugging
-        Parser parser(tokens);
+        Parser parser(tokens, errorManager);
 
         auto ast = parser.parse();
         if (ast) {

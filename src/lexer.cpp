@@ -7,7 +7,8 @@
 #include <cstdlib>
 
 /* Constructor for Lexer with keyword, operator, and bracket initialization */
-Lexer::Lexer(std::string src) : m_src(std::move(src)) {
+Lexer::Lexer(std::string src, ErrorManager& errorManager) 
+    : m_src(std::move(src)), m_errorManager(errorManager) {
     m_keywords = {
         {"and", TokenType::KW_AND}, {"def", TokenType::KW_DEF},
         {"else", TokenType::KW_ELSE}, {"for", TokenType::KW_FOR},

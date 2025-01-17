@@ -2,6 +2,7 @@
 #include <memory>
 #include <vector>
 #include "lexer.h"
+#include "errorManager.h"
 
 struct ASTNode {
     std::string type;
@@ -13,7 +14,7 @@ struct ASTNode {
 
 class Parser {
 public:
-    explicit Parser(const std::vector<Token>& tokens);
+    explicit Parser(const std::vector<Token>& tokens, ErrorManager& errorManager);
     std::shared_ptr<ASTNode> parse(); // Entry point of the parser
     void print(const std::shared_ptr<ASTNode>& node, int depth = 0); // Print AST
     void exportToDot(const std::shared_ptr<ASTNode>& node, std::ostream& out); // Export AST to DOT format
@@ -21,6 +22,7 @@ public:
 
 private:
     const std::vector<Token>& tokens;
+    ErrorManager& m_errorManager;
     int pos;
 
     Token peek();       // Look the current token
