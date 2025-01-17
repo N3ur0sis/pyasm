@@ -1,0 +1,21 @@
+# Programme long correct (30 lignes)
+def factorial(n):
+    if n == 0:
+        return 1
+    else:
+        return n * factorial(n - 1)
+
+def fibonacci(n):
+    if n <= 1:
+        return n
+    else:
+        return fibonacci(n - 1) + fibonacci(n - 2)
+
+def main():
+    print("Test")
+    
+    print("Fibonacci:")
+    for i in [0, 1, 2, 3, 4, 5]:
+        print("Fibonacci of", i, "is", fibonacci(i))
+
+main()

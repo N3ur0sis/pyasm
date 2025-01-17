@@ -1,0 +1,8 @@
+# Programme incorrect 1 (erreurs dans les indentations)
+def greet(name):
+print("Hello,", name)
+
+main():
+    greet("Alice")
+    greet("Bob")
+
