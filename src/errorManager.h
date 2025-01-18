@@ -5,6 +5,7 @@
 
 struct Error {
     std::string message;
+    std::string value = "";
     std::string type;
     int line;      
 };

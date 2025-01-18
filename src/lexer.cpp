@@ -84,8 +84,9 @@ std::vector<Token> Lexer::tokenize() {
         }
         else {
             std::cerr << "Lexer: Unexpected character: " << lookahead() << " (line:" << m_line << ")" << std::endl;
-            m_errorManager.addError(Error{"Unexpected character: ", "Lexical", m_line});
+            m_errorManager.addError(Error{"Unexpected character: ", "" + lookahead(), "Lexical", m_line});
             //m_errorManager.addError("Lexer: Unexpected character: " + std::string(1, lookahead()) + " (line:" + std::to_string(m_line) + ")");
+            m_errorManager.displayErrors();
             exit(EXIT_FAILURE);
         }
     }
@@ -254,7 +255,7 @@ void Lexer::handleEscapeCharacter(std::string& buffer) {
 /*  Error handling for the Lexer */
 void Lexer::reportError(const std::string& message, int line) const {
     //std::cerr << "Lexer: " << message << " (line: " << m_line << ")" << std::endl;
-    m_errorManager.addError(Error{message, "Lexical", line});
+    m_errorManager.addError(Error{message, "", "Lexical", line});
     //exit(EXIT_FAILURE);
 }
 

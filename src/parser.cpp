@@ -42,7 +42,7 @@ bool Parser::expectR(TokenType type) {
         return true;
     }
     //std::cerr << "Expected " << Lexer::tokenTypeToString(type) << std::endl;
-    m_errorManager.addError(Error{"Expected token: ", "Syntax", peek().line});
+    m_errorManager.addError(Error{"Expected ", Lexer::tokenTypeToString(type), "Syntax", peek().line});
     return false;
 }
 void Parser::skipNewlines() {
@@ -89,13 +89,16 @@ std::shared_ptr<ASTNode> Parser::parseRoot() {
     }
 
     if (peek().type == TokenType::ENDOFFILE && !tokens.empty()) {
-        const auto& lastToken = tokens.back();
-        if (lastToken.type != TokenType::NEWLINE) {
-            m_errorManager.addError(Error{
+        if (tokens.size() > 1) {
+            const auto& penultimateToken = tokens[tokens.size() - 2];
+            if (penultimateToken.type != TokenType::NEWLINE) {
+                m_errorManager.addError(Error{
                 "Missing newline at the end of the file",
+                "",
                 "Syntax",
-                lastToken.line
-            });
+                penultimateToken.line
+                });
+            }
         }
     }
     return root;
@@ -155,7 +158,9 @@ std::shared_ptr<ASTNode> Parser::parseSuite() {
     }
     else {
         suite_root->children.push_back(parseSimpleStmt());
-        expectR(TokenType::NEWLINE);
+        if (!expect(TokenType::NEWLINE)) {
+            m_errorManager.addError(Error{"Expected newline", "", "Syntax", peek().line});
+        }
     }
     return suite_root;
 }
@@ -234,7 +239,7 @@ std::shared_ptr<ASTNode> Parser::parsePrimary() {
     }
 
     //std::cerr << "Unexpected token: " << tok.value << std::endl;
-    m_errorManager.addError(Error{"Unexpected token: " + tok.value, "Syntax", tok.line});
+    m_errorManager.addError(Error{"Unexpected ", Lexer::tokenTypeToString(tok.type), "Syntax", tok.line});
     //m_errorManager.addError("Parser: Unexpected token: " + tok.value + " (line:" + std::to_string(tok.line) + ")");
     return nullptr;
 }
@@ -370,10 +375,6 @@ std::shared_ptr<ASTNode> Parser::parseExprPrime() {
 }
 
 
-//Attend parseSuite() pour fonctionner :
-
-
-
 //stmt -> simple_stmt NEWLINE .
 //stmt -> if expr ":" suite stmt_seconde .
 //stmt -> for ident in expr ":" suite .
@@ -404,7 +405,7 @@ std::shared_ptr<ASTNode> Parser::parseStmt() {
             return forNode;
         }
         //std::cerr << "Unexpected token: " << tok.value << std::endl;
-        m_errorManager.addError(Error{"Unexpected token: " + tok.value, "Syntax", tok.line});
+        m_errorManager.addError(Error{"Unexpected ", Lexer::tokenTypeToString(tok.type), "Syntax", tok.line});
         //m_errorManager.addError("Lexer: Unexpected token: " + tok.value + " (line:" + std::to_string(tok.line) + ")");
     }
     auto simpleStmt = parseSimpleStmt();
@@ -413,7 +414,7 @@ std::shared_ptr<ASTNode> Parser::parseStmt() {
         return simpleStmt;
     }
     //std::cerr << "Unexpected token: " << tok.value << std::endl;
-    m_errorManager.addError(Error{"Unexpected token: " + tok.value, "Syntax", tok.line});
+    m_errorManager.addError(Error{"Unexpected ", Lexer::tokenTypeToString(tok.type), "Syntax", tok.line});
     //m_errorManager.addError("Lexer: Unexpected token: " + tok.value + " (line:" + std::to_string(tok.line) + ")");
     return nullptr;
 }
@@ -487,7 +488,7 @@ std::shared_ptr<ASTNode> Parser::parseSimpleStmt() {
             return defNode;
         }
         //std::cerr << "Unexpected token: " << tok.value << std::endl;
-        m_errorManager.addError(Error{"Unexpected token: " + tok.value, "Syntax", tok.line});
+        m_errorManager.addError(Error{"Unexpected ", Lexer::tokenTypeToString(tok.type), "Syntax", tok.line});
         //m_errorManager.addError("Lexer: Unexpected token: " + tok.value + " (line:" + std::to_string(tok.line) + ")");
         return nullptr;
     }
@@ -496,7 +497,7 @@ std::shared_ptr<ASTNode> Parser::parseSimpleStmt() {
         return node;
     }
     //std::cerr << "Unexpected token: " << tok.value << std::endl;
-    m_errorManager.addError(Error{"Unexpected token: " + tok.value, "Syntax", tok.line});
+    m_errorManager.addError(Error{"Unexpected ", Lexer::tokenTypeToString(tok.type), "Syntax", tok.line});
     //m_errorManager.addError("Lexer: Unexpected token: " + tok.value + " (line:" + std::to_string(tok.line) + ")");
     return nullptr;
 }
@@ -655,3 +656,29 @@ void Parser::generateDotFile(const std::shared_ptr<ASTNode>& root, const std::st
     exportToDot(root, file);
     file << "}\n";
 }
+
+void Parser::handleInvalidNewlines(TokenType closingToken) {
+    bool hasNewlines = false;
+    while (peek().type == TokenType::NEWLINE) {
+        hasNewlines = true;
+        next();
+    }
+    if (hasNewlines) {
+        m_errorManager.addError(Error{
+            "Newlines are not allowed inside lists or parameter definitions.",
+            "",
+            "Syntax",
+            peek().line
+        });
+    }
+    while (peek().type != closingToken && peek().type != TokenType::ENDOFFILE) {
+        next();
+    }
+    if (peek().type == closingToken) {
+        next();
+    }
+    else{
+        expectR(closingToken);
+    }
+}
+

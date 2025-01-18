@@ -41,8 +41,8 @@ void ErrorManager::displayErrors() const {
         // Affichage coloré des erreurs
         std::cout << errorColor << "[" << error.type << " error]" << RESET
                   << " " << YELLOW << "Line " << error.line << RESET
-                  << ": " << error.message << std::endl;
-
+                  << ": " << error.message 
+                  << error.value << std::endl;
         tempQueue.pop();
 
         std::cout << "----------------------------------------------------------------------------------------------------------------------------" 

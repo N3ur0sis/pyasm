@@ -50,4 +50,5 @@ private:
     std::shared_ptr<ASTNode> parseStmt();
     std::shared_ptr<ASTNode> parseDefinition();
     std::shared_ptr<ASTNode> parseSuite();
+    void handleInvalidNewlines(TokenType closingToken);
 };
