@@ -24,6 +24,7 @@ private:
     const std::vector<Token>& tokens;
     ErrorManager& m_errorManager;
     int pos;
+    bool EOF_bool = false;
 
     Token peek();       // Look the current token
     Token next();       // Consume the current token
