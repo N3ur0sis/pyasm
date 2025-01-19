@@ -25,6 +25,7 @@ private:
     ErrorManager& m_errorManager;
     int pos;
     bool EOF_bool = false;
+    bool errorFound;
 
     Token peek();       // Look the current token
     Token next();       // Consume the current token

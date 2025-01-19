@@ -6,6 +6,7 @@ def main():
     x = 5
     y = 3
     result = add(x, y)
+    z = [3,7,8,9,10]
     print(result)
 
 main()

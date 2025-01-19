@@ -4,6 +4,7 @@
 #include <sstream>
 // UTIL
 
+#define WRAP_CALL(x) {x; if (errorFound) return nullptr;}
 
 Parser::Parser(const std::vector<Token>& tokens, ErrorManager& errorManager) 
     : tokens(tokens), pos(0), m_errorManager(errorManager) {}
@@ -26,6 +27,7 @@ Token Parser::peek() {
 }
 
 Token Parser::next() {
+    if ( pos < tokens.size() ) std::cout << Lexer::tokenTypeToString(tokens[pos].type) << " " << tokens[pos].line << std::endl;
     return pos < tokens.size() ? tokens[pos++] : Token{TokenType::ENDOFFILE, ""};
 }
 
@@ -41,11 +43,12 @@ bool Parser::expectR(TokenType type) {
         next();
         return true;
     }
-    //std::cerr << "Expected " << Lexer::tokenTypeToString(type) << std::endl;
+    errorFound = true;
     m_errorManager.addError(Error{"Expected ", Lexer::tokenTypeToString(type), "Syntax", peek().line});
     continueParsing();
     return false;
 }
+
 void Parser::skipNewlines() {
     while (peek().type == TokenType::NEWLINE) next();
 }
@@ -82,23 +85,22 @@ std::shared_ptr<ASTNode> Parser::parseRoot() {
     auto OP = std::make_shared<ASTNode>("Instructions");
     root->children.push_back(OP);
 
-    skipNewlines();
-    auto def = parseDefinition();
-    while ( def != nullptr ) {
-        DEF->children.push_back(def);
-        skipNewlines();
-        def = parseDefinition();
-    }
+    bool atLeastOneErr = false;
 
     skipNewlines();
-    auto old_pos = pos-1;
-    while (peek().type != TokenType::ENDOFFILE and old_pos < pos) {
-        old_pos = pos;
+    while ( peek().type == TokenType::KW_DEF ) {
+        auto def = parseDefinition();
+        if (errorFound) { errorFound = false; atLeastOneErr = true; continueParsing(); }
+        else if (def != nullptr) DEF->children.push_back(def);
+        skipNewlines();
+    }
+    while (peek().type != TokenType::ENDOFFILE) {
         auto expr = parseStmt();
-        if (expr) OP->children.push_back(expr);
+        if (errorFound) { errorFound = false; atLeastOneErr = true; continueParsing(); }
+        else if (expr) OP->children.push_back(expr);
         skipNewlines();
     }
-
+    /*
     if (peek().type == TokenType::ENDOFFILE && !tokens.empty()) {
         if (tokens.size() > 1) {
             const auto& penultimateToken = tokens[tokens.size() - 2];
@@ -114,7 +116,9 @@ std::shared_ptr<ASTNode> Parser::parseRoot() {
             }
         }
     }
-    return root;
+    */
+    if (atLeastOneErr) return nullptr;
+    else return root;
 }
 
 // D -> "def" ident "(" I ")" ":" suite D .
@@ -127,22 +131,23 @@ std::shared_ptr<ASTNode> Parser::parseDefinition() {
     if (expect(TokenType::KW_DEF)) {
         auto tok = peek();
         auto def_root = std::make_shared<ASTNode>("FunctionDefinition",tok.value);
-        expectR(TokenType::IDF);
-        expectR(TokenType::CAR_LPAREN);
+        if (! expectR(TokenType::IDF) ) { continueParsing(); errorFound = false; parseSuite(); errorFound = true; return nullptr; }
+        if (! expectR(TokenType::CAR_LPAREN) ) { continueParsing(); errorFound = false; parseSuite(); errorFound = true; return nullptr; }
         auto formal_param_list = std::make_shared<ASTNode>("FormalParameterList");
         tok = peek();
         if (expect(TokenType::IDF)) {
             formal_param_list->children.push_back(std::make_shared<ASTNode>("Identifier", tok.value)); 
             while (expect(TokenType::CAR_COMMA)) {
                 tok = peek();
-                expectR(TokenType::IDF);
+                if (! expectR(TokenType::IDF) ) { continueParsing(); errorFound = false; parseSuite(); errorFound = true; return nullptr; }
                 formal_param_list->children.push_back(std::make_shared<ASTNode>("Identifier", tok.value));
             }
         }
-        expectR(TokenType::CAR_RPAREN);
-        expectR(TokenType::CAR_COLON);
+        if (! expectR(TokenType::CAR_RPAREN) ) { continueParsing(); errorFound = false; parseSuite(); errorFound = true; return nullptr; }
+        if (! expectR(TokenType::CAR_COLON) ) { continueParsing(); errorFound = false; parseSuite(); errorFound = true; return nullptr; }
         def_root->children.push_back(formal_param_list);
-        auto suite = parseSuite();
+        std::shared_ptr<ASTNode> suite;
+        WRAP_CALL( suite = parseSuite() )
         suite->type = "FunctionBody";
         def_root->children.push_back(suite);
         return def_root;
@@ -158,30 +163,40 @@ std::shared_ptr<ASTNode> Parser::parseSuite() {
     auto suite_root = std::make_shared<ASTNode>("");
     if (expect(TokenType::NEWLINE)) {
         skipNewlines();
-        expectR(TokenType::BEGIN);
+        WRAP_CALL( expectR(TokenType::BEGIN) )
         skipNewlines();
-        auto old_pos = pos-1;
-        while (peek().type != TokenType::END and old_pos < pos) {
-            old_pos = pos;
+        bool atLeastOneErr = false;
+        while (peek().type != TokenType::END and peek().type != TokenType::ENDOFFILE) {
+            errorFound = false;
             auto expr = parseStmt();
-            if (expr) suite_root->children.push_back(expr);
+            if (errorFound) {
+                continueParsing();
+                atLeastOneErr = true;
+            }
+            else if (expr) suite_root->children.push_back(expr);
             skipNewlines();
         }
-        expectR(TokenType::END);
+        if (! expect(TokenType::END) ) {
+            atLeastOneErr = true;
+            m_errorManager.addError(Error{"Missing newline at the end of the file","","Syntax",peek().line});
+        }
+        if (atLeastOneErr) {
+            errorFound = true;
+            return nullptr;
+        }
     }
     else {
-        suite_root->children.push_back(parseSimpleStmt());
-        if (!expect(TokenType::NEWLINE)) {
-            m_errorManager.addError(Error{"Expected newline", "", "Syntax", peek().line});
-            continueParsing();
-        }
+        WRAP_CALL( suite_root->children.push_back(parseSimpleStmt()) )
+        WRAP_CALL( expectR(TokenType::NEWLINE) )
     }
     return suite_root;
 }
 
 // expr -> or_expr .
 std::shared_ptr<ASTNode> Parser::parseExpr() {
-    return parseOrExpr();
+    std::shared_ptr<ASTNode> orexpr;
+    WRAP_CALL( orexpr = parseOrExpr() )
+    return orexpr;
 }
 
 // primary -> const . || ident expr_prime . || ( expr ) . || [ e ] . || not primary .
@@ -209,27 +224,28 @@ std::shared_ptr<ASTNode> Parser::parsePrimary() {
             funcCallNode->children.push_back(idNode);
             auto paramListNode = std::make_shared<ASTNode>("ParameterList");
             while (true) {
-                auto exprNode = parseExpr();
+                std::shared_ptr<ASTNode> exprNode;
+                WRAP_CALL( exprNode = parseExpr() )
                 paramListNode->children.push_back(exprNode);
                 if (!expect(TokenType::CAR_COMMA)) {
                     break;
                 }
             }
             funcCallNode->children.push_back(paramListNode);
-            expectR(TokenType::CAR_RPAREN);
+            WRAP_CALL( expectR(TokenType::CAR_RPAREN) )
             return funcCallNode;
         }
         
         if (expect(TokenType::CAR_LBRACKET)){
             auto node = std::make_shared<ASTNode>("ListCall");
             node->children.push_back(idNode);
-            node->children.push_back(parseExpr());
-            expectR(TokenType::CAR_RBRACKET);
+            WRAP_CALL( node->children.push_back(parseExpr()) )
+            WRAP_CALL( expectR(TokenType::CAR_RBRACKET) )
             
             if (expect(TokenType::OP_EQ)) {                                     // test -> "=" expr .
                 auto opNode = std::make_shared<ASTNode>("Affect", "=");
                 opNode->children.push_back(node);
-                opNode->children.push_back(parseExpr());
+                WRAP_CALL( opNode->children.push_back(parseExpr()) )
                 return opNode;
             }
             return node;
@@ -242,27 +258,27 @@ std::shared_ptr<ASTNode> Parser::parsePrimary() {
         return expr;
     }
     if (expect(TokenType::CAR_LBRACKET)) {
-        auto expr = parseE();
-        expectR(TokenType::CAR_RBRACKET);
+        std::shared_ptr<ASTNode> expr;
+        WRAP_CALL( expr = parseExpr() )
+        WRAP_CALL( expectR(TokenType::CAR_RPAREN) )
         return expr;
     }
     if (expect(TokenType::KW_NOT)) {
         auto notNode = std::make_shared<ASTNode>("Not");
-        notNode->children.push_back(parsePrimary());
+        WRAP_CALL( notNode->children.push_back(parsePrimary()) )
         return notNode;
     }
-
-    //std::cerr << "Unexpected token: " << tok.value << std::endl;
+    errorFound = true;
     m_errorManager.addError(Error{"Unexpected ", Lexer::tokenTypeToString(tok.type), "Syntax", tok.line});
     continueParsing();
-    //m_errorManager.addError("Parser: Unexpected token: " + tok.value + " (line:" + std::to_string(tok.line) + ")");
     return nullptr;
 }
 
 // E -> expr E_prime . || .
 std::shared_ptr<ASTNode> Parser::parseE() {
-    auto exprNode = parseExpr(); 
-    auto ePrimeNode = parseEPrime(); 
+    std::shared_ptr<ASTNode> exprNode, ePrimeNode;
+    WRAP_CALL( exprNode = parseExpr() )
+    WRAP_CALL( ePrimeNode = parseEPrime() ) 
     auto listNode = std::make_shared<ASTNode>("List");
     listNode->children.push_back(exprNode);
     if (ePrimeNode) {
@@ -282,8 +298,9 @@ std::shared_ptr<ASTNode> Parser::parseE() {
 // E_prime -> , expr E_prime . || .
 std::shared_ptr<ASTNode> Parser::parseEPrime() {
     if (expect(TokenType::CAR_COMMA)) {
-        auto exprNode = parseExpr(); 
-        auto ePrimeNode = parseEPrime();  
+        std::shared_ptr<ASTNode> exprNode, ePrimeNode;
+        WRAP_CALL( exprNode = parseExpr() )
+        WRAP_CALL( ePrimeNode = parseEPrime() )
         auto commaNode = std::make_shared<ASTNode>("EPrime");
         commaNode->children.push_back(exprNode);
         if (ePrimeNode) {
@@ -296,11 +313,12 @@ std::shared_ptr<ASTNode> Parser::parseEPrime() {
 
 // or_expr -> and_expr or_expr_prime .
 std::shared_ptr<ASTNode> Parser::parseOrExpr() {
-    auto left = parseAndExpr();
+    std::shared_ptr<ASTNode> left;
+    WRAP_CALL( left = parseAndExpr() )
     while (expect(TokenType::KW_OR)) {
         auto opNode = std::make_shared<ASTNode>("Or");
         opNode->children.push_back(left);
-        opNode->children.push_back(parseAndExpr());
+        WRAP_CALL( opNode->children.push_back(parseAndExpr()) )
         left = opNode;
     }
     return left;
@@ -308,11 +326,12 @@ std::shared_ptr<ASTNode> Parser::parseOrExpr() {
 
 // and_expr -> comp_expr and_expr_prime .
 std::shared_ptr<ASTNode> Parser::parseAndExpr() {
-    auto left = parseCompExpr();
+    std::shared_ptr<ASTNode> left;
+    WRAP_CALL( left = parseCompExpr() )
     while (expect(TokenType::KW_AND)) {
         auto opNode = std::make_shared<ASTNode>("And");
         opNode->children.push_back(left);
-        opNode->children.push_back(parseCompExpr());
+        WRAP_CALL( opNode->children.push_back(parseCompExpr()) )
         left = opNode;
     }
     return left;
@@ -321,13 +340,14 @@ std::shared_ptr<ASTNode> Parser::parseAndExpr() {
 
 // comp_expr -> arith_expr comp_expr_prime .
 std::shared_ptr<ASTNode> Parser::parseCompExpr() {
-    auto left = parseArithExpr();
+    std::shared_ptr<ASTNode> left;
+    WRAP_CALL( left = parseArithExpr() )
     if (peek().type == TokenType::OP_EQ){
-        expectR(TokenType::OP_EQ_EQ);
+        WRAP_CALL( expectR(TokenType::OP_EQ_EQ) )
         auto comOpFalse = next();
         auto opNode = std::make_shared<ASTNode>("Compare", "==");
         opNode->children.push_back(left);
-        opNode->children.push_back(parseArithExpr());
+        WRAP_CALL( opNode->children.push_back(parseArithExpr()) )
         return opNode;
     }
     if (peek().type == TokenType::OP_EQ_EQ || peek().type == TokenType::OP_NEQ ||
@@ -336,7 +356,7 @@ std::shared_ptr<ASTNode> Parser::parseCompExpr() {
         auto compOp = next();
         auto opNode = std::make_shared<ASTNode>("Compare", compOp.value);
         opNode->children.push_back(left);
-        opNode->children.push_back(parseArithExpr());
+        WRAP_CALL( opNode->children.push_back(parseArithExpr()) )
         return opNode;
     }
     return left;
@@ -344,12 +364,13 @@ std::shared_ptr<ASTNode> Parser::parseCompExpr() {
 
 // arith_expr -> term arith_expr_prime .
 std::shared_ptr<ASTNode> Parser::parseArithExpr() {
-    auto left = parseTerm();
+    std::shared_ptr<ASTNode> left;
+    WRAP_CALL( left = parseTerm() )
     while (peek().type == TokenType::OP_PLUS || peek().type == TokenType::OP_MINUS) {
         auto arithOp = next();
         auto opNode = std::make_shared<ASTNode>("ArithOp", arithOp.value);
         opNode->children.push_back(left);
-        opNode->children.push_back(parseTerm());
+        WRAP_CALL( opNode->children.push_back(parseTerm()) )
         left = opNode;
     }
     return left;
@@ -357,12 +378,13 @@ std::shared_ptr<ASTNode> Parser::parseArithExpr() {
 
 // term -> factor term_prime .
 std::shared_ptr<ASTNode> Parser::parseTerm() {
-    auto left = parseFactor();
+    std::shared_ptr<ASTNode> left;
+    WRAP_CALL( left = parseFactor() )
     while (peek().type == TokenType::OP_MUL || peek().type == TokenType::OP_DIV || peek().type == TokenType::OP_MOD) {
         auto termOp = next();
         auto opNode = std::make_shared<ASTNode>("TermOp", termOp.value);
         opNode->children.push_back(left);
-        opNode->children.push_back(parseFactor());
+        WRAP_CALL( opNode->children.push_back(parseFactor()) )
         left = opNode;
     }
     return left;
@@ -372,18 +394,21 @@ std::shared_ptr<ASTNode> Parser::parseTerm() {
 std::shared_ptr<ASTNode> Parser::parseFactor() {
     if (expect(TokenType::OP_MINUS)) {
         auto opNode = std::make_shared<ASTNode>("UnaryOp", "-");
-        opNode->children.push_back(parsePrimary());
+        WRAP_CALL( opNode->children.push_back(parsePrimary()) )
         return opNode;
     }
-    return parsePrimary();
+    std::shared_ptr<ASTNode> prim;
+    WRAP_CALL( prim = parsePrimary() )
+    return prim;
 }
 
 
 // expr_prime -> "(" E ")" . || .                                               # Probalement pas utilisée
 std::shared_ptr<ASTNode> Parser::parseExprPrime() {
     if (expect(TokenType::CAR_LPAREN)) {
-        auto exprNode = parseE();
-        expectR(TokenType::CAR_RPAREN);
+        std::shared_ptr<ASTNode> exprNode;
+        WRAP_CALL( exprNode = parseE() )
+        WRAP_CALL( expectR(TokenType::CAR_RPAREN) )
         return exprNode;
     }
     return nullptr;
@@ -398,11 +423,27 @@ std::shared_ptr<ASTNode> Parser::parseStmt() {
     if (expect(TokenType::KW_IF)) {
         auto ifNode = std::make_shared<ASTNode>("If");
         ifNode->children.push_back(parseExpr());
-        expectR(TokenType::CAR_COLON);
-        auto suite = parseSuite();
+        if (errorFound) {
+            continueParsing();
+            errorFound = false;
+            parseSuite();
+            if (!errorFound) parseStmtSeconde();
+            errorFound = true;
+            return nullptr;
+        }
+        if (! expectR(TokenType::CAR_COLON) ) {
+            continueParsing();
+            errorFound = false;
+            parseSuite();
+            if (!errorFound) parseStmtSeconde();
+            errorFound = true;
+            return nullptr;
+        }
+        std::shared_ptr<ASTNode> suite;
+        WRAP_CALL( suite = parseSuite() )
         suite->type = "IfBody";
         ifNode->children.push_back(suite);
-        ifNode->children.push_back(parseStmtSeconde());
+        WRAP_CALL( ifNode->children.push_back(parseStmtSeconde()) )
         return ifNode;
     }
     if (expect(TokenType::KW_FOR)) {
@@ -411,28 +452,50 @@ std::shared_ptr<ASTNode> Parser::parseStmt() {
         if (expect(TokenType::IDF)) {
             auto idNode = std::make_shared<ASTNode>("Identifier", tok.value);
             forNode->children.push_back(idNode);
-            expectR(TokenType::KW_IN);
+            if (! expectR(TokenType::KW_IN) ) {
+                continueParsing();
+                errorFound = false;
+                parseSuite();
+                errorFound = true;
+                return nullptr;
+            }
             forNode->children.push_back(parseExpr());
-            expectR(TokenType::CAR_COLON);
-            auto suite = parseSuite();
+            if (errorFound) {
+                continueParsing();
+                errorFound = false;
+                parseSuite();
+                errorFound = true;
+                return nullptr;
+            }
+            if (! expectR(TokenType::CAR_COLON) ) {
+                continueParsing();
+                errorFound = false;
+                parseSuite();
+                errorFound = true;
+                return nullptr;
+            }
+            std::shared_ptr<ASTNode> suite;
+            WRAP_CALL( suite = parseSuite() )
             suite->type = "ForBody";
             forNode->children.push_back(suite);
             return forNode;
         }
-        //std::cerr << "Unexpected token: " << tok.value << std::endl;
         m_errorManager.addError(Error{"Unexpected ", Lexer::tokenTypeToString(tok.type), "Syntax", tok.line});
         continueParsing();
-        //m_errorManager.addError("Lexer: Unexpected token: " + tok.value + " (line:" + std::to_string(tok.line) + ")");
+        errorFound = false;
+        parseSuite();
+        errorFound = true;
+        return nullptr;
     }
-    auto simpleStmt = parseSimpleStmt();
+    std::shared_ptr<ASTNode> simpleStmt;
+    WRAP_CALL( simpleStmt = parseSimpleStmt() )
     if (simpleStmt) {
-        expectR(TokenType::NEWLINE);
+        WRAP_CALL( expectR(TokenType::NEWLINE) )
         return simpleStmt;
     }
-    //std::cerr << "Unexpected token: " << tok.value << std::endl;
+    errorFound = true;
     m_errorManager.addError(Error{"Unexpected ", Lexer::tokenTypeToString(tok.type), "Syntax", tok.line});
     continueParsing();
-    //m_errorManager.addError("Lexer: Unexpected token: " + tok.value + " (line:" + std::to_string(tok.line) + ")");
     return nullptr;
 }
 
@@ -440,8 +503,15 @@ std::shared_ptr<ASTNode> Parser::parseStmt() {
 // stmt_seconde -> .
 std::shared_ptr<ASTNode> Parser::parseStmtSeconde() {
     if (expect(TokenType::KW_ELSE)) {
-        expectR(TokenType::CAR_COLON);
-        auto suite = parseSuite();
+        if (! expectR(TokenType::CAR_COLON) ) {
+            continueParsing();
+            errorFound = false;
+            parseSuite();
+            errorFound = true;
+            return nullptr;
+        }
+        std::shared_ptr<ASTNode> suite;
+        WRAP_CALL( suite = parseSuite() )
         suite->type = "ElseBody";
         return suite;
     }
@@ -461,38 +531,38 @@ std::shared_ptr<ASTNode> Parser::parseSimpleStmt() {
         if (expect(TokenType::OP_EQ)) {                                     // test -> "=" expr .
             auto opNode = std::make_shared<ASTNode>("Affect", "=");
             opNode->children.push_back(idNode);
-            opNode->children.push_back(parseExpr());
+            WRAP_CALL( opNode->children.push_back(parseExpr()) )
             return opNode;
         }
         if (expect(TokenType::CAR_LBRACKET)){
             auto node = std::make_shared<ASTNode>("ListCall");
             node->children.push_back(idNode);
-            node->children.push_back(parseExpr());
-            expectR(TokenType::CAR_RBRACKET);
-            
+            WRAP_CALL( node->children.push_back(parseExpr()) )
+            WRAP_CALL( expectR(TokenType::CAR_RBRACKET) )
             if (expect(TokenType::OP_EQ)) {                                     // test -> "=" expr .
                 auto opNode = std::make_shared<ASTNode>("Affect", "=");
                 opNode->children.push_back(node);
-                opNode->children.push_back(parseExpr());
+                WRAP_CALL( opNode->children.push_back(parseExpr()) )
                 return opNode;
             }
             return node;
         }
         
-        auto testNode = parseTest(idNode);
+        std::shared_ptr<ASTNode> testNode;
+        WRAP_CALL( testNode = parseTest(idNode) )
         return testNode;            // test -> expr_prime term_prime arith_expr_prime comp_expr_prime and_expr_prime or_expr_prime .
            
     }
     if (expect(TokenType::KW_RETURN)) {
         auto returnNode = std::make_shared<ASTNode>("Return");
-        returnNode->children.push_back(parseExpr());
+        WRAP_CALL( returnNode->children.push_back(parseExpr()) )
         return returnNode;
     }
     if (expect(TokenType::KW_PRINT)) {
-        expectR(TokenType::CAR_LPAREN);
+        WRAP_CALL( expectR(TokenType::CAR_LPAREN) )
         auto printNode = std::make_shared<ASTNode>("Print");
-        printNode->children.push_back(parseE());
-        expectR(TokenType::CAR_RPAREN);
+        WRAP_CALL( printNode->children.push_back(parseE()) )
+        WRAP_CALL( expectR(TokenType::CAR_RPAREN) )
         return printNode;
     }
     if (expect(TokenType::OP_MINUS)) {
@@ -500,23 +570,23 @@ std::shared_ptr<ASTNode> Parser::parseSimpleStmt() {
         tok = peek();
         if (expect(TokenType::IDF)) {
             auto idNode = std::make_shared<ASTNode>("Identifier", tok.value);
-            auto testNode = parseTest(idNode);
+            std::shared_ptr<ASTNode> testNode;
+            WRAP_CALL( testNode = parseTest(idNode) )
             defNode->children.push_back(testNode);
             return defNode;
         }
-        //std::cerr << "Unexpected token: " << tok.value << std::endl;
+        errorFound = true;
         m_errorManager.addError(Error{"Unexpected ", Lexer::tokenTypeToString(tok.type), "Syntax", tok.line});
-        //m_errorManager.addError("Lexer: Unexpected token: " + tok.value + " (line:" + std::to_string(tok.line) + ")");
         return nullptr;
     }
-    auto node = parseExpr();
+    std::shared_ptr<ASTNode> node;
+    WRAP_CALL( node = parseExpr() )
     if(node) {
         return node;
     }
-    //std::cerr << "Unexpected token: " << tok.value << std::endl;
+    errorFound = true;
     m_errorManager.addError(Error{"Unexpected ", Lexer::tokenTypeToString(tok.type), "Syntax", tok.line});
     continueParsing();
-    //m_errorManager.addError("Lexer: Unexpected token: " + tok.value + " (line:" + std::to_string(tok.line) + ")");
     return nullptr;
 }
 
@@ -537,31 +607,20 @@ std::shared_ptr<ASTNode> Parser::parseTest(const std::shared_ptr<ASTNode>& idNod
 
         // Parsing des paramètres
         auto paramListNode = std::make_shared<ASTNode>("ParameterList");
-        expectR(TokenType::CAR_LPAREN);
+        WRAP_CALL( expectR(TokenType::CAR_LPAREN) )
         while (peek().type != TokenType::CAR_RPAREN) {
-            auto exprNode = parseExpr();
+            std::shared_ptr<ASTNode> exprNode;
+            WRAP_CALL( exprNode = parseExpr() )
             if (exprNode) {
                 paramListNode->children.push_back(exprNode);
             }
             if (!expect(TokenType::CAR_COMMA)) break;
         }
-        expectR(TokenType::CAR_RPAREN);
+        WRAP_CALL( expectR(TokenType::CAR_RPAREN) )
 
         funcCallNode->children.push_back(paramListNode);
         currentNode = funcCallNode;
-    }/*
-    if (peek().type == TokenType::CAR_LBRACKET) {
-        auto listCallNode = std::make_shared<ASTNode>("ListCall");
-        listCallNode->children.push_back(idNode);
-
-        // Parsing des paramètres
-        expectR(TokenType::CAR_LBRACKET);
-        auto exprNode = parseExpr();
-        expectR(TokenType::CAR_RBRACKET);
-
-        listCallNode->children.push_back(exprNode);
-        currentNode = listCallNode;
-    }*/
+    }
 
     // Parsing des opérations term_prime
     while (peek().type == TokenType::OP_MUL || peek().type == TokenType::OP_DIV || peek().type == TokenType::OP_MOD) {
@@ -572,7 +631,7 @@ std::shared_ptr<ASTNode> Parser::parseTest(const std::shared_ptr<ASTNode>& idNod
         opNode->children.push_back(currentNode);
 
         // Parsez le côté droit de l'opération
-        opNode->children.push_back(parseTerm());
+        WRAP_CALL( opNode->children.push_back(parseTerm()) )
 
         // Le nouvel opérateur devient le nœud courant
         currentNode = opNode;
@@ -583,14 +642,8 @@ std::shared_ptr<ASTNode> Parser::parseTest(const std::shared_ptr<ASTNode>& idNod
         while (peek().type == TokenType::OP_PLUS || peek().type == TokenType::OP_MINUS) {
             auto arithOp = next();
             auto opNode = std::make_shared<ASTNode>("ArithOp", arithOp.value);
-
-            // Le côté gauche de l'opération est le nœud courant
             opNode->children.push_back(currentNode);
-
-            // Parsez le côté droit de l'opération
-            opNode->children.push_back(parseTerm());
-
-            // Le nouvel opérateur devient le nœud courant
+            WRAP_CALL( opNode->children.push_back(parseTerm()) )
             currentNode = opNode;
         }       
     }
@@ -605,7 +658,7 @@ std::shared_ptr<ASTNode> Parser::parseTest(const std::shared_ptr<ASTNode>& idNod
 
         opNode->children.push_back(currentNode);
 
-        opNode->children.push_back(parseArithExpr());
+        WRAP_CALL( opNode->children.push_back(parseArithExpr()) )
 
         currentNode = opNode;
     }
@@ -617,7 +670,7 @@ std::shared_ptr<ASTNode> Parser::parseTest(const std::shared_ptr<ASTNode>& idNod
 
             opNode->children.push_back(currentNode);
 
-            opNode->children.push_back(parseCompExpr());
+            WRAP_CALL( opNode->children.push_back(parseCompExpr()) )
 
             currentNode = opNode;
         }
@@ -627,17 +680,14 @@ std::shared_ptr<ASTNode> Parser::parseTest(const std::shared_ptr<ASTNode>& idNod
     if (peek().type == TokenType::KW_OR) {
         while (expect(TokenType::KW_OR)) {
             auto opNode = std::make_shared<ASTNode>("Or");
-            
             opNode->children.push_back(currentNode);
-            
-            opNode->children.push_back(parseAndExpr());
-            
+            WRAP_CALL( opNode->children.push_back(parseAndExpr()) )
             currentNode = opNode;
         }
     }
 
     // Ajoutez le nœud final au nœud Test
-    testNode->children.push_back(currentNode);              // On peut peut-être enlever ce noeud "Test"
+    testNode->children.push_back(currentNode);
     return testNode->children.back();
 }
 
@@ -675,29 +725,4 @@ void Parser::generateDotFile(const std::shared_ptr<ASTNode>& root, const std::st
     file << "}\n";
 }
 
-void Parser::handleInvalidNewlines(TokenType closingToken) {
-    bool hasNewlines = false;
-    while (peek().type == TokenType::NEWLINE) {
-        hasNewlines = true;
-        next();
-    }
-    if (hasNewlines) {
-        m_errorManager.addError(Error{
-            "Newlines are not allowed inside lists or parameter definitions.",
-            "",
-            "Syntax",
-            peek().line
-        });
-        continueParsing();
-    }
-    while (peek().type != closingToken && peek().type != TokenType::ENDOFFILE) {
-        next();
-    }
-    if (peek().type == closingToken) {
-        next();
-    }
-    else{
-        expectR(closingToken);
-    }
-}
 
