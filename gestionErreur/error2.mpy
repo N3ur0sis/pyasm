@@ -1,8 +1,0 @@
-# Programme incorrect 2 (mauvais types et expressions syntaxiquement invalides)
-def multiply(x, y):
-    return x * y
-
-result = multiply(3 [2])  # Erreur: syntaxe invalide dans l'appel de fonction
-
-print(result)
-

@@ -1,2 +1,0 @@
-print("string1", integer, 
-"string2", a+b, c == d, e != f, a(6,7,8))

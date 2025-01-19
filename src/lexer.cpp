@@ -91,8 +91,9 @@ std::vector<Token> Lexer::tokenize() {
                 std::string character(1, unexpectedChar); // Crée une chaîne contenant un seul caractère
                 m_errorManager.addError(Error{"Unexpected character: ", character, "Lexical", m_line});
             }
-            m_errorManager.displayErrors();
-            exit(EXIT_FAILURE);
+            // m_errorManager.displayErrors();
+            // exit(EXIT_FAILURE);
+            progress();
         }
     }
 
@@ -203,12 +204,16 @@ void Lexer::handleString(std::vector<Token>& tokens, std::string& buffer) {
     while (true) {
         if (!lookahead()) {
             reportError("Reached end of file without closing string", m_line);
+            break;
         } else if (lookahead() == '"') {
             progress();  // Skip closing quote
             break;
         } else if (lookahead() == '\\') {
             progress();
             handleEscapeCharacter(buffer);
+        } else if (lookahead() == '\n') {
+            m_line++;
+            progress();
         } else {
             buffer.push_back(progress());
         }
