@@ -1,7 +1,7 @@
 # Programme incorrect 3 (conditions mal formées)
+def test():
+    if (5 >  ):
+        print("This will fail")  # Erreur: condition incomplète
+
 if x == 10:
     print("x is 10")
-
-def test():
-    if (5 > ):
-        print("This will fail")  # Erreur: condition incomplète

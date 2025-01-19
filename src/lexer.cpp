@@ -182,7 +182,6 @@ void Lexer::handleBracket(std::vector<Token>& tokens, std::string& buffer) {
 
 void Lexer::handleNewline(std::vector<Token>& tokens) {
     tokens.push_back({.type = TokenType::NEWLINE, .value = "", .line = m_line});
-    m_line++;
     progress();
 
     int indentation = 0;
@@ -269,6 +268,7 @@ char Lexer::lookahead(int ahead) const {
 
 /* Advance and return next character */
 char Lexer::progress() {
+    if (m_src[m_pos] == '\n') m_line++;
     return m_src[++m_pos];
 }
 
