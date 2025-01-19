@@ -83,9 +83,14 @@ std::vector<Token> Lexer::tokenize() {
             skipComment();
         }
         else {
-            std::cerr << "Lexer: Unexpected character: " << lookahead() << " (line:" << m_line << ")" << std::endl;
-            m_errorManager.addError(Error{"Unexpected character: ", "" + lookahead(), "Lexical", m_line});
-            //m_errorManager.addError("Lexer: Unexpected character: " + std::string(1, lookahead()) + " (line:" + std::to_string(m_line) + ")");
+
+            char unexpectedChar = lookahead();
+            if (unexpectedChar == '\0') {
+                m_errorManager.addError(Error{"Unexpected character: ", "End of input", "Lexical", m_line});
+            } else {
+                std::string character(1, unexpectedChar); // Crée une chaîne contenant un seul caractère
+                m_errorManager.addError(Error{"Unexpected character: ", character, "Lexical", m_line});
+            }
             m_errorManager.displayErrors();
             exit(EXIT_FAILURE);
         }
@@ -254,15 +259,13 @@ void Lexer::handleEscapeCharacter(std::string& buffer) {
 
 /*  Error handling for the Lexer */
 void Lexer::reportError(const std::string& message, int line) const {
-    //std::cerr << "Lexer: " << message << " (line: " << m_line << ")" << std::endl;
     m_errorManager.addError(Error{message, "", "Lexical", line});
-    //exit(EXIT_FAILURE);
 }
 
 
 char Lexer::lookahead(int ahead) const {
     if (m_pos + ahead >= static_cast<int>(m_src.length())) {
-        return {};
+        return '\0';
     }
     return m_src[m_pos + ahead];
 }
