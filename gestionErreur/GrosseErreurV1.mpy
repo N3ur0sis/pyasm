@@ -26,7 +26,7 @@ def for():  # Erreur lexicale : 'for' est un mot-clé réservé
     pass
 
 # 6. Erreur de chaîne de caractères non fermée
-print("This string is left open"                    # Erreur syntaxique corrigée : chaîne fermée
+print("This string is left open  # Erreur syntaxique : chaîne non fermée
 print("Correct string print example.")
 
 # 7. Erreur dans une opération
@@ -36,7 +36,7 @@ total = 10 + * 3  # Erreur syntaxique : opérateur inattendu
 xor_result = 5 && 2  # Erreur lexicale : opérateur `&&` non valide en Python
 
 # 9. Erreur avec une structure conditionnelle
-if 5 ==:  # Erreur syntaxique : condition incomplète
+if 5 == 10:  # Erreur syntaxique : condition incomplète
     print("Comparison error.")
 
 # 10. Erreur dans un appel de fonction
@@ -63,25 +63,12 @@ for i in range(10)
 my_list = [1, 2, 3
 my_list.append(4)  # Erreur syntaxique : crochet non fermé
 
-# 16. Erreur avec un dictionnaire
-my_dict = {key: "value",  # Erreur syntaxique : accolade fermante manquante
-my_dict["new_key"] = "new_value"
-
-# 17. Erreur avec une classe
-class MyClass
-    def __init__(self):
-        pass  # Erreur syntaxique : mot-clé `class` utilisé sans deux-points
-
 # 18. Erreur avec un mot-clé mal orthographié
-def retrun_value():  # Erreur lexicale : `return` mal orthographié
-    return 10
+def retrun_value(): 
+    retrun 10        # Erreur lexicale : `return` mal orthographié
 
 # 19. Erreur dans une condition complexe
-if (5 > 3) and ( == 4):  # Erreur syntaxique : opérande manquant
+if (5 > 3) and (5 == 4):  # Erreur syntaxique : opérande manquant
     print("Invalid logic.")
-
-# 20. Erreur dans une chaîne formatée
-name = "Alice"
-print(f"Hello, {name!")  # Erreur syntaxique : parenthèse fermante manquante dans la chaîne formatée
 
 compute_squares()

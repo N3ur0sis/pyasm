@@ -1,0 +1,40 @@
+def factorial(n):
+    if n == 0:
+        return 1
+    else:
+        return n * factorial(n - 1)
+
+def fibonacci(n, memo):
+    if n <= 0:
+        return 0
+    if n == 1:
+        return 1
+    if n == memo:
+        return memo[n]
+    else:
+        fibo[12] = a[0] + a[1]
+
+def is_prime(n):
+    if n <= 1:
+        return false
+    if n <= 3:
+        return true
+    if n % 2 == 0 or n % 3 == 0:
+        return false
+    i = 5
+    for i in range(len(truc)) :
+        if n % i == 0 or n % (i + 2) == 0:
+            return false
+        i = i + 6
+    return true
+
+print(factorial(5), "coucou")
+print(fibonacci(10))
+print(is_prime(29))
+
+for x in [1, 2, 3, 4, 5]:
+    print(x * x)
+
+def autre_fonction():
+    return x * x 
+

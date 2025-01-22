@@ -7,7 +7,7 @@ def power(base, exp):
     if exp == 0: return 1
       return base * power(base, exp - 1)  # Mauvaise indentation
 
-# 3. Erreur de parenthèses non fermées
+# 3. Erreur de crochets non fermées et retour à la ligne dans la def d'une liste
 def compute_squares():
     numbers = [1, 2, 
     3, 4
@@ -16,17 +16,22 @@ def compute_squares():
     for n in numbers:
         print("Square of", n, "is", n * n)
 
-# 4. Erreur d'affectation illégale
+# 4. Erreur d'utilisation de mots-clés comme identifiant
+def for():  # Erreur lexicale : 'for' est un mot-clé réservé
+    return 5
+
+# 5. Erreur avec un mot-clé mal orthographié
+dfe return_value():              # Erreur lexicale : `def` mal orthographié, non reconnu comme mot clé
+    return 10   
+
+# 6. Erreur d'affectation illégale
 result *= 10        # Erreur syntaxique : tentative d'utilisation d'une variable non initialisée
 value = "hello"
 value += 20         # Erreur syntaxique : concaténation invalide entre chaîne et entier
-
-# 5. Erreur d'utilisation de mots-clés comme identifiant
-def for():  # Erreur lexicale : 'for' est un mot-clé réservé
-    pass
+value2 = 01         # Erreur lexicale : entier invalide (pas de 0 au début d'un entier)
 
 # 6. Erreur de chaîne de caractères non fermée
-print("This string is left open  # Erreur syntaxique : chaîne non fermée
+print("This string is left open"                    # Erreur syntaxique corrigée : chaîne fermée, parenthèse toujours ouverte
 print("Correct string print example.")
 
 # 7. Erreur dans une opération
@@ -43,45 +48,16 @@ if 5 ==:  # Erreur syntaxique : condition incomplète
 result = factorial(  # Erreur syntaxique : parenthèse non fermée
     5
 
-# 11. Erreur d'accès à une variable non déclarée
-print(uninitialized_variable)  # Erreur : utilisation d'une variable non définie
-
-# 12. Erreur d'importation
-import math.sqrt  # Erreur syntaxique : mauvaise utilisation d'importation
-
-# 13. Erreur de paramètres dans une fonction
-def multiply(x, y):
-    return x * y
-
-multiply(5)  # Erreur : nombre incorrect de paramètres fournis
-
-# 14. Erreur dans une boucle
+# 11. Erreur dans une boucle
 for i in range(10)
     print(i)  # Erreur syntaxique : deux-points manquants après `range(10)`
 
-# 15. Erreur avec une liste
-my_list = [1, 2, 3
-my_list.append(4)  # Erreur syntaxique : crochet non fermé
-
-# 16. Erreur avec un dictionnaire
-my_dict = {key: "value",  # Erreur syntaxique : accolade fermante manquante
-my_dict["new_key"] = "new_value"
-
-# 17. Erreur avec une classe
-class MyClass
-    def __init__(self):
-        pass  # Erreur syntaxique : mot-clé `class` utilisé sans deux-points
-
-# 18. Erreur avec un mot-clé mal orthographié
-def retrun_value():  # Erreur lexicale : `return` mal orthographié
-    return 10
-
-# 19. Erreur dans une condition complexe
+# 12. Erreur dans une condition complexe
 if (5 > 3) and ( == 4):  # Erreur syntaxique : opérande manquant
     print("Invalid logic.")
 
-# 20. Erreur dans une chaîne formatée
+# 13. Erreur dans une chaîne 
 name = "Alice"
-print(f"Hello, {name!")  # Erreur syntaxique : parenthèse fermante manquante dans la chaîne formatée
+print({"Hello, {name!")  # Erreur Lexicale : caractère inatendu
 
 compute_squares()
