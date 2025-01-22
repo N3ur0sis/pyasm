@@ -2,6 +2,7 @@
 #include <string>
 #include <iostream>
 #include "errorManager.h"
+#include <unordered_set>
 
 // Définitions de couleurs ANSI
 #define RESET "\033[0m"
@@ -24,6 +25,7 @@ void ErrorManager::displayErrors() const {
 
     std::cout << BOLD << UNDERLINE << "\nErrors found:\n" << RESET << std::endl;
 
+    std::unordered_set<int> lines;
     std::queue<Error> tempQueue = errorQueue;
     while (!tempQueue.empty()) {
         const Error& error = tempQueue.front();
@@ -32,6 +34,11 @@ void ErrorManager::displayErrors() const {
         std::string errorColor;
         if (error.type == "Syntax") {
             errorColor = RED; // Rouge pour les erreurs Syntaxiques
+            if (lines.find(error.line) != lines.end()) {
+                tempQueue.pop();
+                continue;
+            }
+            lines.insert(error.line);
         } else if (error.type == "Lexical") {
             errorColor = BLUE; // Bleu pour les erreurs Lexicales
         } else {
