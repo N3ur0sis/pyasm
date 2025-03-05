@@ -1,8 +1,7 @@
-
-
-def function(a,b,c):
+def for_function(a,b,c):
     for i in [1,2,3,4,5]:
         a = a + i
+        d = 6
     
     return a
 
