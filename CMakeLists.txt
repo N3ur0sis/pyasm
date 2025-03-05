@@ -12,4 +12,6 @@ add_executable(pyasm
         src/parser.cpp
         src/parser.cpp
         src/errorManager.cpp
-        src/errorManager.h)
+        src/errorManager.h
+        src/symbolTable.cpp
+        src/symbolTable.h)

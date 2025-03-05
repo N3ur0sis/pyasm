@@ -4,6 +4,7 @@
 #include "lexer.h"
 #include "parser.h"
 #include "errorManager.h"
+#include "symbolTable.h"   // Nouveau module pour les symboles
 
 int main(int argc, char* argv[]) {
     if (argc != 2) {
@@ -25,7 +26,7 @@ int main(int argc, char* argv[]) {
 
     try {
         auto tokens = lexer.tokenize();
-        lexer.displayTokens(tokens); // Print tokens for debugging
+        lexer.displayTokens(tokens); // Affichage des tokens pour débogage
         Parser parser(tokens, errorManager);
 
         std::cout << std::endl;
@@ -37,6 +38,12 @@ int main(int argc, char* argv[]) {
         } else {
             std::cerr << "Failed to parse input." << std::endl;
         }
+
+        // Génération de la table des symboles à partir de l'AST
+        SymbolTableGenerator symGen;
+        auto symTable = symGen.generate(ast);
+        std::cout << "\nSymbol Table:" << std::endl;
+        symTable->print(std::cout);
 
         if (errorManager.hasErrors()) {
             std::cout << std::endl;

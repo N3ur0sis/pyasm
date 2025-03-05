@@ -57,7 +57,7 @@ The **PyAsm Compiler** is a C++ compiler designed to translates MiniPython (mpy)
 #### Example:
 
 ```bash
-$ sudo apt-get install [required-dependencies]
+$ sudo apt-get install build-essential gdb cmake
 ```
 
 ### Installing the Compiler
