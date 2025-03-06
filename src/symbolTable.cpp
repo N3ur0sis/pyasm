@@ -18,55 +18,55 @@ int SymbolTable::calculateTypeSize(const std::string& type) {
 }
 
 void SymbolTable::addSymbol(const Symbol& symbol) {
-    // Check if symbol already exists in current scope
-    for (const auto& s : symbols) {
-        if (s.name == symbol.name) {
-            return; // Already declared in this scope
+    // Vérifie la redéfinition dans la portée courante
+    for (const auto& symPtr : symbols) {
+        if (symPtr->name == symbol.name) {
+            return;
         }
     }
 
-    Symbol sym = symbol;
-
-    // Determine size based on symbol category and type
-    int symbolSize = POINTER_SIZE;  // Default size
-    
-    if (sym.category == "variable") {
-        // Tentative de cast vers VariableSymbol
-        VariableSymbol* varSym = dynamic_cast<VariableSymbol*>(&sym);
-        if (varSym) {
-            // Le cast a réussi, vous pouvez accéder aux membres spécifiques
-            std::cout << "Type de variable: " << varSym->type << std::endl;
-            // Autres actions spécifiques aux variables
-        }
-    } 
-    else if (sym->category == "function") {
-        // Tentative de cast vers FunctionSymbol
-        FunctionSymbol* funcSym = dynamic_cast<FunctionSymbol*>(sym);
-        if (funcSym) {
-            std::cout << "Type de retour: " << funcSym->returnType << std::endl;
-            // Autres actions spécifiques aux fonctions
-        }
-    } 
-    else if (sym->category == "array") {
-        // Tentative de cast vers ArraySymbol
-        ArraySymbol* arraySym = dynamic_cast<ArraySymbol*>(sym);
-        if (arraySym) {
-            std::cout << "Type d'élément: " << arraySym->elementType << std::endl;
-            // Autres actions spécifiques aux tableaux
-        }
+    std::unique_ptr<Symbol> symClone;
+    if (symbol.symCat == "variable") {
+        if (auto varSym = dynamic_cast<const VariableSymbol*>(&symbol))
+            symClone = std::make_unique<VariableSymbol>(*varSym);
+        else
+            symClone = std::make_unique<Symbol>(symbol);
+    }
+    else if (symbol.symCat == "function") {
+        if (auto funcSym = dynamic_cast<const FunctionSymbol*>(&symbol))
+            symClone = std::make_unique<FunctionSymbol>(*funcSym);
+        else
+            symClone = std::make_unique<Symbol>(symbol);
+    }
+    else if (symbol.symCat == "array") {
+        if (auto arraySym = dynamic_cast<const ArraySymbol*>(&symbol))
+            symClone = std::make_unique<ArraySymbol>(*arraySym);
+        else
+            symClone = std::make_unique<Symbol>(symbol);
+    }
+    else {
+        symClone = std::make_unique<Symbol>(symbol);
     }
 
-    // Calculate offset with 8-byte alignment
-    sym.offset = nextOffset;
-    nextOffset += (symbolSize + 7) & ~7;
-    
-    symbols.push_back(sym);
+    // Calcule l'offset pour les variables et tableaux
+    if (symClone->symCat == "variable" || symClone->symCat == "array") {
+        int symbolSize = POINTER_SIZE;
+        if (auto vs = dynamic_cast<VariableSymbol*>(symClone.get())) {
+            symbolSize = calculateTypeSize(vs->type);
+        } else if (auto as = dynamic_cast<ArraySymbol*>(symClone.get())) {
+            symbolSize = calculateTypeSize(as->elementType) * as->size;
+        }
+        symClone->offset = nextOffset;
+        nextOffset += (symbolSize + 7) & ~7;
+    }
+
+    symbols.push_back(std::move(symClone));
 }
 
 bool SymbolTable::lookup(const std::string& name) const {
     // Check in current scope
     for (const auto& s : symbols) {
-        if (s.name == name)
+        if (s->name == name)
             return true;
     }
     
@@ -81,12 +81,32 @@ bool SymbolTable::lookup(const std::string& name) const {
 void SymbolTable::print(std::ostream& out, int indent) const {
     std::string indentStr(indent, ' ');
     out << indentStr << "Scope: " << scopeName << "\n";
-    
-    for (const auto& s : symbols) {
-        out << indentStr << " " << s.category << " : " << s.name
-            << " (offset: " << s.offset << ")\n";
+
+    for (const auto& sPtr : symbols) {
+        Symbol* s = sPtr.get();
+        if (s->symCat == "variable") {
+            VariableSymbol* vs = dynamic_cast<VariableSymbol*>(s);
+            out << indentStr << " " << s->category << " : " << s->name
+                << " (type=" << vs->type << ", global=" << (vs->isGlobal ? "true" : "false") 
+                << ", offset: " << s->offset << ")";
+        } else if (s->symCat == "function") {
+            FunctionSymbol* fs = dynamic_cast<FunctionSymbol*>(s);
+            out << indentStr << " " << s->category << " : " << s->name
+            << " (returnType=" << fs->returnType << ", numParams=" << fs->numParams
+            << ", offset: " << s->offset << ")";
+        } else if (s->symCat == "array") {
+            if (ArraySymbol* as = dynamic_cast<ArraySymbol*>(s)) {
+                out << indentStr << " " << s->category << " : " << s->name
+                << " (elementType=" << as->elementType << ", size=" << as->size
+                << ", offset: " << s->offset << ")";
+            }
+        } else {
+            out << indentStr << " " << s->category << " : " << s->name
+            << " (offset: " << s->offset << ")";
+        }
+        out << std::endl;
     }
-    
+
     for (const auto& child : children) {
         child->print(out, indent + 2);
     }
@@ -106,25 +126,30 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& node, SymbolTab
         // Reset offset for function scope
         currentTable->nextOffset = 0;
 
-        Symbol funcSymbol { 
+        FunctionSymbol funcSymbol { 
             node->value, 
-            "function", 
-            0,  // Function offset typically 0
-            "function"  // Explicit type
+            "int",  // Default return type
+            0, // Default Number of parameters, changed after processing parameters
+            0 // Function offset typically 0
         };
+
+        // Set the number of parameters in the function symbol 
+        if (!node->children.empty()) {
+            funcSymbol.numParams = (node->children[0])->children.size();
+        }
         currentTable->addSymbol(funcSymbol);
         
         auto functionTable = std::make_unique<SymbolTable>("function " + node->value, currentTable);
         
         // Process function parameters
         if (!node->children.empty()) {
-            auto paramList = node->children[0];
+            auto paramList = node->children[0];           
             for (const auto& param : paramList->children) {
-                Symbol paramSymbol { 
-                    param->value, 
+                VariableSymbol paramSymbol { 
+                    param->value,
+                    "int",  // Default type
                     "parameter", 
-                    0,  // Offset will be calculated
-                    "int"  // Default type, could be enhanced
+                    0  // Offset will be calculated
                 };
                 functionTable->addSymbol(paramSymbol);
             }
@@ -143,12 +168,12 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& node, SymbolTab
             auto varNode = node->children[0];
             if (varNode && varNode->type == "Identifier") {
                 if (!currentTable->lookup(varNode->value)) {
-                    Symbol varSymbol { 
-                        varNode->value, 
-                        "variable", 
-                        0,  // Offset will be calculated
-                        "int"  // Default type
-                    };
+                    VariableSymbol varSymbol(
+                        varNode->value,
+                        "int",  // Default type
+                        "variable",
+                        0  // Offset will be calculated
+                    );
                     currentTable->addSymbol(varSymbol);
                 }
             }
@@ -161,15 +186,19 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& node, SymbolTab
         if (node->children.size() >= 3) {
             auto loopVar = node->children[0];
             if (loopVar && loopVar->type == "Identifier") {
-                Symbol loopSymbol { 
-                    loopVar->value, 
-                    "loop variable", 
-                    0,  // Offset will be calculated
-                    "int"  // Default type
-                };
-                forTable->addSymbol(loopSymbol);
+                VariableSymbol loopVariable(
+                    loopVar->value,
+                    "int",  // Default type
+                    "loop variable",
+                    0  // Offset will be calculated
+                );
+                forTable->addSymbol(loopVariable);
             }
             
+            // Process loop condition
+            visit(node->children[1], forTable.get());
+
+
             // Process loop body
             visit(node->children[2], forTable.get());
         }
@@ -195,21 +224,15 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& node, SymbolTab
                 }
             }
 
-            // Create a symbol for the list
-            Symbol listSymbol { 
-                node->value, 
-                "list", 
-                0,  // Offset will be calculated by addSymbol
-                "list<" + elementType + ">", // List type notation
-                nbElement,  // size of the list
-            };
-
-            // Store list metadata
-            listSymbol.metadata["size"] = std::to_string(nbElement);
-            listSymbol.metadata["elementType"] = elementType;
-            listSymbol.metadata["elementSize"] = std::to_string(calculateTypeSize(elementType));
-
-            currentTable->addSymbol(listSymbol);
+            // Create the array symbol using the proper constructor
+            ArraySymbol arraySym(
+                node->value,          // name
+                elementType,          // element type
+                nbElement,            // array size
+                0                     // offset will be calculated in addSymbol
+            );
+            currentTable->addSymbol(arraySym);
+        }
     }
 
     // Recursively visit child nodes
