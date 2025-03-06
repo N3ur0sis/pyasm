@@ -9,12 +9,34 @@
 // Forward declaration of ASTNode to avoid circular dependencies
 class ASTNode;
 
-// Symbol structure to represent variables, functions, etc.
-struct Symbol {
+// Base Symbol class with common attributes
+class Symbol {
+public:
     std::string name;        // Name of the symbol
     std::string category;    // Category (variable, function, parameter, etc.)
     int offset;              // Memory offset
-    std::string type;        // Type of the symbol
+};
+
+// Derived class for variables
+class VariableSymbol : public Symbol {
+public:
+    bool isGlobal;
+    std::string type;
+};
+
+// Derived class for functions
+class FunctionSymbol : public Symbol {
+public:
+    int numParams;
+    std::vector<std::string> paramTypes;
+    std::string returnType;
+};
+
+// Derived class for array/list types
+class ArraySymbol : public Symbol {
+public:
+    int size;
+    std::string elementType;
 };
 
 class SymbolTable {

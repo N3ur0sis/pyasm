@@ -25,12 +25,37 @@ void SymbolTable::addSymbol(const Symbol& symbol) {
         }
     }
 
-    // Create a copy of the symbol
     Symbol sym = symbol;
 
-    // Determine size based on type
-    int symbolSize = calculateTypeSize(sym.type.empty() ? "pointer" : sym.type);
+    // Determine size based on symbol category and type
+    int symbolSize = POINTER_SIZE;  // Default size
     
+    if (sym.category == "variable") {
+        // Tentative de cast vers VariableSymbol
+        VariableSymbol* varSym = dynamic_cast<VariableSymbol*>(&sym);
+        if (varSym) {
+            // Le cast a réussi, vous pouvez accéder aux membres spécifiques
+            std::cout << "Type de variable: " << varSym->type << std::endl;
+            // Autres actions spécifiques aux variables
+        }
+    } 
+    else if (sym->category == "function") {
+        // Tentative de cast vers FunctionSymbol
+        FunctionSymbol* funcSym = dynamic_cast<FunctionSymbol*>(sym);
+        if (funcSym) {
+            std::cout << "Type de retour: " << funcSym->returnType << std::endl;
+            // Autres actions spécifiques aux fonctions
+        }
+    } 
+    else if (sym->category == "array") {
+        // Tentative de cast vers ArraySymbol
+        ArraySymbol* arraySym = dynamic_cast<ArraySymbol*>(sym);
+        if (arraySym) {
+            std::cout << "Type d'élément: " << arraySym->elementType << std::endl;
+            // Autres actions spécifiques aux tableaux
+        }
+    }
+
     // Calculate offset with 8-byte alignment
     sym.offset = nextOffset;
     nextOffset += (symbolSize + 7) & ~7;
@@ -151,6 +176,40 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& node, SymbolTab
         
         currentTable->children.push_back(std::move(forTable));
         return;
+    }
+    else if (node->type == "List") {
+        // Create a new entry for the list
+        if (!node->children.empty()) {
+            int nbElement = node->children.size();
+            // Extract the list type from the first element (if exists)
+            std::string elementType = "int"; // Default type
+            if (nbElement > 0 && node->children[0]->type != "") {
+                elementType = node->children[0]->type;
+            }
+
+            // verify that all elements have the same type
+            for (int i = 1; i < nbElement; i++) {
+                if (node->children[i]->type != elementType) {
+                    std::cerr << "Error: List elements must have the same type\n";              // Erreur sémantique
+                    return;
+                }
+            }
+
+            // Create a symbol for the list
+            Symbol listSymbol { 
+                node->value, 
+                "list", 
+                0,  // Offset will be calculated by addSymbol
+                "list<" + elementType + ">", // List type notation
+                nbElement,  // size of the list
+            };
+
+            // Store list metadata
+            listSymbol.metadata["size"] = std::to_string(nbElement);
+            listSymbol.metadata["elementType"] = elementType;
+            listSymbol.metadata["elementSize"] = std::to_string(calculateTypeSize(elementType));
+
+            currentTable->addSymbol(listSymbol);
     }
 
     // Recursively visit child nodes
