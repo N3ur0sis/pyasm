@@ -1,0 +1,7 @@
+
+# 6. Erreur d'utilisation de mots-clés comme identifiant
+def def():  # Erreur lexicale : 'def' est un mot-clé réservé
+    pass
+
+# 8. Erreur dans une opération
+result = 5 + * 3  # Erreur syntaxique : opérateur inattendu

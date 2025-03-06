@@ -1,0 +1,63 @@
+# 1. Erreur de déclaration de fonction (identifiant invalide)
+def 45square(x):  # Erreur lexicale : un identifiant ne peut pas commencer par un chiffre
+    return x * x
+
+# 2. Erreur d'indentation
+def power(base, exp):
+    if exp == 0: return 1
+      return base * power(base, exp - 1)  # Mauvaise indentation
+
+# 3. Erreur de crochets non fermées et retour à la ligne dans la def d'une liste
+def compute_squares():
+    numbers = [1, 2, 
+    3, 4
+    , 
+    5  # Erreur syntaxique : crochet non fermé
+    for n in numbers:
+        print("Square of", n, "is", n * n)
+
+# 4. Erreur d'utilisation de mots-clés comme identifiant
+def for():  # Erreur lexicale : 'for' est un mot-clé réservé
+    return 5
+
+# 5. Erreur avec un mot-clé mal orthographié
+dfe return_value():              # Erreur lexicale : `def` mal orthographié, non reconnu comme mot clé
+    return 10   
+
+# 6. Erreur d'affectation illégale
+result *= 10        # Erreur syntaxique : tentative d'utilisation d'une variable non initialisée
+value = "hello"
+value += 20         # Erreur syntaxique : concaténation invalide entre chaîne et entier
+value2 = 01         # Erreur lexicale : entier invalide (pas de 0 au début d'un entier)
+
+# 6. Erreur de chaîne de caractères non fermée
+print("This string is left open"                    # Erreur syntaxique corrigée : chaîne fermée, parenthèse toujours ouverte
+print("Correct string print example.")
+
+# 7. Erreur dans une opération
+total = 10 + * 3  # Erreur syntaxique : opérateur inattendu
+
+# 8. Erreur avec un opérateur non défini
+xor_result = 5 && 2  # Erreur lexicale : opérateur `&&` non valide en Python
+
+# 9. Erreur avec une structure conditionnelle
+if 5 ==:  # Erreur syntaxique : condition incomplète
+    print("Comparison error.")
+
+# 10. Erreur dans un appel de fonction
+result = factorial(  # Erreur syntaxique : parenthèse non fermée
+    5
+
+# 11. Erreur dans une boucle
+for i in range(10)
+    print(i)  # Erreur syntaxique : deux-points manquants après `range(10)`
+
+# 12. Erreur dans une condition complexe
+if (5 > 3) and ( == 4):  # Erreur syntaxique : opérande manquant
+    print("Invalid logic.")
+
+# 13. Erreur dans une chaîne 
+name = "Alice"
+print({"Hello, {name!")  # Erreur Lexicale : caractère inatendu
+
+compute_squares()

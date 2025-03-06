@@ -1,0 +1,6 @@
+
+# 7. Erreur de chaîne de caractères non fermée
+print("This is a string # Erreur syntaxique : chaîne non fermée et parenthèse non fermée
+
+print("ce print est correct")
+

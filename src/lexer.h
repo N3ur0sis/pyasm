@@ -4,6 +4,7 @@
 #include <vector>
 #include <stack>
 #include <iostream>
+#include "errorManager.h"
 
 
 /* Enumeration for token types */
@@ -32,7 +33,7 @@ struct Token {
 /* Lexer class declaration */
 class Lexer {
 public:
-    explicit Lexer(std::string src);
+    explicit Lexer(std::string src, ErrorManager& errorManager);
 
     std::vector<Token> tokenize();
     void displayTokens(const std::vector<Token>& tokens);
@@ -41,6 +42,7 @@ public:
 
 private:
     std::string m_src;
+    ErrorManager& m_errorManager;
     int m_pos = -1;
     int m_line = 1;
     std::stack<int> m_scope;
@@ -53,7 +55,7 @@ private:
     // Helper functions
     char lookahead(int ahead = 1) const;
     char progress();
-    void reportError(const std::string& message) const;
+    void reportError(const std::string& message, int line) const;
 
     // Token-specific handling functions
     void handleIdentifierOrKeyword(std::vector<Token>& tokens, std::string& buffer);

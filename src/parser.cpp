@@ -5,7 +5,8 @@
 // UTIL
 
 
-Parser::Parser(const std::vector<Token>& tokens) : tokens(tokens), pos(0) {}
+Parser::Parser(const std::vector<Token>& tokens, ErrorManager& errorManager) 
+    : tokens(tokens), pos(0), m_errorManager(errorManager) {}
 
 std::shared_ptr<ASTNode> Parser::parse() {
     return parseRoot();
@@ -40,7 +41,9 @@ bool Parser::expectR(TokenType type) {
         next();
         return true;
     }
-    std::cerr << "Expected " << Lexer::tokenTypeToString(type) << std::endl;
+    //std::cerr << "Expected " << Lexer::tokenTypeToString(type) << std::endl;
+    m_errorManager.addError(Error{"Expected ", Lexer::tokenTypeToString(type), "Syntax", peek().line});
+    continueParsing();
     return false;
 }
 void Parser::skipNewlines() {
@@ -48,8 +51,18 @@ void Parser::skipNewlines() {
 }
 
 void Parser::continueParsing(){
-    while (peek().type != TokenType::NEWLINE) {
+    while (peek().type != TokenType::ENDOFFILE && peek().type != TokenType::NEWLINE) {
         next();
+    }
+    if (peek().type == TokenType::ENDOFFILE && !EOF_bool) {
+        EOF_bool = true;
+        m_errorManager.addError(Error{
+                "Missing newline at the end of the file",
+                "",
+                "Syntax",
+                peek().line
+                });
+        return;
     }
 }
 
@@ -64,11 +77,15 @@ void Parser::continueParsing(){
 // et un peu plus de tolérance avec les NEWLINES en trop que ce qui est rigoureusement spécifié dans la grammaire
 std::shared_ptr<ASTNode> Parser::parseRoot() {
     auto root = std::make_shared<ASTNode>("Program");
+    auto DEF = std::make_shared<ASTNode>("Definitions");
+    root->children.push_back(DEF);
+    auto OP = std::make_shared<ASTNode>("Instructions");
+    root->children.push_back(OP);
 
     skipNewlines();
     auto def = parseDefinition();
     while ( def != nullptr ) {
-        root->children.push_back(def);
+        DEF->children.push_back(def);
         skipNewlines();
         def = parseDefinition();
     }
@@ -78,8 +95,24 @@ std::shared_ptr<ASTNode> Parser::parseRoot() {
     while (peek().type != TokenType::ENDOFFILE and old_pos < pos) {
         old_pos = pos;
         auto expr = parseStmt();
-        if (expr) root->children.push_back(expr);
+        if (expr) OP->children.push_back(expr);
         skipNewlines();
+    }
+
+    if (peek().type == TokenType::ENDOFFILE && !tokens.empty()) {
+        if (tokens.size() > 1) {
+            const auto& penultimateToken = tokens[tokens.size() - 2];
+            if (penultimateToken.type != TokenType::NEWLINE && !EOF_bool) {
+                EOF_bool = true;
+                m_errorManager.addError(Error{
+                "Missing newline at the end of the file",
+                "",
+                "Syntax",
+                penultimateToken.line
+                });
+                continueParsing();
+            }
+        }
     }
     return root;
 }
@@ -109,7 +142,9 @@ std::shared_ptr<ASTNode> Parser::parseDefinition() {
         expectR(TokenType::CAR_RPAREN);
         expectR(TokenType::CAR_COLON);
         def_root->children.push_back(formal_param_list);
-        def_root->children.push_back(parseSuite());
+        auto suite = parseSuite();
+        suite->type = "FunctionBody";
+        def_root->children.push_back(suite);
         return def_root;
     }
     else return nullptr;
@@ -120,10 +155,10 @@ std::shared_ptr<ASTNode> Parser::parseDefinition() {
 // suite -> NEWLINE BEGIN stmt S END .
 // idem, plus de tolérance pour les newlines que ce qui est rigoureusement spécifié
 std::shared_ptr<ASTNode> Parser::parseSuite() {
+    auto suite_root = std::make_shared<ASTNode>("");
     if (expect(TokenType::NEWLINE)) {
         skipNewlines();
         expectR(TokenType::BEGIN);
-        auto suite_root = std::make_shared<ASTNode>("Scope");
         skipNewlines();
         auto old_pos = pos-1;
         while (peek().type != TokenType::END and old_pos < pos) {
@@ -133,13 +168,15 @@ std::shared_ptr<ASTNode> Parser::parseSuite() {
             skipNewlines();
         }
         expectR(TokenType::END);
-        return suite_root;
     }
     else {
-        auto simple_stmt = parseSimpleStmt();
-        expectR(TokenType::NEWLINE);
-        return simple_stmt;
+        suite_root->children.push_back(parseSimpleStmt());
+        if (!expect(TokenType::NEWLINE)) {
+            m_errorManager.addError(Error{"Expected newline", "", "Syntax", peek().line});
+            continueParsing();
+        }
     }
+    return suite_root;
 }
 
 // expr -> or_expr .
@@ -215,7 +252,10 @@ std::shared_ptr<ASTNode> Parser::parsePrimary() {
         return notNode;
     }
 
-    std::cerr << "Unexpected token: " << tok.value << std::endl;
+    //std::cerr << "Unexpected token: " << tok.value << std::endl;
+    m_errorManager.addError(Error{"Unexpected ", Lexer::tokenTypeToString(tok.type), "Syntax", tok.line});
+    continueParsing();
+    //m_errorManager.addError("Parser: Unexpected token: " + tok.value + " (line:" + std::to_string(tok.line) + ")");
     return nullptr;
 }
 
@@ -350,10 +390,6 @@ std::shared_ptr<ASTNode> Parser::parseExprPrime() {
 }
 
 
-//Attend parseSuite() pour fonctionner :
-
-
-
 //stmt -> simple_stmt NEWLINE .
 //stmt -> if expr ":" suite stmt_seconde .
 //stmt -> for ident in expr ":" suite .
@@ -363,7 +399,9 @@ std::shared_ptr<ASTNode> Parser::parseStmt() {
         auto ifNode = std::make_shared<ASTNode>("If");
         ifNode->children.push_back(parseExpr());
         expectR(TokenType::CAR_COLON);
-        ifNode->children.push_back(parseSuite());
+        auto suite = parseSuite();
+        suite->type = "IfBody";
+        ifNode->children.push_back(suite);
         ifNode->children.push_back(parseStmtSeconde());
         return ifNode;
     }
@@ -376,17 +414,25 @@ std::shared_ptr<ASTNode> Parser::parseStmt() {
             expectR(TokenType::KW_IN);
             forNode->children.push_back(parseExpr());
             expectR(TokenType::CAR_COLON);
-            forNode->children.push_back(parseSuite());
+            auto suite = parseSuite();
+            suite->type = "ForBody";
+            forNode->children.push_back(suite);
             return forNode;
         }
-        std::cerr << "Unexpected token: " << tok.value << std::endl;
+        //std::cerr << "Unexpected token: " << tok.value << std::endl;
+        m_errorManager.addError(Error{"Unexpected ", Lexer::tokenTypeToString(tok.type), "Syntax", tok.line});
+        continueParsing();
+        //m_errorManager.addError("Lexer: Unexpected token: " + tok.value + " (line:" + std::to_string(tok.line) + ")");
     }
     auto simpleStmt = parseSimpleStmt();
     if (simpleStmt) {
         expectR(TokenType::NEWLINE);
         return simpleStmt;
     }
-    std::cerr << "Unexpected token: " << tok.value << std::endl;
+    //std::cerr << "Unexpected token: " << tok.value << std::endl;
+    m_errorManager.addError(Error{"Unexpected ", Lexer::tokenTypeToString(tok.type), "Syntax", tok.line});
+    continueParsing();
+    //m_errorManager.addError("Lexer: Unexpected token: " + tok.value + " (line:" + std::to_string(tok.line) + ")");
     return nullptr;
 }
 
@@ -395,9 +441,9 @@ std::shared_ptr<ASTNode> Parser::parseStmt() {
 std::shared_ptr<ASTNode> Parser::parseStmtSeconde() {
     if (expect(TokenType::KW_ELSE)) {
         expectR(TokenType::CAR_COLON);
-        auto elseNode = std::make_shared<ASTNode>("Else");
-        elseNode->children.push_back(parseSuite());
-        return elseNode;
+        auto suite = parseSuite();
+        suite->type = "ElseBody";
+        return suite;
     }
     return nullptr;
 }
@@ -458,14 +504,19 @@ std::shared_ptr<ASTNode> Parser::parseSimpleStmt() {
             defNode->children.push_back(testNode);
             return defNode;
         }
-        std::cerr << "Unexpected token: " << tok.value << std::endl;
+        //std::cerr << "Unexpected token: " << tok.value << std::endl;
+        m_errorManager.addError(Error{"Unexpected ", Lexer::tokenTypeToString(tok.type), "Syntax", tok.line});
+        //m_errorManager.addError("Lexer: Unexpected token: " + tok.value + " (line:" + std::to_string(tok.line) + ")");
         return nullptr;
     }
     auto node = parseExpr();
     if(node) {
         return node;
     }
-    std::cerr << "Unexpected token: " << tok.value << std::endl;
+    //std::cerr << "Unexpected token: " << tok.value << std::endl;
+    m_errorManager.addError(Error{"Unexpected ", Lexer::tokenTypeToString(tok.type), "Syntax", tok.line});
+    continueParsing();
+    //m_errorManager.addError("Lexer: Unexpected token: " + tok.value + " (line:" + std::to_string(tok.line) + ")");
     return nullptr;
 }
 
@@ -623,3 +674,30 @@ void Parser::generateDotFile(const std::shared_ptr<ASTNode>& root, const std::st
     exportToDot(root, file);
     file << "}\n";
 }
+
+void Parser::handleInvalidNewlines(TokenType closingToken) {
+    bool hasNewlines = false;
+    while (peek().type == TokenType::NEWLINE) {
+        hasNewlines = true;
+        next();
+    }
+    if (hasNewlines) {
+        m_errorManager.addError(Error{
+            "Newlines are not allowed inside lists or parameter definitions.",
+            "",
+            "Syntax",
+            peek().line
+        });
+        continueParsing();
+    }
+    while (peek().type != closingToken && peek().type != TokenType::ENDOFFILE) {
+        next();
+    }
+    if (peek().type == closingToken) {
+        next();
+    }
+    else{
+        expectR(closingToken);
+    }
+}
+

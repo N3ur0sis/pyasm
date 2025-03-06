@@ -1,0 +1,9 @@
+
+# 3. Erreur de parenthèses et crochets non fermées + liste sur plusieurs lignes
+def main():
+    print("Factorial:"                  # Erreur syntaxique : parenthèse non fermée
+    for i in [1, 2,                     # Erreur synatxique : liste déclarée sur plusieurs lignes
+    3, 4 ,5:                            # Erreur syntaxique : crochet non fermé
+        print("Factorial of",           # Erreur Syntaxique : paramètres de fonction déclarés sur plusieurs lignes 
+        i, "is", factorial(i))
+

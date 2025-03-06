@@ -1,0 +1,7 @@
+
+# 1. Erreur de déclaration de fonction (identifiant invalide)
+def 123factorial(n):  # Erreur lexicale : un identifiant ne peut pas commencer par un chiffre
+    if n == 0:
+        return 1
+  else:                 # Erreur Indentation : non alignement entre if et else
+        return n * factorial(n-1)

@@ -10,4 +10,8 @@ add_executable(pyasm
         src/lexer.cpp
         src/parser.h
         src/parser.cpp
-        src/parser.cpp)
+        src/parser.cpp
+        src/errorManager.cpp
+        src/errorManager.h
+        src/symbolTable.cpp
+        src/symbolTable.h)

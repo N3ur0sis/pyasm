@@ -1,0 +1,12 @@
+
+# 5. Erreur d'affectation illégale
+x *= 7          # Erreur syntaxique : utilisation d'un orpérateur interdit
+print(6 = 7, )  # Erreur syntaxique : tentative d'affectation à une constante et absence d'élément après la virgule 
+
+# 8. Erreur dans une opération
+result = 5 + * 3  # Erreur syntaxique : opérateur inattendu
+
+# 10. Erreur avec une structure conditionnelle
+if 3 >:  # Erreur syntaxique : condition incomplète
+    print("Invalid condition")
+

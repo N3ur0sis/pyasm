@@ -1,0 +1,11 @@
+
+def test(a):
+	b = [5]
+	b[0] = a +1-1+1
+	return b[0]
+
+def main():
+	print(do_test(1) )
+
+if __name__ == "__main__":
+	main()
