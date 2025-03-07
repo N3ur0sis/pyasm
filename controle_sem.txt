@@ -1,0 +1,46 @@
+1. Vérification des déclarations de variables
+	•	Assurer qu’une variable est déclarée avant son utilisation.
+	•	Vérifier la compatibilité des types lors de l’affectation (a = "hello"; doit être une erreur si a est un int par exemple).
+
+2. Vérification des déclarations de fonctions
+	•	Vérifier que l’appel d’une fonction correspond à sa signature (nombre et type des paramètres).
+	•	Assurer qu’une fonction retourne bien une valeur du bon type si elle a un type de retour différent de void.
+
+3. Vérification des types dans les expressions
+	•	Vérifier la compatibilité des types dans les opérations (int + float, bool + int, etc.).
+	•	Assurer que les opérateurs (+, -, *, /, %, &&, ||, etc.) sont utilisés avec des types valides.
+	•	Détecter des erreurs comme la division par zéro (x / 0) ? 
+
+4. Vérification des structures de contrôle (if, while, for)
+	•	S’assurer que la condition d’un if, while, ou for est de type bool ? 
+	•	Vérifier que les variables utilisées dans une boucle for sont bien déclarées.
+    •	Vérifier que apres in dans for, c'est bien un itérable
+
+5. Vérification de la portée des variables
+	•	Empêcher l’utilisation d’une variable en dehors de sa portée (for ou {}).
+	•	Assurer qu’une variable globale n’est pas redéfinie dans une fonction si ce n’est pas autorisé.
+
+6. Vérification des listes et tableaux
+	•	Vérifier que tous les éléments d’une liste sont du même type.
+	•	Vérifier que l’accès à un tableau utilise bien un indice de type int.
+	•	Assurer que l’indice est dans les bornes du tableau.
+
+7. Vérification des conversions implicites et explicites
+	•	Permettre certaines conversions automatiques (int -> float mais pas string -> int).
+	•	Vérifier que les conversions explicites (cast) sont bien possibles.
+
+8. Vérification des paramètres des fonctions
+	•	Vérifier que chaque appel de fonction respecte la bonne arité (nombre d’arguments).
+	•	Assurer que les arguments passés à la fonction sont bien du type attendu.
+
+10. Vérification des variables non initialisées
+	•	Détecter l’utilisation d’une variable sans qu’elle ait reçu de valeur.
+
+
+Avertissement (bonus)
+
+11. Détection des variables inutilisées
+	•	Générer un avertissement si une variable est déclarée mais jamais utilisée.
+
+12. Détection des boucles infinies évidentes
+	•	Avertir si une boucle while (true) {} n’a pas de break.

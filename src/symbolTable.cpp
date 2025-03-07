@@ -178,6 +178,7 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& node, SymbolTab
                 }
             }
         }
+        return;
     }
     else if (node->type == "For") {
         // Create a new scope for the for loop
@@ -234,6 +235,22 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& node, SymbolTab
             currentTable->addSymbol(arraySym);
         }
     }
+    else if (node->type == "IfBody") {
+         auto ifTable = std::make_unique<SymbolTable>("IfBody", currentTable);
+         for (const auto& child : node->children) {
+             visit(child, ifTable.get());
+         }
+         currentTable->children.push_back(std::move(ifTable));
+        return;
+    }
+    else if (node->type == "ElseBody") {
+        auto elseTable = std::make_unique<SymbolTable>("ElseBody", currentTable);
+        for (const auto& child : node->children) {
+            visit(child, elseTable.get());
+        }
+        currentTable->children.push_back(std::move(elseTable));
+       return;
+   }
 
     // Recursively visit child nodes
     for (const auto& child : node->children) {
