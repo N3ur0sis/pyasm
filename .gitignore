@@ -43,3 +43,9 @@ ast.pdf
 cmake-build-debug/*
 cmake-build-release/*
 build/*
+
+output.*
+output.asm
+output.o
+output.s
+output
