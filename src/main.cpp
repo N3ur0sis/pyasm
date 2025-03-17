@@ -4,7 +4,7 @@
 #include "lexer.h"
 #include "parser.h"
 #include "errorManager.h"
-#include "symbolTable.h"   // Nouveau module pour les symboles
+#include "symbolTable.h"
 
 int main(int argc, char* argv[]) {
     if (argc != 2) {

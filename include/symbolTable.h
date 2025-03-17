@@ -1,13 +1,10 @@
-#ifndef SYMBOL_TABLE_H
-#define SYMBOL_TABLE_H
+#pragma once
 
 #include <string>
 #include <vector>
 #include <memory>
 #include <ostream>
-
-// Forward declaration of ASTNode to avoid circular dependencies
-class ASTNode;
+#include "parser.h"
 
 // Base Symbol class with common attributes
 class Symbol {
@@ -101,5 +98,3 @@ private:
     // Recursive visit method to traverse AST and build symbol table
     static void visit(const std::shared_ptr<ASTNode>& node, SymbolTable* currentTable);
 };
-
-#endif // SYMBOL_TABLE_H

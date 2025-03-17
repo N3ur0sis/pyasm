@@ -1,146 +1,149 @@
-# PYASM Compiler
+# **PyAsm Compiler**
 
-
-    How to Use the Template:
-
-    1. Replace [Project Name] with your compiler's name.
-    1. Fill in placeholders like [language], [tool version], and other details specific to your project.
-    1. You can expand on the sections, such as providing detailed usage instructions or more examples.
-
-    Feel free to modify this based on your project's requirements!
-
-
-
-## Table of Contents
-
-1. [Introduction](#introduction)
-1. [Team](#team)
-1. [Features](#features)
-1. [Installation](#installation)
-1. [Usage](#usage)
-1. [Examples](#examples)
-1. [Testing](#testing)
-1. [Acknowledgements](#acknowledgements)
+## **Table of Contents**
+1. [Introduction](#introduction)  
+2. [Team](#team)  
+3. [Features](#features)  
+4. [Installation](#installation)  
+5. [Usage](#usage)  
+6. [Examples](#examples)  
+7. [Testing](#testing)  
+8. [Acknowledgements](#acknowledgements)  
 
 ---
 
-## Introduction
+## **Introduction**
+The **PyAsm Compiler** is a compiler implemented in **C++**, designed to **parse and analyze MiniPython (MPY) source code** by generating an Abstract Syntax Tree (AST) and performing error validation at various compilation stages. PyAsm enables static analysis of MiniPython scripts and facilitates structured representation of the input source.
 
-The **PyAsm Compiler** is a C++ compiler designed to translates MiniPython (mpy) source code into AST representation and includes error checking at different compiling stage.
+## **Team**
+- **Aymeric ROBERT**  
+- **Baptiste PACHOT**  
+- **Alexis CHAVY**  
+- **Johan Kasczyk**  
 
-### Team
+## **Why Use PyAsm?**
+- **Optimized Parsing and AST Generation** – Efficient processing of MiniPython syntax.  
+- **Error Detection** – Provides structured error reporting for syntax and semantic issues.  
+- **Designed for Educational and Research Purposes** – A tool for understanding compiler design in an academic setting.  
+- **Cross-Platform Compatibility** – Can be compiled and executed on **Linux and macOS**.
 
-- Aymeric ROBERT
-- Baptiste PACHOT
-- Alexis CHAVY
-- Johan Kasczyk
+---
 
-### Why use PyAsm?
+## **Features**
+- **Lexical and Syntax Analysis** – Tokenization and parsing of MiniPython scripts.  
+- **AST Generation** – Converts source code into a structured AST representation.  
+- **Error Handling and Reporting** – Detects and reports syntax errors with precision.  
+- **Graphical AST Visualization** – Generates **DOT format output** for AST representation.  
+- **Modular Architecture** – Easily extendable for additional features such as optimizations.  
+- **Command-Line Interface** – Configurable options for analysis and debugging.
 
-- Don't use It.
-- Fast compilation and easy to use.
+---
 
+## **Installation**
 
-## Features
+### **Prerequisites**
+Ensure that the following dependencies are installed:
+- **C++20** (GCC, Clang, or MSVC)
+- **CMake (>= 3.22)**
+- **Graphviz (for AST visualization)**
+- **Make (or an equivalent build system)**
+- **Git**
 
-- **Cross-platform:** Runs on [list of supported platforms]
-- **Optimization:** Implements advanced optimizations like [list of optimizations: e.g., constant folding, dead code elimination]
-- **Error Reporting:** Detailed syntax and semantic error messages
-- **[Other features]**
-
-## Installation
-
-### Prerequisites
-
-- **[Language/Tool Version(s)]:** Ensure you have [required language/tools] installed.
-
-#### Example:
-
+#### **Linux/macOS Installation**
 ```bash
-$ sudo apt-get install build-essential gdb cmake
+./scripts/install_deps.sh  # Installs required dependencies
 ```
 
-### Installing the Compiler
 
-Clone the repository and install any required dependencies:
-
+### **Cloning the Repository**
 ```bash
-$ git clone https://gibson.telecomnancy.univ-lorraine.fr/projets/2425/compil/[project-name].git
-$ cd [project-name]
-$ ./configure
-$ make
-$ sudo make install
+git clone https://gibson.telecomnancy.univ-lorraine.fr/projets/2425/compil/pyasm.git
+cd pyasm
 ```
 
-## Usage
-
-### Basic Command
-
-To compile a [language] source file:
-
+### **Building the Compiler**
 ```bash
-$ [project-name] [options] [source-file]
+./scripts/build.sh  # Builds the project
 ```
 
-### Command-line Options
+---
 
-- `-o [file]`: Specify output file name
-- `-O`: Enable optimizations
-- `--debug`: Enable debug mode
-- `--help`: Show help message
+## **Usage**
 
-### Examples
-
-#### Compiling a simple program:
-
+### **Basic Command Syntax**
 ```bash
-$ [project-name] -o output.exe example.lang
+./scripts/run.sh <source-file>
 ```
 
-#### Running in debug mode:
+### **Command-Line Options**
+| Option        | Description |
+|--------------|-------------|
+| `-o <file>`  | Specify the output file name |
+| `--debug`    | Enable debug mode |
+| `--dot <file>` | Export AST to DOT format for visualization |
+| `--help`     | Display usage information |
 
+### **Example Compilation**
 ```bash
-$ [project-name] --debug example.lang
+./scripts/run.sh ./data/examples/ex1.mpy
 ```
 
-## Examples
-
-Here are some sample programs you can compile using [Project Name]:
-
-1. **Hello World:**
-
-```language
-// Example code for Hello World in [language]
-```
-
-2. **Fibonacci Sequence:**
-
-```language
-// Example code for Fibonacci in [language]
-```
-
-For more examples, refer to the `examples/` directory.
-
-## Testing
-
-To run tests, make sure you have [testing framework] installed:
-
+### **Running in Debug Mode**
 ```bash
-$ make test
+./scripts/run.sh --debug ./data/examples/ex1.mpy
 ```
 
-You can also add specific test cases in the `tests/` folder and run them with:
+---
 
+## **Examples**
+### **1. MiniPython Hello World**
+```python
+print("Hello, world!")
+```
 ```bash
-$ ./run_tests.sh
+./scripts/run.sh ./data/examples/hello.mpy
 ```
 
-### Reporting Issues
+### **2. Fibonacci Sequence in MiniPython**
+```python
+def fibonacci(n):
+    if n <= 1:
+        return n
+    else:
+        return fibonacci(n-1) + fibonacci(n-2)
 
-If you encounter any issues or have feature requests, please open an issue on the GitHub repository.
+print(fibonacci(10))
+```
+```bash
+./scripts/run.sh ./data/examples/fibonacci.mpy
+```
 
-## Acknowledgements
+---
 
-- [Tool/Libraries] used in this project
-- Special thanks to [contributors, advisors, etc.]
+## **Testing**
+To validate the functionality of **PyAsm**, run the test suite:
+```bash
+./scripts/full_setup.sh  # Installs dependencies, builds, and runs the project
+```
+or execute individual test scripts:
+```bash
+./scripts/run_tests.sh
+```
+### **Debugging and AST Visualization**
+```bash
+./scripts/run.sh --dot ast.dot ./data/examples/ex1.mpy
+dot -Tpdf ast.dot -o ast.pdf
+```
+This generates an **AST visualization in PDF format**.
+
+---
+
+## **Acknowledgements**
+This project utilizes:
+- **CMake** – Build system  
+- **Graphviz** – AST visualization  
+- **GCC / Clang** – Compilation  
+- **GitLab** – Version control  
+
+Special thanks to **Telecom Nancy** for hosting the project infrastructure.
 
