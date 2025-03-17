@@ -122,47 +122,56 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& node, SymbolTab
     if (!node)
         return;
 
-    if (node->type == "FunctionDefinition") {
-        // Reset offset for function scope
-        currentTable->nextOffset = 0;
-
-        FunctionSymbol funcSymbol { 
-            node->value, 
-            "int",  // Default return type
-            0, // Default Number of parameters, changed after processing parameters
-            0 // Function offset typically 0
-        };
-
-        // Set the number of parameters in the function symbol 
-        if (!node->children.empty()) {
-            funcSymbol.numParams = (node->children[0])->children.size();
-        }
-        currentTable->addSymbol(funcSymbol);
+        if (node->type == "FunctionDefinition") {
+            // Récupérer le nom de la fonction
+            std::string funcName = node->value; // ex: "add"
         
-        auto functionTable = std::make_unique<SymbolTable>("function " + node->value, currentTable);
+            // Créer un symbole de fonction
+            FunctionSymbol funcSymbol {
+                funcName,
+                "int",     // type de retour par défaut
+                0,         // nombre de paramètres sera mis à jour
+                0          // offset
+            };
         
-        // Process function parameters
-        if (!node->children.empty()) {
-            auto paramList = node->children[0];           
-            for (const auto& param : paramList->children) {
-                VariableSymbol paramSymbol { 
-                    param->value,
-                    "int",  // Default type
-                    "parameter", 
-                    0  // Offset will be calculated
-                };
-                functionTable->addSymbol(paramSymbol);
+            // La liste de paramètres est généralement node->children[0]
+            // On compte le nombre de paramètres
+            if (!node->children.empty()) {
+                auto paramList = node->children[0];
+                funcSymbol.numParams = (int)paramList->children.size();
             }
-        }
         
-        // Process function body
-        if (node->children.size() >= 2) {
-            visit(node->children[1], functionTable.get());
-        }
+            // Ajouter le symbole fonction dans la table actuelle
+            currentTable->addSymbol(funcSymbol);
         
-        currentTable->children.push_back(std::move(functionTable));
-        return;
-    }
+            // Créer une table enfant pour la portée de la fonction
+            auto functionTable = std::make_unique<SymbolTable>("function " + funcName, currentTable);
+            // On remet l'offset à 0, si on gère l'empilement
+            functionTable->nextOffset = 0;
+        
+            // Ajout des paramètres à la table enfant
+            if (!node->children.empty()) {
+                auto paramList = node->children[0];
+                for (const auto& param : paramList->children) {
+                    VariableSymbol paramSymbol {
+                        param->value,
+                        "int",       // type par défaut
+                        "parameter", // ou « variable »
+                        0
+                    };
+                    functionTable->addSymbol(paramSymbol);
+                }
+            }
+        
+            // Ensuite, on visite le corps de la fonction (node->children[1], s’il existe)
+            if (node->children.size() >= 2) {
+                visit(node->children[1], functionTable.get());  
+            }
+        
+            // Enfin, on rattache la table enfant
+            currentTable->children.push_back(std::move(functionTable));
+            return;
+        }
     else if (node->type == "Affect") {
         if (!node->children.empty()) {
             auto varNode = node->children[0];

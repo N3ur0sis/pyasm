@@ -1,11 +1,7 @@
-x = 2 
-y = True
-if y>x:
-  x = y
-  z = 5
-  for i in range(z):
-    if x == 3:
-      x + 2
-      x = 1
-else :
-  d = 4
+def add(x, y):
+    return x + y
+
+a = 5
+b = 10
+c = add(a, b)
+print(c)
