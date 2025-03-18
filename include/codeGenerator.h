@@ -1,23 +1,32 @@
 #pragma once
-#include "parser.h"
-#include <string>
+
 #include <memory>
-#include "symbolTable.h"
+#include <string>
+#include <set>
+#include "parser.h"
 
-class CodeGenerator{
-    public:
-        void generateCode(const std::shared_ptr<ASTNode>& root, SymbolTable* globalTable, const std::string& filename);
+class CodeGenerator {
+public:
+    // Generates the complete assembly code from the AST and writes it to a file.
+    void generateCode(const std::shared_ptr<ASTNode>& root, const std::string& filename);
 
-    private:
-        std::string asmCode;
+private:
+    // Final assembly output
+    std::string asmCode;
 
-        /** CORE FUNCTIONS */
-        void startAssembly();
-        void visitNode(const std::shared_ptr<ASTNode>& root);
-        void endAssembly();
-        void writeToFile(const std::string& filename);
+    // Accumulated code for the data section.
+    std::string dataSection;
+    // Accumulated code for the text section.
+    std::string textSection;
 
-        /** GENREATION FUNCTIONS**/
-        void genPrint();
-        void genAffect(const std::shared_ptr<ASTNode>& node); 
+    // Set to track variables already declared in the data section.
+    std::set<std::string> declaredVars;
+
+    // Code generation routines.
+    void startAssembly();
+    void visitNode(const std::shared_ptr<ASTNode>& node);
+    void endAssembly();
+    void writeToFile(const std::string &filename);
+    void genPrint();
+    void genAffect(const std::shared_ptr<ASTNode>& node);
 };

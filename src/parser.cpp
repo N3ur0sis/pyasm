@@ -92,7 +92,7 @@ std::shared_ptr<ASTNode> Parser::parseRoot() {
 
     skipNewlines();
     auto old_pos = pos-1;
-    while (peek().type != TokenType::ENDOFFILE and old_pos < pos) {
+    while (peek().type != TokenType::ENDOFFILE and (old_pos < pos or old_pos <= 0)) {
         old_pos = pos;
         auto expr = parseStmt();
         if (expr) OP->children.push_back(expr);

@@ -1,11 +1,13 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <cstdlib>
 #include "lexer.h"
 #include "parser.h"
 #include "errorManager.h"
 #include "symbolTable.h"
 #include "semanticAnalyzer.h"
+#include "codeGenerator.h"  // Include the code generator header
 
 int main(int argc, char* argv[]) {
     if (argc != 2) {
@@ -27,7 +29,7 @@ int main(int argc, char* argv[]) {
 
     try {
         auto tokens = lexer.tokenize();
-        lexer.displayTokens(tokens); // Affichage des tokens pour débogage
+        lexer.displayTokens(tokens); // Display tokens for debugging
 
         Parser parser(tokens, errorManager);
         auto ast = parser.parse();
@@ -36,41 +38,46 @@ int main(int argc, char* argv[]) {
             return EXIT_FAILURE;
         }
 
-        // Affiche l'AST sur la console + dot
+        // Generate the AST dot file and print the AST to console
         parser.generateDotFile(ast, "ast.dot");
         std::cout << "Abstract Syntax Tree:" << std::endl;
         parser.print(ast);
 
-        // Génère la table des symboles
+        // Generate the symbol table
         SymbolTableGenerator symGen;
         auto symTable = symGen.generate(ast);
 
-        // === 1) Vérification des erreurs lexicales / syntaxiques existantes ===
+        // 1) Check for lexical/syntax errors
         if (errorManager.hasErrors()) {
             std::cout << std::endl;
             errorManager.displayErrors();
             return EXIT_FAILURE;
         }
 
-        // === 2) Lancement de l'analyse sémantique ===
+        // 2) Launch semantic analysis
         {
             SemanticAnalyzer semAnalyzer(errorManager);
             semAnalyzer.checkSemantics(ast, symTable.get());
         }
 
-        // === 3) Vérification des erreurs sémantiques ===
+        // 3) Check for semantic errors
         if (errorManager.hasErrors()) {
             std::cout << std::endl;
             errorManager.displayErrors();
             return EXIT_FAILURE;
         }
 
-        // Affiche la table des symboles
+        // Print the symbol table
         std::cout << "\nSymbol Table:" << std::endl;
         symTable->print(std::cout);
 
-        // S'il n'y a pas d'erreur, on peut alors envisager la suite
         std::cout << "\nNo semantic errors. Ready for code generation! :)\n" << std::endl;
+
+        // --- Code Generation Phase ---
+        CodeGenerator codeGen;
+        // Generate the assembly code and write it to "output.asm"
+        codeGen.generateCode(ast, "output.asm");
+        std::cout << "Assembly code generated in output.asm" << std::endl;
 
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;

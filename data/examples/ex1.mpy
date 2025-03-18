@@ -1,7 +1,5 @@
-def add(x, y):
-    return x + y
 
-a = 5
-b = 10
-c = add(a, b)
-print(c)
+a = 10
+b = 20
+c = 5
+print(a + c)
