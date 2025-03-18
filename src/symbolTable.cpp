@@ -119,8 +119,9 @@ std::unique_ptr<SymbolTable> SymbolTableGenerator::generate(const std::shared_pt
 }
 
 void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& node, SymbolTable* currentTable) {
-    if (!node)
+    if (!node){
         return;
+    }
 
         if (node->type == "FunctionDefinition") {
             // Récupérer le nom de la fonction
