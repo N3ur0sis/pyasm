@@ -1,18 +1,24 @@
 def square(x):
- return x*x
+    return x*x
+
 def add(x,y):
-    return x+y
+    print(x)
+    print(y)
+    z = x+y
+    return z
+
 def comp(a,b):
-    print(b)
-    print(a)
-    if a<=b :
+    if a <= b:
         return True
-        #Doit retourner un idf et non un mot clé
     else:
         return False
-    return None
 
-print(square(3))
+a = "Hello"
+b = " World"
+print(square(3))              # 9
 print("Comparaison")
-print(comp(square(4),3))
-
+print(comp(square(4), 3))     # False
+print("Add Integer")
+print(add(4,3))               # 7
+print("Add String")
+print(add(a,b)) # Hello World

@@ -3,14 +3,19 @@
 #include <stdexcept>
 #include <cstdlib>
 #include <sstream>
+#include <functional>
 
-void CodeGenerator::generateCode(const std::shared_ptr<ASTNode>& root, const std::string& filename) {
+void CodeGenerator::generateCode(const std::shared_ptr<ASTNode>& root, const std::string& filename, SymbolTable* symTable) {
+    symbolTable = symTable;
+    //Print for debugging
+    std::cout << "Symbol Table: (generator)" << std::endl;
+    symbolTable->print(std::cout, 0);
     // Initialize our sections.
     dataSection = "";
     textSection = "";
     std::string functionSection = ""; // Add a separate section for functions
     declaredVars.clear();
-    
+    dataSection = std::string("concat_buffer: times 2048 db 0\n") + "concat_offset: dq 0\n" + dataSection;
     // Generate the text (and data) from the AST.
     startAssembly();
     
@@ -44,8 +49,9 @@ void CodeGenerator::generateCode(const std::shared_ptr<ASTNode>& root, const std
     finalAsm << "section .data\n";
     finalAsm << dataSection;
     finalAsm << "newline: db 10\n";
+    finalAsm << "space: db 32\n";    
     finalAsm << "minus_sign: db '-'\n\n";
-    
+        
     // BSS section: for our conversion buffer.
     finalAsm << "section .bss\n";
     finalAsm << "buffer: resb 32\n\n";
@@ -82,13 +88,53 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
             genFor(node);
     } else if (node->type == "If") {
         genIf(node);
+    } else if (node->type == "String") {
+            // Generate a unique label for this string
+            static int strCounter = 0;
+            std::string strLabel = "str_" + std::to_string(strCounter++);
+            
+            // Add string to data section with null terminator
+            dataSection += strLabel + ": db ";
+            
+            // Escape the string and add it to data section
+            std::string strValue = node->value;
+            dataSection += "\"" + strValue + "\", 0\n";
+            
+            // Load the address of the string into rax
+            textSection += "mov rax, " + strLabel + "\n";
+       
     } else if (node->type == "Print") {
-        // Visit children of the print node (which should compute an expression)
-        for (const auto& child : node->children) {
-            visitNode(child);
+        // Check if this is a print with multiple arguments (List)
+        if (node->children.size() == 1 && node->children[0]->type == "List") {
+            // Process each argument in the list
+            for (size_t i = 0; i < node->children[0]->children.size(); i++) {
+                const auto& item = node->children[0]->children[i];
+                visitNode(item);  // Process one argument
+                genPrint();       // Print that argument
+                
+                // Add a space between items (but not after the last one)
+                if (i < node->children[0]->children.size() - 1) {
+                    // Print a space between items
+                    textSection += "mov rax, 1\n";         // write syscall
+                    textSection += "mov rdi, 1\n";         // stdout
+                    textSection += "push rax\n";           // save registers
+                    textSection += "push rdi\n";
+                    textSection += "mov rsi, space\n";     // point to space character
+                    textSection += "mov rdx, 1\n";         // length 1
+                    textSection += "syscall\n";
+                    textSection += "pop rdi\n";            // restore registers
+                    textSection += "pop rax\n";
+                }
+            }
+        } else {
+            // Regular print with single expression
+            for (const auto& child : node->children) {
+                visitNode(child);
+            }
+            genPrint();
         }
-        genPrint();
-        // Optionally, print a newline after printing the value.
+        
+        // Always print newline at the end
         textSection += "mov rax, 1\n";
         textSection += "mov rdi, 1\n";
         textSection += "mov rsi, newline\n";
@@ -138,13 +184,41 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
     } else if (node->type == "ArithOp") {
         // The node's value field holds the operator ("+")
         if (node->value == "+") {
-            // Evaluate the left child.
-            visitNode(node->children[0]);
-            textSection += "push rax\n";
-            // Evaluate the right child.
-            visitNode(node->children[1]);
-            textSection += "pop rbx\n";
-            textSection += "add rax, rbx\n";
+            // Check if this is a string concatenation
+            bool isStringOperation = false;
+            if (node->children[0]->type != node->children[1]->type) {
+                throw std::runtime_error("Operands must have the same type for operation: " + node->value);
+            }
+            if (node->children[0]->type == "String" && node->children[1]->type == "String") {
+                isStringOperation = true;
+            }
+            else if (node->children[0]->type == "Identifier" && isStringVariable(node->children[0]->value)
+                    && node->children[1]->type == "Identifier" && isStringVariable(node->children[1]->value)) {
+            isStringOperation = true;
+            }
+
+            
+            if (isStringOperation) {
+                // Debug:
+                textSection += "; String concatenation\n";
+                
+                // String concatenation
+                visitNode(node->children[0]);
+                textSection += "push rax\n";
+                visitNode(node->children[1]);
+                textSection += "mov rsi, rax\n";  // second string in RSI
+                textSection += "pop rdi\n";       // first string in RDI
+                // DEBUG: Print registers before concat
+                textSection += "; rdi = first string, rsi = second string\n";
+                textSection += "call str_concat\n";
+            } else {
+                // Integer addition
+                visitNode(node->children[0]);
+                textSection += "push rax\n";
+                visitNode(node->children[1]);
+                textSection += "pop rbx\n";
+                textSection += "add rax, rbx\n";
+            }
         }
         else if (node->value == "-") {
             // Evaluate the left child
@@ -204,23 +278,23 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
         }
     }
 }
-
 void CodeGenerator::endAssembly() {
-    // Append exit syscall.
-    textSection += "\n";
+    // --- Program Exit ---
+    textSection += "\n; Program exit\n";
     textSection += "mov rax, 60      ; syscall: exit\n";
     textSection += "xor rdi, rdi     ; exit code 0\n";
     textSection += "syscall\n\n";
 
-    // Append the print routine that converts the integer in RAX to a string.
+    // --- Print Number Function ---
+    textSection += "; Function to print a number in RAX\n";
     textSection += "print_number:\n";
     textSection += "    push rbp\n";
     textSection += "    mov rbp, rsp\n";
     textSection += "    mov r12, rax          ; save original number in r12\n";
 
-    // Add code to handle negative numbers
+    // Handle negative numbers
     textSection += "    cmp r12, 0\n";
-    textSection += "    jge .positive\n";
+    textSection += "    jge .print_positive\n";
     textSection += "    ; Handle negative number\n";
     textSection += "    push r12\n";
     textSection += "    mov rax, 1\n";
@@ -231,27 +305,28 @@ void CodeGenerator::endAssembly() {
     textSection += "    pop r12\n";
     textSection += "    neg r12      ; Make the number positive\n";
 
-    textSection += ".positive:\n";
+    textSection += ".print_positive:\n";
     textSection += "    lea rdi, [buffer+31]  ; point rdi to end of buffer\n";
     textSection += "    mov byte [rdi], 0     ; null-terminate the buffer\n";
     textSection += "    cmp r12, 0\n";
-    textSection += "    jne .convert\n";
+    textSection += "    jne .print_convert\n";
     textSection += "    mov byte [rdi-1], '0'\n";
     textSection += "    lea rdi, [rdi-1]\n";
-    textSection += "    jmp .print\n";
+    textSection += "    jmp .print_output\n";
      
-    textSection += ".convert:\n";
+    textSection += ".print_convert:\n";
     textSection += "    mov rax, r12\n";
     textSection += "    mov rbx, 10\n";
-    textSection += ".convert_loop:\n";
+    textSection += ".print_convert_loop:\n";
     textSection += "    xor rdx, rdx\n";
     textSection += "    div rbx             ; rax = quotient, rdx = remainder\n";
     textSection += "    add rdx, '0'        ; convert digit to ASCII\n";
     textSection += "    dec rdi             ; move pointer left\n";
     textSection += "    mov [rdi], dl       ; store digit in buffer\n";
     textSection += "    cmp rax, 0\n";
-    textSection += "    jne .convert_loop\n";
-    textSection += ".print:\n";
+    textSection += "    jne .print_convert_loop\n";
+    
+    textSection += ".print_output:\n";
     textSection += "    lea rsi, [rdi]      ; rsi points to start of the string\n";
     textSection += "    mov rdx, buffer+31\n";
     textSection += "    sub rdx, rdi        ; compute string length\n";
@@ -259,7 +334,73 @@ void CodeGenerator::endAssembly() {
     textSection += "    mov rdi, 1          ; file descriptor: stdout\n";
     textSection += "    syscall\n";
     textSection += "    pop rbp\n";
-    textSection += "    ret\n";
+    textSection += "    ret\n\n";
+    
+    // --- str_concat avec gestion d’un buffer et offset ---
+    textSection += "; Function to concatenate two strings with offset\n";
+    textSection += "str_concat:\n";
+    textSection += "    push rbp\n";
+    textSection += "    mov rbp, rsp\n";
+    textSection += "    push r12\n";
+    textSection += "    push r13\n";
+    textSection += "    push r14\n";
+    textSection += "    push rbx\n";
+
+    textSection += "    ; Save input strings\n";
+    textSection += "    mov r12, rdi        ; r12 = str1\n";
+    textSection += "    mov r13, rsi        ; r13 = str2\n";
+    textSection += "    mov r14, concat_buffer\n";
+    textSection += "    mov rbx, [concat_offset]\n";
+    textSection += "    add r14, rbx        ; r14 = destination address (buffer + offset)\n";
+
+    // Label ID pour éviter les conflits
+    static int concatId = 0;
+    std::string id = std::to_string(concatId++);
+
+    // Sauvegarder le pointeur de début de concaténation à retourner
+    textSection += "    mov rax, r14\n";
+
+    // --- Copier str1 ---
+    textSection += "    mov rsi, r12\n";
+    textSection += ".copy_str1_" + id + ":\n";
+    textSection += "    mov al, [rsi]\n";
+    textSection += "    cmp al, 0\n";
+    textSection += "    je .done_str1_" + id + "\n";
+    textSection += "    mov [r14], al\n";
+    textSection += "    inc rsi\n";
+    textSection += "    inc r14\n";
+    textSection += "    jmp .copy_str1_" + id + "\n";
+    textSection += ".done_str1_" + id + ":\n";
+
+    // --- Copier str2 ---
+    textSection += "    mov rsi, r13\n";
+    textSection += ".copy_str2_" + id + ":\n";
+    textSection += "    mov al, [rsi]\n";
+    textSection += "    cmp al, 0\n";
+    textSection += "    je .done_str2_" + id + "\n";
+    textSection += "    mov [r14], al\n";
+    textSection += "    inc rsi\n";
+    textSection += "    inc r14\n";
+    textSection += "    jmp .copy_str2_" + id + "\n";
+    textSection += ".done_str2_" + id + ":\n";
+
+    // Ajout du null terminator
+    textSection += "    mov byte [r14], 0\n";
+    textSection += "    inc r14\n";
+
+    // Mettre à jour concat_offset = r14 - concat_buffer
+    textSection += "    mov rbx, r14\n";
+    textSection += "    sub rbx, concat_buffer\n";
+    textSection += "    mov [concat_offset], rbx\n";
+
+    // Nettoyage
+    textSection += "    pop rbx\n";
+    textSection += "    pop r14\n";
+    textSection += "    pop r13\n";
+    textSection += "    pop r12\n";
+    textSection += "    pop rbp\n";
+    textSection += "    ret\n\n";
+
 }
 
 void CodeGenerator::writeToFile(const std::string &filename) {
@@ -272,10 +413,39 @@ void CodeGenerator::writeToFile(const std::string &filename) {
 }
 
 void CodeGenerator::genPrint() {
-    // Assumes the computed expression's result is in RAX.
+    // Create unique label names using a counter
+    static int printCounter = 0;
+    std::string printId = std::to_string(printCounter++);
+    
+    std::string strlenLoopLabel = ".print_strlen_loop_" + printId;
+    std::string strlenDoneLabel = ".print_strlen_done_" + printId;
+    std::string printNumLabel = ".print_num_" + printId;
+    std::string printExitLabel = ".print_exit_" + printId;
+    
+    // Check if we're printing a string (address > 10000) or number
+    textSection += "cmp rax, 10000\n";
+    textSection += "jl " + printNumLabel + "\n";
+    
+    // Print string
+    textSection += "mov rsi, rax\n";   // String address already in rax
+    textSection += "mov rdx, 0\n";     // Calculate string length
+    textSection += strlenLoopLabel + ":\n";
+    textSection += "cmp byte [rsi+rdx], 0\n";
+    textSection += "je " + strlenDoneLabel + "\n";
+    textSection += "inc rdx\n";
+    textSection += "jmp " + strlenLoopLabel + "\n";
+    textSection += strlenDoneLabel + ":\n";
+    textSection += "mov rax, 1\n";     // write syscall
+    textSection += "mov rdi, 1\n";     // stdout
+    textSection += "syscall\n";
+    textSection += "jmp " + printExitLabel + "\n";
+    
+    // Print number
+    textSection += printNumLabel + ":\n";
     textSection += "call print_number\n";
+    
+    textSection += printExitLabel + ":\n";
 }
-
 void CodeGenerator::genAffect(const std::shared_ptr<ASTNode>& node) {
     if (node->children.size() < 2) {
         throw std::runtime_error("Invalid ASTNode structure for assignment");
@@ -436,34 +606,69 @@ void CodeGenerator::genFunctionCall(const std::shared_ptr<ASTNode>& node) {
     auto args = node->children[1];
     
     // Save caller-saved registers
-    textSection += "    ; Save registers for function call\n";
-    textSection += "    push rbx\n";
-    textSection += "    push r12\n";
-    textSection += "    push r13\n";
+    textSection += "; Save registers for function call\n";
+    textSection += "push rbx\n";
+    textSection += "push r12\n";
+    textSection += "push r13\n";
+    textSection += "push r14\n";
+    textSection += "push r15\n";
     
     // Align the stack to 16 bytes (critical for function calls)
-    textSection += "    ; Align stack\n";
-    textSection += "    mov rbx, rsp\n";
-    textSection += "    and rsp, -16\n";
-    textSection += "    push rbx\n";  // Save original stack pointer
+    textSection += "; Align stack\n";
+    textSection += "mov rbx, rsp\n";
+    textSection += "and rsp, -16\n";
+    textSection += "push rbx\n";  // Save original stack pointer
     
-    // Prepare arguments (first 6 in registers)
+    // Prepare and evaluate arguments
+    std::vector<bool> isStringArg;
     std::string regs[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
+    
+    // First pass - check argument types and evaluate them
     for (size_t i = 0; i < args->children.size() && i < 6; i++) {
-        visitNode(args->children[i]);  // Result in RAX
-        textSection += "    mov " + std::string(regs[i]) + ", rax\n";
+        auto& arg = args->children[i];
+        
+        // Determine if this argument is a string
+        bool isString = false;
+        if (arg->type == "String") {
+            isString = true;
+        } else if (arg->type == "Identifier") {
+            isString = isStringVariable(arg->value);
+        } else if (arg->type == "ArithOp" && arg->value == "+") {
+            // Check for string concatenation
+            if (arg->children[0]->type == "String" || arg->children[1]->type == "String") {
+                isString = true;
+            } else if (arg->children[0]->type == "Identifier" && isStringVariable(arg->children[0]->value)) {
+                isString = true;
+            } else if (arg->children[1]->type == "Identifier" && isStringVariable(arg->children[1]->value)) {
+                isString = true;
+            }
+        }
+        
+        isStringArg.push_back(isString);
+        
+        // Add debug comment about parameter type
+        textSection += "; Parameter " + std::to_string(i+1) + " - " + 
+                      (isString ? "string" : "integer") + "\n";
+                      
+        // Evaluate the argument - result will be in RAX
+        visitNode(arg);
+        
+        // Move the argument to its register
+        textSection += "mov " + regs[i] + ", rax\n";
     }
     
     // Call the function
-    textSection += "    call " + funcName + "\n";
+    textSection += "call " + funcName + "\n";
     
     // Restore stack alignment
-    textSection += "    pop rsp\n";  // Restore original stack pointer
+    textSection += "pop rsp\n";  // Restore original stack pointer
     
     // Restore saved registers in reverse order
-    textSection += "    pop r13\n";
-    textSection += "    pop r12\n";
-    textSection += "    pop rbx\n";
+    textSection += "pop r15\n";
+    textSection += "pop r14\n";
+    textSection += "pop r13\n";
+    textSection += "pop r12\n";
+    textSection += "pop rbx\n";
     
     // Result is already in rax
 }
@@ -478,4 +683,31 @@ void CodeGenerator::genReturn(const std::shared_ptr<ASTNode>& node) {
     
     // Jump to return label
     textSection += "    jmp .return_" + currentFunction + "\n";
+}
+
+bool CodeGenerator::isStringVariable(const std::string& name) {
+    if (!symbolTable) return false;
+    
+    // Recursively search through symbol table and its children
+    std::function<bool(SymbolTable*)> searchTable = [&](SymbolTable* table) {
+        // Check symbols in current table
+        for (const auto& sym : table->symbols) {
+            if (sym->name == name && sym->symCat == "variable") {
+                if (auto varSym = dynamic_cast<VariableSymbol*>(sym.get())) {
+                    return varSym->type == "String";
+                }
+            }
+        }
+        
+        // Search child tables
+        for (const auto& child : table->children) {
+            if (searchTable(child.get())) {
+                return true;
+            }
+        }
+        
+        return false;
+    };
+    
+    return searchTable(symbolTable);
 }

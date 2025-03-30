@@ -76,7 +76,7 @@ int main(int argc, char* argv[]) {
         // --- Code Generation Phase ---
         CodeGenerator codeGen;
         // Generate the assembly code and write it to "output.asm"
-        codeGen.generateCode(ast, "output.asm");
+        codeGen.generateCode(ast, "output.asm", symTable.get());
         std::cout << "Assembly code generated in output.asm" << std::endl;
 
     } catch (const std::exception& e) {

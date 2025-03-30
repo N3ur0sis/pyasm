@@ -12,6 +12,7 @@ int SymbolTable::calculateTypeSize(const std::string& type) {
     if (type == "int") return INT_SIZE;
     if (type == "float") return FLOAT_SIZE;
     if (type == "bool") return BOOL_SIZE;
+    if (type == "string") return POINTER_SIZE;
     
     // Default to pointer size for complex types like lists, objects
     return POINTER_SIZE;
@@ -156,7 +157,7 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& node, SymbolTab
                 for (const auto& param : paramList->children) {
                     VariableSymbol paramSymbol {
                         param->value,
-                        "int",       // type par défaut
+                        "unknown",       // type par défaut
                         "parameter", // ou « variable »
                         0
                     };
@@ -176,11 +177,16 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& node, SymbolTab
     else if (node->type == "Affect") {
         if (!node->children.empty()) {
             auto varNode = node->children[0];
+            auto type = node->children[1]->type;
+            if (type != "String"){
+                type = "int"; // Default type for other variables
+            }
             if (varNode && varNode->type == "Identifier") {
+                
                 if (!currentTable->lookup(varNode->value)) {
                     VariableSymbol varSymbol(
                         varNode->value,
-                        "int",  // Default type
+                        type, 
                         "variable",
                         0  // Offset will be calculated
                     );
