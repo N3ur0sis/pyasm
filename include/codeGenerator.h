@@ -30,4 +30,6 @@ private:
     void genPrint();
     void genAffect(const std::shared_ptr<ASTNode>& node);
     void genFor(const std::shared_ptr<ASTNode>& node);
+    void genIf(const std::shared_ptr<ASTNode>& node);
+
 };

@@ -51,7 +51,8 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
         genAffect(node);
     } else if (node->type == "For") {
             genFor(node);
-
+    } else if (node->type == "If") {
+        genIf(node);
     } else if (node->type == "Print") {
         // Visit children of the print node (which should compute an expression)
         for (const auto& child : node->children) {
@@ -64,6 +65,47 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
         textSection += "mov rsi, newline\n";
         textSection += "mov rdx, 1\n";
         textSection += "syscall\n";
+    } else if (node->type == "Compare") {
+        // Handle comparison operations
+        visitNode(node->children[0]);  // Evaluate left operand
+        textSection += "push rax\n";   // Save left operand
+        visitNode(node->children[1]);  // Evaluate right operand
+        textSection += "mov rbx, rax\n"; // Move right operand to rbx
+        textSection += "pop rax\n";    // Restore left operand to rax
+        
+        // Now compare rax (left) with rbx (right)
+        textSection += "cmp rax, rbx\n";
+        
+        // Set rax to 1 (true) or 0 (false) based on the comparison
+        if (node->value == "==") {
+            textSection += "mov rax, 0\n";
+            textSection += "sete al\n";  // Set al if equal
+        } else if (node->value == "!=") {
+            textSection += "mov rax, 0\n";
+            textSection += "setne al\n"; // Set al if not equal
+        } else if (node->value == "<") {
+            textSection += "mov rax, 0\n";
+            textSection += "setl al\n";  // Set al if less than
+        } else if (node->value == ">") {
+            textSection += "mov rax, 0\n";
+            textSection += "setg al\n";  // Set al if greater than
+        } else if (node->value == "<=") {
+            textSection += "mov rax, 0\n";
+            textSection += "setle al\n"; // Set al if less than or equal
+        } else if (node->value == ">=") {
+            textSection += "mov rax, 0\n";
+            textSection += "setge al\n"; // Set al if greater than or equal
+        }
+    } else if (node->type == "UnaryOp") {
+        // Visit the operand
+        visitNode(node->children[0]);
+        
+        if (node->value == "-") {
+            // Negate the value
+            textSection += "neg rax\n";
+        } 
+        // Add other unary operators as needed
+    
     } else if (node->type == "ArithOp") {
         // The node's value field holds the operator ("+")
         if (node->value == "+") {
@@ -282,4 +324,44 @@ void CodeGenerator::genFor(const std::shared_ptr<ASTNode>& node) {
         // Handle other types of for loops if necessary
         textSection += "; Warning: Non-range for loop not implemented\n";
     }
+}
+
+void CodeGenerator::genIf(const std::shared_ptr<ASTNode>& node) {
+    // Generate unique labels for this if statement
+    static int ifCounter = 0;
+    std::string ifId = std::to_string(ifCounter++);
+    std::string elseLabel = ".else_" + ifId;
+    std::string endLabel = ".endif_" + ifId;
+    
+    // Generate code for the condition expression
+    textSection += "; If condition\n";
+    visitNode(node->children[0]);
+    
+    // Test if the condition is false (0)
+    textSection += "cmp rax, 0\n";
+    
+    // If we have an else block (third child), jump to it if condition is false
+    if (node->children.size() > 2 && node->children[2]) {
+        textSection += "je " + elseLabel + "\n";
+    } else {
+        // Otherwise just skip the if block
+        textSection += "je " + endLabel + "\n";
+    }
+    
+    // Generate code for the "then" part (if body)
+    textSection += "; If body\n";
+    visitNode(node->children[1]);
+    
+    // Skip the else part if the "then" part was executed
+    if (node->children.size() > 2 && node->children[2]) {
+        textSection += "jmp " + endLabel + "\n";
+        
+        // Generate code for the "else" part
+        textSection += elseLabel + ":\n";
+        textSection += "; Else body\n";
+        visitNode(node->children[2]);
+    }
+    
+    // End of if statement
+    textSection += endLabel + ":\n";
 }
