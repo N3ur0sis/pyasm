@@ -8,7 +8,6 @@ fi
 
 echo "Running pyasm with input: $1"
 
-
 ./build/bin/pyasm "$1"
 
 # Convert ast.dot if exists
@@ -18,4 +17,16 @@ if [ -f "ast.dot" ]; then
     echo "AST visualization saved as ast.pdf"
 else
     echo "No ast.dot file found. Skipping PDF generation."
+fi
+
+# Execute the generated ASM file if it exists
+if [ -f "output.asm" ]; then
+    echo -e "\nAssembling and executing output.asm..."
+    nasm -f elf64 output.asm -o output.o && \
+    ld -nostdlib output.o -o output && \
+    echo -e "\nProgram output:" && \
+    ./output
+    echo -e "\nExecution complete."
+else
+    echo "No output.asm file found. Skipping execution."
 fi
