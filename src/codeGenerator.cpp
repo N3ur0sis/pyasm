@@ -71,7 +71,51 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
             textSection += "pop rbx\n";
             textSection += "add rax, rbx\n";
         }
-        // TODO: add handling for other operators here
+        else if (node->value == "-") {
+            // Evaluate the left child
+            visitNode(node->children[0]);
+            textSection += "push rax\n";
+            // Evaluate the right child
+            visitNode(node->children[1]);
+            textSection += "mov rbx, rax\n";
+            textSection += "pop rax\n";
+            textSection += "sub rax, rbx\n";
+        }
+    
+    } else if (node->type == "TermOp"){
+        if (node->value == "*") {
+            // Evaluate the left child
+            visitNode(node->children[0]);
+            textSection += "push rax\n";
+            // Evaluate the right child
+            visitNode(node->children[1]);
+            textSection += "mov rbx, rax\n";
+            textSection += "pop rax\n";
+            textSection += "imul rax, rbx\n";
+        }
+        else if (node->value == "//") {
+            // Evaluate the left child
+            visitNode(node->children[0]);
+            textSection += "push rax\n";
+            // Evaluate the right child
+            visitNode(node->children[1]);
+            textSection += "mov rbx, rax\n";
+            textSection += "pop rax\n";
+            textSection += "xor rdx, rdx\n";  // Clear RDX before division
+            textSection += "div rbx\n";       // RAX = RAX / RBX, RDX = RAX % RBX
+        }
+        else if (node->value == "%") {
+            // Evaluate the left child
+            visitNode(node->children[0]);
+            textSection += "push rax\n";
+            // Evaluate the right child
+            visitNode(node->children[1]);
+            textSection += "mov rbx, rax\n";
+            textSection += "pop rax\n";
+            textSection += "xor rdx, rdx\n";  // Clear RDX before division
+            textSection += "div rbx\n";       // RAX = RAX / RBX, RDX = RAX % RBX
+            textSection += "mov rax, rdx\n";  // Move remainder to RAX
+        }
     } else if (node->type == "Identifier") {
         // Generate code to load the variable's value from memory into rax.
         textSection += "mov rax, qword [" + node->value + "]\n";
