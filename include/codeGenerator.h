@@ -29,4 +29,5 @@ private:
     void writeToFile(const std::string &filename);
     void genPrint();
     void genAffect(const std::shared_ptr<ASTNode>& node);
+    void genFor(const std::shared_ptr<ASTNode>& node);
 };

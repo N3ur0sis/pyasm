@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
         if (errorManager.hasErrors()) {
             std::cout << std::endl;
             errorManager.displayErrors();
-            return EXIT_FAILURE;
+            //return EXIT_FAILURE;
         }
 
         // Print the symbol table

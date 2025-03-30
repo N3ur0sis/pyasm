@@ -22,7 +22,8 @@ void CodeGenerator::generateCode(const std::shared_ptr<ASTNode>& root, const std
     // Data section: our variable declarations plus newline.
     finalAsm << "section .data\n";
     finalAsm << dataSection;
-    finalAsm << "newline: db 10\n\n";
+    finalAsm << "newline: db 10\n";
+    finalAsm << "minus_sign: db '-'\n\n";
     
     // BSS section: for our conversion buffer.
     finalAsm << "section .bss\n";
@@ -48,6 +49,9 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
     
     if (node->type == "Affect") {
         genAffect(node);
+    } else if (node->type == "For") {
+            genFor(node);
+
     } else if (node->type == "Print") {
         // Visit children of the print node (which should compute an expression)
         for (const auto& child : node->children) {
@@ -142,6 +146,21 @@ void CodeGenerator::endAssembly() {
     textSection += "    push rbp\n";
     textSection += "    mov rbp, rsp\n";
     textSection += "    mov r12, rax          ; save original number in r12\n";
+
+    // Add code to handle negative numbers
+    textSection += "    cmp r12, 0\n";
+    textSection += "    jge .positive\n";
+    textSection += "    ; Handle negative number\n";
+    textSection += "    push r12\n";
+    textSection += "    mov rax, 1\n";
+    textSection += "    mov rdi, 1\n";
+    textSection += "    mov rsi, minus_sign\n";
+    textSection += "    mov rdx, 1\n";
+    textSection += "    syscall\n";
+    textSection += "    pop r12\n";
+    textSection += "    neg r12      ; Make the number positive\n";
+
+    textSection += ".positive:\n";
     textSection += "    lea rdi, [buffer+31]  ; point rdi to end of buffer\n";
     textSection += "    mov byte [rdi], 0     ; null-terminate the buffer\n";
     textSection += "    cmp r12, 0\n";
@@ -149,6 +168,7 @@ void CodeGenerator::endAssembly() {
     textSection += "    mov byte [rdi-1], '0'\n";
     textSection += "    lea rdi, [rdi-1]\n";
     textSection += "    jmp .print\n";
+     
     textSection += ".convert:\n";
     textSection += "    mov rax, r12\n";
     textSection += "    mov rbx, 10\n";
@@ -186,22 +206,80 @@ void CodeGenerator::genPrint() {
 }
 
 void CodeGenerator::genAffect(const std::shared_ptr<ASTNode>& node) {
-    // Check that the assignment node has at least two children:
-    // first: the identifier, second: the literal value.
     if (node->children.size() < 2) {
         throw std::runtime_error("Invalid ASTNode structure for assignment");
     }
     
     std::string varName = node->children[0]->value;  // e.g., "a" or "b"
-    int value = std::stoi(node->children[1]->value);   // e.g., "5" to 5
-
-    // If the variable is not yet declared, declare it in the data section.
+    
+    // If the variable is not yet declared, declare it in the data section
     if (declaredVars.find(varName) == declaredVars.end()) {
         dataSection += varName + ": dq 0\n";
         declaredVars.insert(varName);
     }
     
-    // Generate code to store the literal value into the variable.
-    textSection += "mov rax, " + std::to_string(value) + "\n";
+    // Evaluate the right-hand side expression
+    visitNode(node->children[1]);
+    
+    // Generated code puts the result in RAX, now store it in the variable
     textSection += "mov qword [" + varName + "], rax\n";
+}
+void CodeGenerator::genFor(const std::shared_ptr<ASTNode>& node) {
+    // Get the loop variable name
+    std::string loopVar = node->children[0]->value;
+    // If the variable is not yet declared, declare it
+    if (declaredVars.find(loopVar) == declaredVars.end()) {
+        dataSection += loopVar + ": dq 0\n";
+        declaredVars.insert(loopVar);
+    }
+    
+    // Generate unique labels for this loop
+    static int loopCounter = 0;
+    std::string loopId = std::to_string(loopCounter++);
+    std::string startLabel = ".loop_start_" + loopId;
+    std::string endLabel = ".loop_end_" + loopId;
+    
+    // Check if this is a range function call
+    if (node->children[1]->type == "FunctionCall" && 
+        node->children[1]->children[0]->value == "range") {
+        
+        // Get range parameter(s)
+        auto paramList = node->children[1]->children[1];
+        if (paramList->children.size() >= 1) {
+            // Initialize loop variable to 0
+            textSection += "; Initialize loop\n";
+            textSection += "mov qword [" + loopVar + "], 0\n";
+            
+            // Get the end value of the range
+            visitNode(paramList->children[0]);  // Visit the range end value (10 in your example)
+            textSection += "push rax\n"; // Save the end value
+            
+            // Start of loop
+            textSection += startLabel + ":\n";
+            textSection += "; Check loop condition\n";
+            textSection += "mov rax, qword [" + loopVar + "]\n";
+            textSection += "pop rbx\n"; // Get the end value
+            textSection += "push rbx\n"; // Save it again for next iteration
+            textSection += "cmp rax, rbx\n";
+            textSection += "jge " + endLabel + "\n";
+            
+            // Execute loop body
+            textSection += "; Loop body\n";
+            visitNode(node->children[2]); // Visit the ForBody
+            
+            // Increment loop variable
+            textSection += "; Increment loop variable\n";
+            textSection += "mov rax, qword [" + loopVar + "]\n";
+            textSection += "inc rax\n";
+            textSection += "mov qword [" + loopVar + "], rax\n";
+            textSection += "jmp " + startLabel + "\n";
+            
+            // End of loop
+            textSection += endLabel + ":\n";
+            textSection += "pop rbx\n"; // Clean up the stack
+        }
+    } else {
+        // Handle other types of for loops if necessary
+        textSection += "; Warning: Non-range for loop not implemented\n";
+    }
 }
