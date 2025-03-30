@@ -2,19 +2,12 @@
 #include "parser.h"
 #include <sstream>
 
-// Constant sizes for different types
-const int INT_SIZE = 4;     // 4 bytes for integer
-const int FLOAT_SIZE = 4;   // 4 bytes for float
-const int POINTER_SIZE = 8; // 8 bytes for pointers (64-bit system)
-const int BOOL_SIZE = 1;    // 1 byte for boolean
+int AUTO_OFFSET = 0;
 
 int SymbolTable::calculateTypeSize(const std::string& type) {
-    if (type == "int") return INT_SIZE;
-    if (type == "float") return FLOAT_SIZE;
-    if (type == "bool") return BOOL_SIZE;
-    
-    // Default to pointer size for complex types like lists, objects
-    return POINTER_SIZE;
+    // Default to 0 for auto types for this part of the code
+    // Real offset calculation will be done in semantic analysis
+    return AUTO_OFFSET;
 }
 
 void SymbolTable::addSymbol(const Symbol& symbol) {
@@ -48,9 +41,11 @@ void SymbolTable::addSymbol(const Symbol& symbol) {
         symClone = std::make_unique<Symbol>(symbol);
     }
 
-    // Calcule l'offset pour les variables et tableaux
+    // Premier calcul de l'offset : on ne le connais pas encore
+    // On le met à 0 pour l'instant, il sera mis à jour plus tard
+    // FIXME : ça marche comme ça mais c'est moche (ça sert à rien)
     if (symClone->symCat == "variable" || symClone->symCat == "array") {
-        int symbolSize = POINTER_SIZE;
+        int symbolSize = AUTO_OFFSET;
         if (auto vs = dynamic_cast<VariableSymbol*>(symClone.get())) {
             symbolSize = calculateTypeSize(vs->type);
         } else if (auto as = dynamic_cast<ArraySymbol*>(symClone.get())) {
@@ -123,56 +118,56 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& node, SymbolTab
         return;
     }
 
-        if (node->type == "FunctionDefinition") {
-            // Récupérer le nom de la fonction
-            std::string funcName = node->value; // ex: "add"
-        
-            // Créer un symbole de fonction
-            FunctionSymbol funcSymbol {
-                funcName,
-                "int",     // type de retour par défaut
-                0,         // nombre de paramètres sera mis à jour
-                0          // offset
-            };
-        
-            // La liste de paramètres est généralement node->children[0]
-            // On compte le nombre de paramètres
-            if (!node->children.empty()) {
-                auto paramList = node->children[0];
-                funcSymbol.numParams = (int)paramList->children.size();
-            }
-        
-            // Ajouter le symbole fonction dans la table actuelle
-            currentTable->addSymbol(funcSymbol);
-        
-            // Créer une table enfant pour la portée de la fonction
-            auto functionTable = std::make_unique<SymbolTable>("function " + funcName, currentTable);
-            // On remet l'offset à 0, si on gère l'empilement
-            functionTable->nextOffset = 0;
-        
-            // Ajout des paramètres à la table enfant
-            if (!node->children.empty()) {
-                auto paramList = node->children[0];
-                for (const auto& param : paramList->children) {
-                    VariableSymbol paramSymbol {
-                        param->value,
-                        "int",       // type par défaut
-                        "parameter", // ou « variable »
-                        0
-                    };
-                    functionTable->addSymbol(paramSymbol);
-                }
-            }
-        
-            // Ensuite, on visite le corps de la fonction (node->children[1], s’il existe)
-            if (node->children.size() >= 2) {
-                visit(node->children[1], functionTable.get());  
-            }
-        
-            // Enfin, on rattache la table enfant
-            currentTable->children.push_back(std::move(functionTable));
-            return;
+    if (node->type == "FunctionDefinition") {
+        // Récupérer le nom de la fonction
+        std::string funcName = node->value; // ex: "add"
+    
+        // Créer un symbole de fonction
+        FunctionSymbol funcSymbol {
+            funcName,
+            "autoFun", // type de retour par défaut dans un premier temps
+            0,         // nombre de paramètres sera mis à jour
+            0          // offset
+        };
+    
+        // La liste de paramètres est généralement node->children[0]
+        // On compte le nombre de paramètres
+        if (!node->children.empty()) {
+            auto paramList = node->children[0];
+            funcSymbol.numParams = (int)paramList->children.size();
         }
+    
+        // Ajouter le symbole fonction dans la table actuelle
+        currentTable->addSymbol(funcSymbol);
+    
+        // Créer une table enfant pour la portée de la fonction
+        auto functionTable = std::make_unique<SymbolTable>("function " + funcName, currentTable);
+        // On remet l'offset à 0, si on gère l'empilement
+        functionTable->nextOffset = 0;
+    
+        // Ajout des paramètres à la table enfant
+        if (!node->children.empty()) {
+            auto paramList = node->children[0];
+            for (const auto& param : paramList->children) {
+                VariableSymbol paramSymbol {
+                    param->value,
+                    "auto",       // type par défaut dans un premier temps
+                    "parameter",
+                    0           // Offset will be calculated
+                };
+                functionTable->addSymbol(paramSymbol);
+            }
+        }
+    
+        // Ensuite, on visite le corps de la fonction (node->children[1], s’il existe)
+        if (node->children.size() >= 2) {
+            visit(node->children[1], functionTable.get());  
+        }
+    
+        // Enfin, on rattache la table enfant
+        currentTable->children.push_back(std::move(functionTable));
+        return;
+    }
     else if (node->type == "Affect") {
         if (!node->children.empty()) {
             auto varNode = node->children[0];
@@ -180,7 +175,7 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& node, SymbolTab
                 if (!currentTable->lookup(varNode->value)) {
                     VariableSymbol varSymbol(
                         varNode->value,
-                        "int",  // Default type
+                        "auto",  // type par défaut dans un premier temps
                         "variable",
                         0  // Offset will be calculated
                     );
@@ -199,9 +194,9 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& node, SymbolTab
             if (loopVar && loopVar->type == "Identifier") {
                 VariableSymbol loopVariable(
                     loopVar->value,
-                    "int",  // Default type
+                    "auto",             // type par défaut dans un premier temps
                     "loop variable",
-                    0  // Offset will be calculated
+                    0                   // Offset will be calculated
                 );
                 forTable->addSymbol(loopVariable);
             }
@@ -217,16 +212,20 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& node, SymbolTab
         currentTable->children.push_back(std::move(forTable));
         return;
     }
+    // TODO : Est-ce que par exemple y = [5,6,7] doit être écrit comme une variable de type tableau de int ou autrement ?
     else if (node->type == "List") {
         // Create a new entry for the list
         if (!node->children.empty()) {
             int nbElement = node->children.size();
             // Extract the list type from the first element (if exists)
-            std::string elementType = "int"; // Default type
+            std::string elementType = "auto[]";                             // type par défaut dans un premier temps
+            
+            
+            // TODO : déplacer ce morceau de code qui ne vérifie pas grand chose actuellement
+            /*
             if (nbElement > 0 && node->children[0]->type != "") {
                 elementType = node->children[0]->type;
             }
-
             // verify that all elements have the same type
             for (int i = 1; i < nbElement; i++) {
                 if (node->children[i]->type != elementType) {
@@ -234,7 +233,8 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& node, SymbolTab
                     return;
                 }
             }
-
+            // TODO : fin du code à déplacer
+            */
             // Create the array symbol using the proper constructor
             ArraySymbol arraySym(
                 node->value,          // name

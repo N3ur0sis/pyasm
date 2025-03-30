@@ -1,6 +1,10 @@
 #include "semanticAnalyzer.h"
 #include <iostream>
 
+// TODO : un bloc ne peut pas cacher une variable de même nom dans un bloc parent donc si un bloc reaffecte une variable, il faut vérifier qu'elle existe avant
+// et que la variable est de même type que ce qu'on veut réaffecter.
+
+
 void SemanticAnalyzer::checkSemantics(const std::shared_ptr<ASTNode>& root, SymbolTable* globalTable) {
     // Start the recursive visitation from the global scope
     visit(root, globalTable);

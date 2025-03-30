@@ -36,19 +36,12 @@ public:
         : Symbol(n, cat, off, "variable"), isGlobal(global), type(t) {}
 };
 
-// Derived class for functions
+// Derived class for functions ()
 class FunctionSymbol : public Symbol {
 public:
     int numParams;
-    //std::vector<std::string> paramTypes;
     std::string returnType;
     
-    // // Parameterized constructor
-    // FunctionSymbol(const std::string& n, const std::string& retType, 
-    //                const std::vector<std::string>& params = {}, int off = 0)
-    //     : Symbol(n, "function", off), numParams(params.size()), 
-    //       paramTypes(params), returnType(retType) {}
-
     // Parameterized constructor
     FunctionSymbol(const std::string& n, const std::string& retType, int numParams, int off = 0)
         : Symbol(n, "function", off, "function"), numParams(numParams), returnType(retType) {}

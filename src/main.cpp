@@ -9,6 +9,8 @@
 #include "semanticAnalyzer.h"
 #include "codeGenerator.h"  // Include the code generator header
 
+// TODO : régler le bug de la ligne 1 : si on commence en écrivant sur la première ligne, le parseur ne marche pas
+
 int main(int argc, char* argv[]) {
     if (argc != 2) {
         std::cerr << "Usage: " << argv[0] << " <file>" << std::endl;
@@ -64,7 +66,7 @@ int main(int argc, char* argv[]) {
         if (errorManager.hasErrors()) {
             std::cout << std::endl;
             errorManager.displayErrors();
-            return EXIT_FAILURE;
+            //return EXIT_FAILURE;
         }
 
         // Print the symbol table
