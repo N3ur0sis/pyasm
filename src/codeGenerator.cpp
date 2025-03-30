@@ -8,11 +8,32 @@ void CodeGenerator::generateCode(const std::shared_ptr<ASTNode>& root, const std
     // Initialize our sections.
     dataSection = "";
     textSection = "";
+    std::string functionSection = ""; // Add a separate section for functions
     declaredVars.clear();
     
     // Generate the text (and data) from the AST.
     startAssembly();
-    visitNode(root);
+    
+    // Separate main instructions from functions
+    for (const auto& child : root->children) {
+        if (child->type == "Definitions") {
+            // Process function definitions
+            for (const auto& def : child->children) {
+                if (def->type == "FunctionDefinition") {
+                    // Save functions in separate section
+                    std::string oldText = textSection;
+                    textSection = "";
+                    visitNode(def);
+                    functionSection += textSection;
+                    textSection = oldText;
+                }
+            }
+        } else {
+            // Process main program instructions
+            visitNode(child);
+        }
+    }
+    
     endAssembly();
 
     // Build the final assembly code.
@@ -29,10 +50,12 @@ void CodeGenerator::generateCode(const std::shared_ptr<ASTNode>& root, const std
     finalAsm << "section .bss\n";
     finalAsm << "buffer: resb 32\n\n";
     
-    // Text section.
+    // Text section
     finalAsm << "section .text\n";
     finalAsm << "_start:\n";
     finalAsm << textSection;
+    finalAsm << "\n; Functions\n";
+    finalAsm << functionSection;
     
     asmCode = finalAsm.str();
     
@@ -49,6 +72,12 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
     
     if (node->type == "Affect") {
         genAffect(node);
+    } else if (node->type == "FunctionDefinition") {
+        genFunction(node);
+    } else if (node->type == "FunctionCall") {
+        genFunctionCall(node);
+    } else if (node->type == "Return") {
+        genReturn(node);
     } else if (node->type == "For") {
             genFor(node);
     } else if (node->type == "If") {
@@ -364,4 +393,89 @@ void CodeGenerator::genIf(const std::shared_ptr<ASTNode>& node) {
     
     // End of if statement
     textSection += endLabel + ":\n";
+}
+void CodeGenerator::genFunction(const std::shared_ptr<ASTNode>& node) {
+    // Get function name
+    std::string funcName = node->value;
+    currentFunction = funcName;
+    
+    // Function label
+    textSection += "\n" + funcName + ":\n";
+    
+    // Function prologue
+    textSection += "    push rbp\n";
+    textSection += "    mov rbp, rsp\n";
+    
+    // Handle parameters (first 6 in registers: rdi, rsi, rdx, rcx, r8, r9)
+    auto paramList = node->children[0];
+    for (size_t i = 0; i < paramList->children.size() && i < 6; i++) {
+        std::string paramName = paramList->children[i]->value;
+        if (declaredVars.find(paramName) == declaredVars.end()) {
+            dataSection += paramName + ": dq 0\n";
+            declaredVars.insert(paramName);
+        }
+        
+        // Move parameter from register to memory
+        std::string reg = (i == 0) ? "rdi" : (i == 1) ? "rsi" : (i == 2) ? "rdx" : 
+                          (i == 3) ? "rcx" : (i == 4) ? "r8" : "r9";
+        textSection += "    mov [" + paramName + "], " + reg + "\n";
+    }
+    
+    // Generate function body
+    visitNode(node->children[1]);
+    
+    // Function epilogue
+    textSection += ".return_" + funcName + ":\n";
+    textSection += "    mov rsp, rbp\n";
+    textSection += "    pop rbp\n";
+    textSection += "    ret\n";
+}
+
+void CodeGenerator::genFunctionCall(const std::shared_ptr<ASTNode>& node) {
+    std::string funcName = node->children[0]->value;
+    auto args = node->children[1];
+    
+    // Save caller-saved registers
+    textSection += "    ; Save registers for function call\n";
+    textSection += "    push rbx\n";
+    textSection += "    push r12\n";
+    textSection += "    push r13\n";
+    
+    // Align the stack to 16 bytes (critical for function calls)
+    textSection += "    ; Align stack\n";
+    textSection += "    mov rbx, rsp\n";
+    textSection += "    and rsp, -16\n";
+    textSection += "    push rbx\n";  // Save original stack pointer
+    
+    // Prepare arguments (first 6 in registers)
+    std::string regs[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
+    for (size_t i = 0; i < args->children.size() && i < 6; i++) {
+        visitNode(args->children[i]);  // Result in RAX
+        textSection += "    mov " + std::string(regs[i]) + ", rax\n";
+    }
+    
+    // Call the function
+    textSection += "    call " + funcName + "\n";
+    
+    // Restore stack alignment
+    textSection += "    pop rsp\n";  // Restore original stack pointer
+    
+    // Restore saved registers in reverse order
+    textSection += "    pop r13\n";
+    textSection += "    pop r12\n";
+    textSection += "    pop rbx\n";
+    
+    // Result is already in rax
+}
+
+void CodeGenerator::genReturn(const std::shared_ptr<ASTNode>& node) {
+    // Evaluate return expression if any
+    if (!node->children.empty()) {
+        visitNode(node->children[0]);
+    } else {
+        textSection += "    xor rax, rax\n";  // Return 0 by default
+    }
+    
+    // Jump to return label
+    textSection += "    jmp .return_" + currentFunction + "\n";
 }

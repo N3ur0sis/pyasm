@@ -1,0 +1,18 @@
+def square(x):
+ return x*x
+def add(x,y):
+    return x+y
+def comp(a,b):
+    print(b)
+    print(a)
+    if a<=b :
+        return True
+        #Doit retourner un idf et non un mot clé
+    else:
+        return False
+    return None
+
+print(square(3))
+print("Comparaison")
+print(comp(square(4),3))
+

@@ -21,7 +21,7 @@ private:
 
     // Set to track variables already declared in the data section.
     std::set<std::string> declaredVars;
-
+    std::string currentFunction;
     // Code generation routines.
     void startAssembly();
     void visitNode(const std::shared_ptr<ASTNode>& node);
@@ -31,5 +31,7 @@ private:
     void genAffect(const std::shared_ptr<ASTNode>& node);
     void genFor(const std::shared_ptr<ASTNode>& node);
     void genIf(const std::shared_ptr<ASTNode>& node);
-
+    void genFunction(const std::shared_ptr<ASTNode>& node);
+    void genFunctionCall(const std::shared_ptr<ASTNode>& node);
+    void genReturn(const std::shared_ptr<ASTNode>& node);
 };
