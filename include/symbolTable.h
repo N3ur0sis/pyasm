@@ -52,11 +52,10 @@ public:
 class ArraySymbol : public Symbol {
 public:
     int size;
-    std::string elementType;
     
     // Parameterized constructor
-    ArraySymbol(const std::string& n, const std::string& elemType, int arraySize = 0, int off = 0)
-        : Symbol(n, "array", off, "array"), size(arraySize), elementType(elemType) {}
+    ArraySymbol(const std::string& n, int arraySize = 0, int off = 0)
+        : Symbol(n, "array", off, "array"), size(arraySize) {}
 };
 
 class SymbolTable {
@@ -90,5 +89,5 @@ public:
 
 private:
     // Recursive visit method to traverse AST and build symbol table
-    static void visit(const std::shared_ptr<ASTNode>& node, SymbolTable* currentTable);
+    static void visit(const std::shared_ptr<ASTNode>& root, SymbolTable* globalTable, const std::shared_ptr<ASTNode>& node, SymbolTable* currentTable);
 };
