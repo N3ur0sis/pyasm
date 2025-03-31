@@ -30,6 +30,7 @@ class VariableSymbol : public Symbol {
 public:
     bool isGlobal;
     std::string type;
+    std::string assumedType = "auto"; // For type inference in semantic analysis
     
     // Parameterized constructor
     VariableSymbol(const std::string& n, const std::string& t, const std::string& cat, bool global = false, int off = 0)

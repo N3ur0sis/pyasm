@@ -4,11 +4,13 @@
 
 int AUTO_OFFSET = 0;
 
-int SymbolTable::calculateTypeSize(const std::string& type) {
+// TODO : remove this if it's eventually not used
+/* int SymbolTable::calculateTypeSize(const std::string& type) {
     // Default to 0 for auto types for this part of the code
     // Real offset calculation will be done in semantic analysis
     return AUTO_OFFSET;
 }
+ */
 
 void SymbolTable::addSymbol(const Symbol& symbol) {
     // Vérifie la redéfinition dans la portée courante
@@ -46,10 +48,10 @@ void SymbolTable::addSymbol(const Symbol& symbol) {
     // FIXME : ça marche comme ça mais c'est moche (ça sert à rien)
     if (symClone->symCat == "variable" || symClone->symCat == "array") {
         int symbolSize = AUTO_OFFSET;
-        if (auto vs = dynamic_cast<VariableSymbol*>(symClone.get())) {
-            symbolSize = calculateTypeSize(vs->type);
+        if (dynamic_cast<VariableSymbol*>(symClone.get())) {
+            symbolSize = AUTO_OFFSET;                                           // The size of the variable is not known yet
         } else if (auto as = dynamic_cast<ArraySymbol*>(symClone.get())) {
-            symbolSize = calculateTypeSize(as->elementType) * as->size;
+            symbolSize = AUTO_OFFSET * as->size;
         }
         symClone->offset = nextOffset;
         nextOffset += (symbolSize + 7) & ~7;
