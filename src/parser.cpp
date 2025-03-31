@@ -127,6 +127,9 @@ std::shared_ptr<ASTNode> Parser::parseDefinition() {
     if (expect(TokenType::KW_DEF)) {
         auto tok = peek();
         auto def_root = std::make_shared<ASTNode>("FunctionDefinition",tok.value);
+        if (tok.value == "list" || tok.value == "len" || tok.value == "range") {
+            m_errorManager.addError(Error{"Function name cannot be list, len or range", tok.value, "Semantic", tok.line});
+        }
         expectR(TokenType::IDF);
         expectR(TokenType::CAR_LPAREN);
         auto formal_param_list = std::make_shared<ASTNode>("FormalParameterList");
