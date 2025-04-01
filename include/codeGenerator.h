@@ -41,6 +41,9 @@ private:
     void genFunctionCall(const std::shared_ptr<ASTNode>& node);
     void genReturn(const std::shared_ptr<ASTNode>& node);
     
-    // Helper function to check if a variable is a string
+    // Helper function
     bool isStringVariable(const std::string& name);
+    void updateSymbolType(const std::string& name, const std::string& type);
+    void resetFunctionVarTypes(const std::string& funcName);
+
 };
