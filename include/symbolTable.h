@@ -5,6 +5,7 @@
 #include <memory>
 #include <ostream>
 #include "parser.h"
+#include "errorManager.h"
 
 // Base Symbol class with common attributes
 class Symbol {
@@ -30,25 +31,19 @@ class VariableSymbol : public Symbol {
 public:
     bool isGlobal;
     std::string type;
+    std::string assumedType = "auto"; // For type inference in semantic analysis
     
     // Parameterized constructor
     VariableSymbol(const std::string& n, const std::string& t, const std::string& cat, bool global = false, int off = 0)
         : Symbol(n, cat, off, "variable"), isGlobal(global), type(t) {}
 };
 
-// Derived class for functions
+// Derived class for functions ()
 class FunctionSymbol : public Symbol {
 public:
     int numParams;
-    //std::vector<std::string> paramTypes;
     std::string returnType;
     
-    // // Parameterized constructor
-    // FunctionSymbol(const std::string& n, const std::string& retType, 
-    //                const std::vector<std::string>& params = {}, int off = 0)
-    //     : Symbol(n, "function", off), numParams(params.size()), 
-    //       paramTypes(params), returnType(retType) {}
-
     // Parameterized constructor
     FunctionSymbol(const std::string& n, const std::string& retType, int numParams, int off = 0)
         : Symbol(n, "function", off, "function"), numParams(numParams), returnType(retType) {}
@@ -58,17 +53,16 @@ public:
 class ArraySymbol : public Symbol {
 public:
     int size;
-    std::string elementType;
     
     // Parameterized constructor
-    ArraySymbol(const std::string& n, const std::string& elemType, int arraySize = 0, int off = 0)
-        : Symbol(n, "array", off, "array"), size(arraySize), elementType(elemType) {}
+    ArraySymbol(const std::string& n, int arraySize = 0, int off = 0)
+        : Symbol(n, "array", off, "array"), size(arraySize) {}
 };
 
 class SymbolTable {
 public:
-    SymbolTable(const std::string& name, SymbolTable* parentTable) 
-        : scopeName(name), parent(parentTable), nextOffset(0) {}
+    SymbolTable(const std::string& name, SymbolTable* parentTable, int tableID) 
+        : scopeName(name), parent(parentTable), nextOffset(0), tableID(tableID) {}
 
     // Add a symbol to the current scope
     void addSymbol(const Symbol& symbol);
@@ -87,14 +81,20 @@ public:
     std::vector<std::unique_ptr<Symbol>> symbols;
     std::vector<std::unique_ptr<SymbolTable>> children;
     int nextOffset;
+    int tableID;
 };
 
 class SymbolTableGenerator {
 public:
+    explicit SymbolTableGenerator(ErrorManager& errMgr): m_errorManager(errMgr) {}
     // Generate symbol table from AST root
-    static std::unique_ptr<SymbolTable> generate(const std::shared_ptr<ASTNode>& root);
+    std::unique_ptr<SymbolTable> generate(const std::shared_ptr<ASTNode>& root);
 
 private:
+    ErrorManager& m_errorManager;
+
     // Recursive visit method to traverse AST and build symbol table
-    static void visit(const std::shared_ptr<ASTNode>& node, SymbolTable* currentTable);
+    void visit(const std::shared_ptr<ASTNode>& root, SymbolTable* globalTable, const std::shared_ptr<ASTNode>& node, SymbolTable* currentTable);
+    // find the node that contains the right function definition
+    std::shared_ptr<ASTNode> findFunctionDef(const std::shared_ptr<ASTNode>& root, const std::string& funcName);
 };

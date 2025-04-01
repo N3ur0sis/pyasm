@@ -9,6 +9,15 @@
 #include "semanticAnalyzer.h"
 #include "codeGenerator.h"  // Include the code generator header
 
+// TODO : régler le bug de la ligne 1 : si on commence en écrivant sur la première ligne, le parseur ne marche pas
+// TODO : avec notre méthode utilisant le type "auto" pour savoir si une variable est initialisée ou pas, il faudra penser, en sortant d'une fonction
+// à remettre le type de tous les paramètres et des variables locales à "auto"
+// TODO : le shawowing pause problème : si on fait de la récursivité, la gestion actuelle du shadowing ne fonctionne pas
+
+#define BOLD "\033[1m"
+#define RESET "\033[0m"
+
+
 int main(int argc, char* argv[]) {
     if (argc != 2) {
         std::cerr << "Usage: " << argv[0] << " <file>" << std::endl;
@@ -44,14 +53,14 @@ int main(int argc, char* argv[]) {
         parser.print(ast);
 
         // Generate the symbol table
-        SymbolTableGenerator symGen;
+        SymbolTableGenerator symGen(errorManager);
         auto symTable = symGen.generate(ast);
 
-        // 1) Check for lexical/syntax errors
+        // 1) Check for lexical/syntax errors or Symbol Table generation errors
         if (errorManager.hasErrors()) {
             std::cout << std::endl;
             errorManager.displayErrors();
-            return EXIT_FAILURE;
+            //return EXIT_FAILURE;
         }
 
         // 2) Launch semantic analysis
@@ -68,7 +77,7 @@ int main(int argc, char* argv[]) {
         }
 
         // Print the symbol table
-        std::cout << "\nSymbol Table:" << std::endl;
+        std::cout << BOLD << "\nSymbol Table:" << RESET << std::endl;
         symTable->print(std::cout);
 
         std::cout << "\nNo semantic errors. Ready for code generation! :)\n" << std::endl;

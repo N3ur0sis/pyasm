@@ -10,6 +10,7 @@
 #define BLUE "\033[34m"
 #define YELLOW "\033[33m"
 #define GREEN "\033[32m"
+#define CYAN "\033[36m"
 #define BOLD "\033[1m"
 #define UNDERLINE "\033[4m"
 
@@ -19,7 +20,7 @@ void ErrorManager::addError(const Error& error) {
 
 void ErrorManager::displayErrors() const {
     if (errorQueue.empty()) {
-        std::cout << GREEN << "No errors to display." << RESET << std::endl;
+        std::cout << GREEN << "\n" << "No errors to display." << RESET << std::endl;
         return;
     }
 
@@ -41,8 +42,10 @@ void ErrorManager::displayErrors() const {
             lines.insert(error.line);
         } else if (error.type == "Lexical") {
             errorColor = BLUE; // Bleu pour les erreurs Lexicales
+        } else if (error.type == "Semantic") {
+            errorColor = GREEN; // Vert pour les erreurs Sémantiques
         } else {
-            errorColor = GREEN; // Vert par défaut pour d'autres types (optionnel)
+            errorColor = CYAN; // Cyan par défaut pour d'autres types
         }
 
         // Affichage coloré des erreurs
