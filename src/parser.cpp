@@ -21,12 +21,12 @@ void Parser::print(const std::shared_ptr<ASTNode>& node, int depth) {
 }
 
 Token Parser::peek() {
-    if (pos < tokens.size()) return tokens[pos];
+    if ( ((unsigned long)pos) < tokens.size()) return tokens[pos];
     return {TokenType::ENDOFFILE, ""};
 }
 
 Token Parser::next() {
-    return pos < tokens.size() ? tokens[pos++] : Token{TokenType::ENDOFFILE, ""};
+    return ((unsigned long)pos) < tokens.size() ? tokens[pos++] : Token{TokenType::ENDOFFILE, ""};
 }
 
 bool Parser::expect(TokenType type) {
@@ -92,7 +92,7 @@ std::shared_ptr<ASTNode> Parser::parseRoot() {
 
     skipNewlines();
     auto old_pos = pos-1;
-    while (peek().type != TokenType::ENDOFFILE and (old_pos < pos or old_pos <= 0)) {
+    while (peek().type != TokenType::ENDOFFILE and old_pos < pos) {
         old_pos = pos;
         auto expr = parseStmt();
         if (expr) OP->children.push_back(expr);

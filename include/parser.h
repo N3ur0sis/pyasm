@@ -23,7 +23,7 @@ public:
 private:
     const std::vector<Token>& tokens;
     ErrorManager& m_errorManager;
-    size_t pos;
+    long pos;
     bool EOF_bool = false;
 
     Token peek();       // Look the current token
