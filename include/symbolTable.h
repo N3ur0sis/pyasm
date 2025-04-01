@@ -5,6 +5,7 @@
 #include <memory>
 #include <ostream>
 #include "parser.h"
+#include "errorManager.h"
 
 // Base Symbol class with common attributes
 class Symbol {
@@ -60,8 +61,8 @@ public:
 
 class SymbolTable {
 public:
-    SymbolTable(const std::string& name, SymbolTable* parentTable) 
-        : scopeName(name), parent(parentTable), nextOffset(0) {}
+    SymbolTable(const std::string& name, SymbolTable* parentTable, int tableID) 
+        : scopeName(name), parent(parentTable), nextOffset(0), tableID(tableID) {}
 
     // Add a symbol to the current scope
     void addSymbol(const Symbol& symbol);
@@ -80,14 +81,20 @@ public:
     std::vector<std::unique_ptr<Symbol>> symbols;
     std::vector<std::unique_ptr<SymbolTable>> children;
     int nextOffset;
+    int tableID;
 };
 
 class SymbolTableGenerator {
 public:
+    explicit SymbolTableGenerator(ErrorManager& errMgr): m_errorManager(errMgr) {}
     // Generate symbol table from AST root
-    static std::unique_ptr<SymbolTable> generate(const std::shared_ptr<ASTNode>& root);
+    std::unique_ptr<SymbolTable> generate(const std::shared_ptr<ASTNode>& root);
 
 private:
+    ErrorManager& m_errorManager;
+
     // Recursive visit method to traverse AST and build symbol table
-    static void visit(const std::shared_ptr<ASTNode>& root, SymbolTable* globalTable, const std::shared_ptr<ASTNode>& node, SymbolTable* currentTable);
+    void visit(const std::shared_ptr<ASTNode>& root, SymbolTable* globalTable, const std::shared_ptr<ASTNode>& node, SymbolTable* currentTable);
+    // find the node that contains the right function definition
+    std::shared_ptr<ASTNode> findFunctionDef(const std::shared_ptr<ASTNode>& root, const std::string& funcName);
 };

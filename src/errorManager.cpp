@@ -20,7 +20,7 @@ void ErrorManager::addError(const Error& error) {
 
 void ErrorManager::displayErrors() const {
     if (errorQueue.empty()) {
-        std::cout << GREEN << "No errors to display." << RESET << std::endl;
+        std::cout << GREEN << "\n" << "No errors to display." << RESET << std::endl;
         return;
     }
 
