@@ -1,0 +1,8 @@
+FROM ubuntu:20.04
+
+RUN apt-get update && apt-get install -y \
+    nasm \
+    binutils \
+    && apt-get clean
+
+WORKDIR /app
