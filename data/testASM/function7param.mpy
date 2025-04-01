@@ -1,0 +1,4 @@
+def add(a,b,c,d,e,f,g,h):
+    return a+b+c+d+e+f+g+h
+print(add(1,1,1,1,1,1,1,1))
+
