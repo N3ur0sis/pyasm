@@ -43,10 +43,11 @@ class FunctionSymbol : public Symbol {
 public:
     int numParams;
     std::string returnType;
+    int tableID;
     
     // Parameterized constructor
-    FunctionSymbol(const std::string& n, const std::string& retType, int numParams, int off = 0)
-        : Symbol(n, "function", off, "function"), numParams(numParams), returnType(retType) {}
+    FunctionSymbol(const std::string& n, const std::string& retType, int numParams, int tableID, int off = 0)
+        : Symbol(n, "function", off, "function"), numParams(numParams), returnType(retType), tableID(tableID) {}
 };
 
 // Derived class for array/list types
@@ -69,6 +70,12 @@ public:
 
     // Look up a symbol by name in current and parent scopes
     bool lookup(const std::string& name) const;
+
+    // Look up a symbol by name only in the current scope
+    bool immediateLookup(const std::string& name) const;
+
+    // Check if a symbol is shadowing a parameter in the current scope
+    bool isShadowingParameter(const std::string& name) const;
 
     // Print the symbol table (for debugging)
     void print(std::ostream& out, int indent = 0) const;

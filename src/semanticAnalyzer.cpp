@@ -1,6 +1,8 @@
 #include "semanticAnalyzer.h"
 #include <iostream>
 
+// TODO : gérer le cas où une fonction est définie avec le même nom qu'une précédente -> pas de surcharge
+
 void SemanticAnalyzer::checkSemantics(const std::shared_ptr<ASTNode>& root, SymbolTable* globalTable) {
     // Start the recursive visitation from the global scope
     visit(root, globalTable);

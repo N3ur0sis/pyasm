@@ -1,11 +1,14 @@
 #include "symbolTable.h"
 #include "parser.h"
 #include <sstream>
+#include <set>
 
 int AUTO_OFFSET = 0;
 int nextTableId = 0; // O is the id of the global table
+std::set<std::string> definedFunctions;             // Set to keep track of defined functions
 #define RED "\033[31m"
 #define RESET "\033[0m"
+
 
 void SymbolTable::addSymbol(const Symbol& symbol) {
     // Vérifie la redéfinition dans la portée courante
@@ -76,6 +79,32 @@ bool SymbolTable::lookup(const std::string& name) const {
     return false;
 }
 
+/*
+ * Look up a symbol by name only in the current scope.
+ * @return true if found, false otherwise.
+*/
+bool SymbolTable::immediateLookup(const std::string& name) const {
+    // Check only in the current scope
+    for (const auto& s : symbols) {
+        if (s->name == name)
+            return true;
+    }
+    return false;
+}
+
+/*
+ * Check if a symbol is shadowing a parameter in the current scope.
+ * @return true if shadowing, false otherwise.
+*/
+bool SymbolTable::isShadowingParameter(const std::string& name) const {
+    // Check if the symbol is a parameter in the current scope
+    for (const auto& s : symbols) {
+        if (s->name == name && s->category == "parameter")
+            return true;
+    }
+    return false;
+}
+
 void SymbolTable::print(std::ostream& out, int indent) const {
     std::string indentStr(indent, ' ');
     out << indentStr << RED << "Scope: " << RESET << scopeName << ", " << RED <<"id = " << tableID << RESET << "\n";
@@ -91,7 +120,8 @@ void SymbolTable::print(std::ostream& out, int indent) const {
             FunctionSymbol* fs = dynamic_cast<FunctionSymbol*>(s);
             out << indentStr << " " << s->category << " : " << s->name
             << " (returnType=" << fs->returnType << ", numParams=" << fs->numParams
-            << ", offset: " << s->offset << ")";
+            << ", offset: " << s->offset 
+            << ", table ID: " << fs->tableID << ")";
         } else if (s->symCat == "array") {
             if (ArraySymbol* as = dynamic_cast<ArraySymbol*>(s)) {
                 out << indentStr << " " << s->category << " : " << s->name
@@ -139,8 +169,7 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& root, SymbolTab
             }
             if (varNode && varNode->type == "Identifier") {
                 // Always add variables to the global table unless in a function scope
-                // the variable isn't already declared in the global scope
-                // TODO : Est-ce qu'il faut faire des vérifications de shadowing ici ?
+                // If the variable isn't already declared in the current scope
                 if (!usedTable->lookup(varNode->value)) {
                     VariableSymbol varSymbol(
                         varNode->value,
@@ -153,7 +182,18 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& root, SymbolTab
                     }
                     usedTable->addSymbol(varSymbol);
                 }
+                // check if the variable is shadowing a parameter in the current scope
+                if (usedTable->tableID > 0 && usedTable->isShadowingParameter(varNode->value)) {
+                    m_errorManager.addError(Error{
+                        "Variable name already exists in scope as a parameter. Parameter shadowing is not allowed: ",
+                        varNode->value,
+                        "semantic",
+                        0
+                    });
+                }
             }
+            
+
             
         }
     }
@@ -166,10 +206,10 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& root, SymbolTab
             // Add loop variable only to the for scope
             auto loopVar = node->children[0];
             if (loopVar && loopVar->type == "Identifier") {
-                // Check for shadowing rules - the loop variable should not have the same name as a global variable
-                if (usedTable->lookup(loopVar->value)) {
+                // Check for shadowing rules - the loop variable should not have the same name as a variable in current scope
+                if (usedTable->immediateLookup(loopVar->value)) {
                     m_errorManager.addError(Error{
-                        "Loop variable name already exists in global scope. Variable shadowing is not allowed: ",
+                        "Loop variable name already exists in scope: " + usedTable->scopeName + " Variable shadowing is not allowed: ",
                         loopVar->value,
                         "semantic",
                         0
@@ -216,18 +256,25 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& root, SymbolTab
             return;
         }
         std::string funcName = node->children[0]->value;
+
+        // Check if the function is already defined in the global table
+        if (definedFunctions.find(funcName) != definedFunctions.end()) {
+            return; // Function already added to the global table, return without processing
+        }
       
         // Now call the standalone function directly in the definitions node of the AST
         auto functionDefNode = findFunctionDef(root->children[0], funcName);
         
         if (functionDefNode) {
             // Create function symbol and add to global table
+            int functionTableId = nextTableId++;
             if (!globalTable->lookup(funcName)) {
                 FunctionSymbol funcSymbol {
                     funcName,
                     "autoFun", // Default return type
                     0,      // Number of parameters
-                    0       // Offset
+                    0,             // Default Table ID
+                    AUTO_OFFSET                  // Default offset
                 };
                 
                 // Count parameters
@@ -236,33 +283,18 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& root, SymbolTab
                     funcSymbol.numParams = (int)paramList->children.size();
                 }
                 // Add symbol to global table   
+                funcSymbol.tableID = functionTableId;
                 globalTable->addSymbol(funcSymbol);
             }
             
             // Create function scope
-            auto functionTable = std::make_unique<SymbolTable>("function " + funcName, globalTable, nextTableId++);
+            auto functionTable = std::make_unique<SymbolTable>("function " + funcName, globalTable, functionTableId);
             functionTable->nextOffset = 0;
             
             // Process parameters
             if (!functionDefNode->children.empty()) {
                 auto paramList = functionDefNode->children[0];
                 for (const auto& param : paramList->children) {
-                    // Check shadowing rules - no local variable or parameter should have same name as global variable
-                    // TODO : La vérification de shawdowing n'est peut-être pas nécéssaire sur les paramètres de fonctions
-                    // TODO : Une variable dans un appel de fonction peut être utiliser et ne doit pas subir de shadowing dans 2 cas :
-                        // La variable existe dans la scope globale
-                        // La variable existe dans la scope de la fonction dans laquelle est appellée la fonction
-                        // Une table de symboles va donc pouvoir être créée plusieurs fois, avec un id différent, si elle est appellée 
-                        // plusieurs fois dans des endroits différents (dans le global ou dans des fonctions)
-                    if (usedTable->lookup(param->value)) {
-                        m_errorManager.addError(Error{
-                            "Parameter name already exists in global scope. Variable shadowing is not allowed: ",
-                            param->value,
-                            "semantic",
-                            0
-                        });
-                    }
-                    
                     VariableSymbol paramSymbol {
                         param->value,
                         "auto",
@@ -279,7 +311,8 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& root, SymbolTab
             }
             
             // Add function table to global table
-            usedTable->children.push_back(std::move(functionTable));
+            globalTable->children.push_back(std::move(functionTable));
+            definedFunctions.insert(funcName); // Add function name to the set of defined functions
         }
     }
 
