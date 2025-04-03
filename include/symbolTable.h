@@ -68,14 +68,48 @@ public:
     // Add a symbol to the current scope
     void addSymbol(const Symbol& symbol);
 
+    // Add a function symbol
+    void addFunctionSymbol(const FunctionSymbol& symbol);
+
     // Look up a symbol by name in current and parent scopes
     bool lookup(const std::string& name) const;
 
     // Look up a symbol by name only in the current scope
     bool immediateLookup(const std::string& name) const;
 
+    // à priori c'est inutile vu que
+    /*
+    def f(a):
+        a = a + 1
+        return a
+    */
+    // à priori c'est accepté, c'est pas parce qu'un paramètre est "redéfini" qu'il est shadowé...
+
+
+
+
+
+    // TODO
+
+    // OU J'EN SUIS
+    /*
+    à faire:
+        achever de dégager isShadowingParameter (ou pas ? cf ce qui suit)
+        finir generate
+            transplanter le code de gestion de définition de visit à generate
+            finir la logique
+        finir visit
+            (^ transplantation)
+            gestion des checks sémantiques pour le shadowing (à priori à dégager ?)
+    */
+
+    // TODO 
+
+
+
+
     // Check if a symbol is shadowing a parameter in the current scope
-    bool isShadowingParameter(const std::string& name) const;
+    // bool isShadowingParameter(const std::string& name) const;
 
     // Print the symbol table (for debugging)
     void print(std::ostream& out, int indent = 0) const;
@@ -86,6 +120,7 @@ public:
     std::string scopeName;
     SymbolTable* parent;
     std::vector<std::unique_ptr<Symbol>> symbols;
+    std::vector<std::unique_ptr<FunctionSymbol>> function_symbols;
     std::vector<std::unique_ptr<SymbolTable>> children;
     int nextOffset;
     int tableID;
@@ -99,6 +134,7 @@ public:
 
 private:
     ErrorManager& m_errorManager;
+    std::vector<std::string> function_names;
 
     // Recursive visit method to traverse AST and build symbol table
     void visit(const std::shared_ptr<ASTNode>& root, SymbolTable* globalTable, const std::shared_ptr<ASTNode>& node, SymbolTable* currentTable);

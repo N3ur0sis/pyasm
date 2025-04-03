@@ -142,20 +142,24 @@ void SymbolTable::print(std::ostream& out, int indent) const {
 
 std::unique_ptr<SymbolTable> SymbolTableGenerator::generate(const std::shared_ptr<ASTNode>& root) {
     auto globalTable = std::make_unique<SymbolTable>("global", nullptr, nextTableId++);
-    visit(root, globalTable.get(), root->children[1], globalTable.get());
+
+    // find all function names beforehand
+    for (const auto& child : root->children[0]) {
+        if (child) {
+            function_names.push_back(child->value);
+
+            visit(root, globalTable, child, );
+        }
+    }
+
+    visit(root, globalTable.get(), root, globalTable.get());
+
     return globalTable;
 }
 
-void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& root, SymbolTable* globalTable, const std::shared_ptr<ASTNode>& node, SymbolTable* currentTable) {
+void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& root, SymbolTable* globalTable, const std::shared_ptr<ASTNode>& node, SymbolTable* usedTable) {
     if (!node) {
         return;
-    }
-
-    SymbolTable* usedTable;
-    if (currentTable->tableID != 0) {
-        usedTable = currentTable;
-    } else {
-        usedTable = globalTable;
     }
 
     // Handle variable assignments and usage
@@ -163,10 +167,6 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& root, SymbolTab
     if (node->type == "Affect") {
         if (!node->children.empty()) {
             auto varNode = node->children[0];
-            auto type = node->children[1]->type;
-            if (type != "String"){
-                type = "int"; // Default type for other variables
-            }
             if (varNode && varNode->type == "Identifier") {
                 // Always add variables to the global table unless in a function scope
                 // If the variable isn't already declared in the current scope
@@ -177,13 +177,17 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& root, SymbolTab
                         "variable",
                         0        // Offset will be calculated
                     );
-                    if (node->children.size() >= 2 && node->children[1]->type == "List"){
+                    // ça a pas trop de sens de faire ça ici, parce que peut y avoir des "listes implicites"
+                    // genre a = [1,2]+[3] -> a est de type auto
+                    // mais a = [1,2,3] -> a est de type auto[]
+                    // donc pour l'instant ça dégage
+                    /*if (node->children.size() >= 2 && node->children[1]->type == "List"){
                         varSymbol.type = "auto[]"; // Default list type, will be refined later
-                    }
+                    }*/
                     usedTable->addSymbol(varSymbol);
                 }
                 // check if the variable is shadowing a parameter in the current scope
-                if (usedTable->tableID > 0 && usedTable->isShadowingParameter(varNode->value)) {
+                if (usedTable->isShadowingParameter(varNode->value)) {
                     m_errorManager.addError(Error{
                         "Variable name already exists in scope as a parameter. Parameter shadowing is not allowed: ",
                         varNode->value,
@@ -192,29 +196,17 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& root, SymbolTab
                     });
                 }
             }
-            
 
-            
         }
     }
     // Handle For loops
     else if (node->type == "For") {
-        // Create a scope for the for loop
-        auto forTable = std::make_unique<SymbolTable>("for loop", usedTable, nextTableId++);
-        
+ 
         if (node->children.size() >= 3) {
             // Add loop variable only to the for scope
             auto loopVar = node->children[0];
             if (loopVar && loopVar->type == "Identifier") {
-                // Check for shadowing rules - the loop variable should not have the same name as a variable in current scope
-                if (usedTable->immediateLookup(loopVar->value)) {
-                    m_errorManager.addError(Error{
-                        "Loop variable name already exists in scope: " + usedTable->scopeName + " Variable shadowing is not allowed: ",
-                        loopVar->value,
-                        "semantic",
-                        0
-                    });
-                }
+
                 // Add loop variable to the for scope
                 VariableSymbol loopVariable(
                     loopVar->value,
@@ -222,29 +214,23 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& root, SymbolTab
                     "loop variable",
                     0
                 );
-                forTable->addSymbol(loopVariable);
+                usedTable->addSymbol(loopVariable);
+
+                // check if the variable is shadowing a parameter in the current scope
+                if (usedTable->isShadowingParameter(varNode->value)) {
+                    m_errorManager.addError(Error{
+                        "Variable name already exists in scope as a parameter. Parameter shadowing is not allowed: ",
+                        varNode->value,
+                        "semantic",
+                        0
+                    });
+                }
             }
-            
+
             // Any other variables in the loop body will be added to the global table
             visit(root, globalTable, node->children[2], usedTable);
         }
-        
-        usedTable->children.push_back(std::move(forTable));
-        return;
-    }
-    // Handle If bodies
-    else if (node->type == "IfBody") {
-        for (const auto& child : node->children) {
-            visit(root, globalTable, child, usedTable);
-        }
-        return;
-    }
-    // Handle Else bodies
-    else if (node->type == "ElseBody") {
-        for (const auto& child : node->children) {
-            visit(root, globalTable, child, usedTable);
-        }
-        return;
+
     }
 
 
@@ -258,6 +244,11 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& root, SymbolTab
         std::string funcName = node->children[0]->value;
 
         // Check if the function is already defined in the global table
+        
+        // TODO
+        // TODO : jamais censé arriver, ça doit être vérifié par un contrôle sémantique
+        // TODO
+
         if (definedFunctions.find(funcName) != definedFunctions.end()) {
             return; // Function already added to the global table, return without processing
         }
@@ -317,8 +308,10 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& root, SymbolTab
     }
 
     // Recursively visit all other nodes
-    for (const auto& child : node->children) {
-        visit(root, globalTable, child, usedTable);
+    else {
+        for (const auto& child : node->children) {
+            visit(root, globalTable, child, usedTable);
+        }
     }
 }
 

@@ -275,9 +275,9 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
         textSection += "mov rax, " + node->value + "\n";
     } else {
         // For any other node types, recursively visit children.
-        for (auto &child : node->children) {
+        /*for (auto &child : node->children) {
             visitNode(child);
-        }
+        }*/
     }
 }
 void CodeGenerator::endAssembly() {
