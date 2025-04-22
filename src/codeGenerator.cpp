@@ -9,17 +9,14 @@ SymbolTable* currentSymbolTable = nullptr;
 void CodeGenerator::generateCode(const std::shared_ptr<ASTNode>& root, const std::string& filename, SymbolTable* symTable) {
     symbolTable = symTable;
     currentSymbolTable = symbolTable;
-    //Print for debugging
-    
 
-    std::cout << "Symbol Table: (generator)" << std::endl;
-    symbolTable->print(std::cout, 0);
     // Initialize our sections.
     dataSection = "";
     textSection = "";
     std::string functionSection = ""; // Add a separate section for functions
     declaredVars.clear();
     dataSection = std::string("concat_buffer: times 2048 db 0\n") + "concat_offset: dq 0\n" + dataSection;
+
     // Generate the text (and data) from the AST.
     startAssembly();
     
@@ -94,18 +91,12 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
     } else if (node->type == "If") {
         genIf(node);
     } else if (node->type == "String") {
-            // Generate a unique label for this string
             static int strCounter = 0;
             std::string strLabel = "str_" + std::to_string(strCounter++);
-            
-            // Add string to data section with null terminator
             dataSection += strLabel + ": db ";
             
-            // Escape the string and add it to data section
             std::string strValue = node->value;
             dataSection += "\"" + strValue + "\", 0\n";
-            
-            // Load the address of the string into rax
             textSection += "mov rax, " + strLabel + "\n";
        
     } else if (node->type == "Print") {
@@ -117,9 +108,7 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                 visitNode(item);  // Process one argument
                 genPrint();       // Print that argument
                 
-                // Add a space between items (but not after the last one)
                 if (i < node->children[0]->children.size() - 1) {
-                    // Print a space between items
                     textSection += "mov rax, 1\n";         // write syscall
                     textSection += "mov rdi, 1\n";         // stdout
                     textSection += "push rax\n";           // save registers
@@ -146,48 +135,43 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
         textSection += "mov rdx, 1\n";
         textSection += "syscall\n";
     } else if (node->type == "Compare") {
-        // Handle comparison operations
-        visitNode(node->children[0]);  // Evaluate left operand
-        textSection += "push rax\n";   // Save left operand
-        visitNode(node->children[1]);  // Evaluate right operand
-        textSection += "mov rbx, rax\n"; // Move right operand to rbx
-        textSection += "pop rax\n";    // Restore left operand to rax
+        // Left
+        visitNode(node->children[0]); 
+        textSection += "push rax\n";  
+
+        // Right
+        visitNode(node->children[1]); 
+        textSection += "mov rbx, rax\n"; 
+        textSection += "pop rax\n";
         
-        // Now compare rax (left) with rbx (right)
+        //Compare the two values
         textSection += "cmp rax, rbx\n";
         
         // Set rax to 1 (true) or 0 (false) based on the comparison
         if (node->value == "==") {
             textSection += "mov rax, 0\n";
-            textSection += "sete al\n";  // Set al if equal
+            textSection += "sete al\n";  
         } else if (node->value == "!=") {
             textSection += "mov rax, 0\n";
-            textSection += "setne al\n"; // Set al if not equal
+            textSection += "setne al\n"; 
         } else if (node->value == "<") {
             textSection += "mov rax, 0\n";
-            textSection += "setl al\n";  // Set al if less than
+            textSection += "setl al\n"; 
         } else if (node->value == ">") {
             textSection += "mov rax, 0\n";
-            textSection += "setg al\n";  // Set al if greater than
+            textSection += "setg al\n";  
         } else if (node->value == "<=") {
             textSection += "mov rax, 0\n";
-            textSection += "setle al\n"; // Set al if less than or equal
+            textSection += "setle al\n"; 
         } else if (node->value == ">=") {
             textSection += "mov rax, 0\n";
-            textSection += "setge al\n"; // Set al if greater than or equal
+            textSection += "setge al\n"; 
         }
     } else if (node->type == "UnaryOp") {
-        // Visit the operand
         visitNode(node->children[0]);
-        
-        if (node->value == "-") {
-            // Negate the value
-            textSection += "neg rax\n";
-        } 
-        // Add other unary operators as needed
+        textSection += "neg rax\n";
     
     } else if (node->type == "ArithOp") {
-        // The node's value field holds the operator ("+")
         if (node->value == "+") {
             // Check if this is a string concatenation
             bool isStringOperation = false;
@@ -200,19 +184,13 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
             }
 
             
-            if (isStringOperation) {
-                // Debug:
-                textSection += "; String concatenation\n";
-                
+            if (isStringOperation) {                
                 // String concatenation
                 visitNode(node->children[0]);
                 textSection += "push rax\n";
                 visitNode(node->children[1]);
-                textSection += "mov rsi, rax\n";  // second string in RSI
-                textSection += "pop rdi\n";       // first string in RDI
-                // DEBUG: Print registers before concat
-                textSection += "; rdi = first string, rsi = second string\n";
-                textSection += "call str_concat\n";
+                textSection += "mov rsi, rax\n";  
+                textSection += "pop rdi\n";      
             } else {
                 // Integer addition
                 visitNode(node->children[0]);
@@ -226,6 +204,7 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
             // Evaluate the left child
             visitNode(node->children[0]);
             textSection += "push rax\n";
+
             // Evaluate the right child
             visitNode(node->children[1]);
             textSection += "mov rbx, rax\n";
@@ -238,6 +217,7 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
             // Evaluate the left child
             visitNode(node->children[0]);
             textSection += "push rax\n";
+
             // Evaluate the right child
             visitNode(node->children[1]);
             textSection += "mov rbx, rax\n";
@@ -248,30 +228,30 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
             // Evaluate the left child
             visitNode(node->children[0]);
             textSection += "push rax\n";
+
             // Evaluate the right child
             visitNode(node->children[1]);
             textSection += "mov rbx, rax\n";
             textSection += "pop rax\n";
-            textSection += "xor rdx, rdx\n";  // Clear RDX before division
-            textSection += "div rbx\n";       // RAX = RAX / RBX, RDX = RAX % RBX
+            textSection += "xor rdx, rdx\n";  
+            textSection += "div rbx\n";       
         }
         else if (node->value == "%") {
             // Evaluate the left child
             visitNode(node->children[0]);
             textSection += "push rax\n";
+
             // Evaluate the right child
             visitNode(node->children[1]);
             textSection += "mov rbx, rax\n";
             textSection += "pop rax\n";
-            textSection += "xor rdx, rdx\n";  // Clear RDX before division
-            textSection += "div rbx\n";       // RAX = RAX / RBX, RDX = RAX % RBX
-            textSection += "mov rax, rdx\n";  // Move remainder to RAX
+            textSection += "xor rdx, rdx\n";  
+            textSection += "div rbx\n";       
+            textSection += "mov rax, rdx\n";  
         }
     } else if (node->type == "Identifier") {
-        // Generate code to load the variable's value from memory into rax.
         textSection += "mov rax, qword [" + node->value + "]\n";
     } else if (node->type == "Integer") {
-        // Generate code to load an immediate integer into rax.
         textSection += "mov rax, " + node->value + "\n";
     } else {
         // For any other node types, recursively visit children.
@@ -415,7 +395,6 @@ void CodeGenerator::writeToFile(const std::string &filename) {
 }
 
 void CodeGenerator::genPrint() {
-    // Create unique label names using a counter
     static int printCounter = 0;
     std::string printId = std::to_string(printCounter++);
     
@@ -424,21 +403,20 @@ void CodeGenerator::genPrint() {
     std::string printNumLabel = ".print_num_" + printId;
     std::string printExitLabel = ".print_exit_" + printId;
     
-    // Check if we're printing a string (address > 10000) or number
     textSection += "cmp rax, 10000\n";
     textSection += "jl " + printNumLabel + "\n";
     
     // Print string
-    textSection += "mov rsi, rax\n";   // String address already in rax
-    textSection += "mov rdx, 0\n";     // Calculate string length
+    textSection += "mov rsi, rax\n";  
+    textSection += "mov rdx, 0\n";     
     textSection += strlenLoopLabel + ":\n";
     textSection += "cmp byte [rsi+rdx], 0\n";
     textSection += "je " + strlenDoneLabel + "\n";
     textSection += "inc rdx\n";
     textSection += "jmp " + strlenLoopLabel + "\n";
     textSection += strlenDoneLabel + ":\n";
-    textSection += "mov rax, 1\n";     // write syscall
-    textSection += "mov rdi, 1\n";     // stdout
+    textSection += "mov rax, 1\n";     
+    textSection += "mov rdi, 1\n";     
     textSection += "syscall\n";
     textSection += "jmp " + printExitLabel + "\n";
     
@@ -453,7 +431,7 @@ void CodeGenerator::genAffect(const std::shared_ptr<ASTNode>& node) {
         throw std::runtime_error("Invalid ASTNode structure for assignment");
     }
     
-    std::string varName = node->children[0]->value;  // e.g., "a" or "b"
+    std::string varName = node->children[0]->value; 
     auto rightValue = node->children[1];
     
     // If the variable is not yet declared, declare it in the data section
@@ -462,7 +440,7 @@ void CodeGenerator::genAffect(const std::shared_ptr<ASTNode>& node) {
         declaredVars.insert(varName);
     }
     
-    // Déterminer le type en fonction du nœud de droite
+    // Check Type
     std::string valueType;
     
     if (rightValue->type == "String") {
@@ -475,7 +453,6 @@ void CodeGenerator::genAffect(const std::shared_ptr<ASTNode>& node) {
         valueType = "bool";
     }
     else if (rightValue->type == "ArithOp") {
-        // On doit analyser l'opération pour déterminer le type résultant
         if (rightValue->value == "+" && 
             (rightValue->children[0]->type == "String" || rightValue->children[1]->type == "String" || 
              isStringVariable(rightValue->children[0]->value) || isStringVariable(rightValue->children[1]->value))) {
@@ -489,40 +466,35 @@ void CodeGenerator::genAffect(const std::shared_ptr<ASTNode>& node) {
         valueType = "bool";
     }
     else if (rightValue->type == "Identifier") {
-        // Pour une variable, utiliser son type actuel
         if (isStringVariable(rightValue->value)) {
             valueType = "String";
         } else {
-            valueType = "int"; // Par défaut
+            valueType = "int";
         }
     }
     else {
-        // Type par défaut
         valueType = "int";
     }
     
-    // Mettre à jour le type dans la table des symboles
     if (symbolTable) {
         updateSymbolType(varName, valueType);
     }
     
-    // Evaluate the right-hand side expression
     visitNode(rightValue);
     
-    // Generated code puts the result in RAX, now store it in the variable
     textSection += "mov qword [" + varName + "], rax\n";
 }
 void CodeGenerator::genFor(const std::shared_ptr<ASTNode>& node) {
     
-    // Get the loop variable name
     std::string loopVar = node->children[0]->value;
-    // If the variable is not yet declared, declare it
+
+    // If the loop variable is not yet declared, declare it in the data section
     if (declaredVars.find(loopVar) == declaredVars.end()) {
         dataSection += loopVar + ": dq 0\n";
         declaredVars.insert(loopVar);
     }
     
-    // Generate unique labels for this loop
+    // Generate unique labels 
     static int loopCounter = 0;
     std::string loopId = std::to_string(loopCounter++);
     std::string startLabel = ".loop_start_" + loopId;
@@ -532,29 +504,28 @@ void CodeGenerator::genFor(const std::shared_ptr<ASTNode>& node) {
     if (node->children[1]->type == "FunctionCall" && 
         node->children[1]->children[0]->value == "range") {
         
-        // Get range parameter(s)
+        // TODO : Check Possibilité de range(debut ? fin ? pas ?)
         auto paramList = node->children[1]->children[1];
         if (paramList->children.size() >= 1) {
-            // Initialize loop variable to 0
             textSection += "; Initialize loop\n";
             textSection += "mov qword [" + loopVar + "], 0\n";
             
             // Get the end value of the range
-            visitNode(paramList->children[0]);  // Visit the range end value (10 in your example)
-            textSection += "push rax\n"; // Save the end value
+            visitNode(paramList->children[0]);  
+            textSection += "push rax\n";
             
             // Start of loop
             textSection += startLabel + ":\n";
             textSection += "; Check loop condition\n";
             textSection += "mov rax, qword [" + loopVar + "]\n";
-            textSection += "pop rbx\n"; // Get the end value
-            textSection += "push rbx\n"; // Save it again for next iteration
+            textSection += "pop rbx\n"; 
+            textSection += "push rbx\n"; 
             textSection += "cmp rax, rbx\n";
             textSection += "jge " + endLabel + "\n";
             
             // Execute loop body
             textSection += "; Loop body\n";
-            visitNode(node->children[2]); // Visit the ForBody
+            visitNode(node->children[2]); 
             
             // Increment loop variable
             textSection += "; Increment loop variable\n";
@@ -565,10 +536,9 @@ void CodeGenerator::genFor(const std::shared_ptr<ASTNode>& node) {
             
             // End of loop
             textSection += endLabel + ":\n";
-            textSection += "pop rbx\n"; // Clean up the stack
+            textSection += "pop rbx\n"; 
         }
     } else {
-        // Handle other types of for loops if necessary
         textSection += "; Warning: Non-range for loop not implemented\n";
     }
 }
@@ -587,29 +557,25 @@ void CodeGenerator::genIf(const std::shared_ptr<ASTNode>& node) {
     // Test if the condition is false (0)
     textSection += "cmp rax, 0\n";
     
-    // If we have an else block (third child), jump to it if condition is false
     if (node->children.size() > 2 && node->children[2]) {
         textSection += "je " + elseLabel + "\n";
     } else {
-        // Otherwise just skip the if block
         textSection += "je " + endLabel + "\n";
     }
     
-    // Generate code for the "then" part (if body)
+    // Generate code for IfBody
     textSection += "; If body\n";
     visitNode(node->children[1]);
     
-    // Skip the else part if the "then" part was executed
+    // Skip if IfBody
     if (node->children.size() > 2 && node->children[2]) {
         textSection += "jmp " + endLabel + "\n";
         
-        // Generate code for the "else" part
         textSection += elseLabel + ":\n";
         textSection += "; Else body\n";
         visitNode(node->children[2]);
     }
     
-    // End of if statement
     textSection += endLabel + ":\n";
 }
 
@@ -713,13 +679,15 @@ void CodeGenerator::genReturn(const std::shared_ptr<ASTNode>& node) {
     if (!node->children.empty()) {
         visitNode(node->children[0]);
     } else {
-        textSection += "    xor rax, rax\n";  // Return 0 by default
+        textSection += "    xor rax, rax\n";  
     }
     
     // Jump to return label
     textSection += "    jmp .return_" + currentFunction + "\n";
 }
 
+
+// Le Reste n'est pas au point
 bool CodeGenerator::isStringVariable(const std::string& name) {
     if (!symbolTable) return false;
     
