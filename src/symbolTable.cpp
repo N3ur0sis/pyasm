@@ -341,7 +341,7 @@ std::shared_ptr<ASTNode> SymbolTableGenerator::findFunctionDef(const std::shared
     }
     // Function not found, add error
     m_errorManager.addError(Error{
-        "The function you tried to used has not been initialized: ",
+        "The function you tried to use has not been initialized: ",
         funcName,
         "semantic",
         0

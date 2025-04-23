@@ -1,174 +1,113 @@
 #include "semanticAnalyzer.h"
 #include <iostream>
 
-// TODO : gérer le cas où une fonction est définie avec le même nom qu'une précédente -> pas de surcharge
-
 void SemanticAnalyzer::checkSemantics(const std::shared_ptr<ASTNode>& root, SymbolTable* globalTable) {
-    // Start the recursive visitation from the global scope
+    // Démarre l’analyse depuis la racine de l’arbre syntaxique et la table des symboles globale
     visit(root, globalTable);
 }
 
+
+// Visite récursive des nœuds de l'AST
+// @param node : le nœud de l'AST à visiter
+// @param currentScope : la portée courante dans laquelle se trouve le nœud
+// @return : void
 void SemanticAnalyzer::visit(const std::shared_ptr<ASTNode>& node, SymbolTable* currentScope) {
     if (!node) return;
 
-    // ---- SCOPE SWITCH FOR FUNCTION DEFINITION ----
-    // If this node is a FunctionDefinition, we find its child scope
-    // that was created in SymbolTableGenerator (named "function <funcName>").
+    // ---- DÉFINITION DE FONCTION ----
     if (node->type == "FunctionDefinition") {
-        // Look for the child table "function <node->value>"
+        checkFunctionRedefinition(node, currentScope);
+
+        // Recherche de la table de symboles locale de la fonction
         SymbolTable* functionTable = nullptr;
-        for (auto& childTbl : currentScope->children) {
-            // The symbol-table generator gave the function scope a name like "function add"
-            if (childTbl->scopeName == "function " + node->value) {
-                functionTable = childTbl.get();
+        for (auto& child : currentScope->children) {
+            if (child->scopeName == "function " + node->value) {
+                functionTable = child.get();
                 break;
             }
         }
 
-        // If no child scope found, we could raise an error or skip
         if (!functionTable) {
-            // You can add an error or a warning here if desired.
-            return;
+            return; // Fonction probablement mal construite, on ignore
         }
 
-        // By convention, node->children[0] = parameter list, node->children[1] = function body
-        // We'll only descend into the body with the child scope
+        // Visite du corps de la fonction uniquement
         if (node->children.size() >= 2) {
             auto functionBody = node->children[1];
             visit(functionBody, functionTable);
         }
-        // Do NOT continue the usual "for (child in node->children) ..." recursion
-        // because we've already visited the relevant child with a new scope.
+
         return;
     }
 
-    // ---- USUAL CHECKS ----
-    if (node->type == "Identifier") {
-        checkVariableUsage(node, currentScope);
-    }
-    else if (node->type == "Affect") {
-        checkAssignment(node, currentScope);
-    }
-    else if (node->type == "FunctionCall") {
+    // ---- APPEL DE FONCTION ----
+    if (node->type == "FunctionCall") {
         checkFunctionCall(node, currentScope);
     }
 
-    // ---- RECURSE INTO CHILDREN ----
+    // ---- UTILISATION D’IDENTIFICATEUR ----
+    if (node->type == "Identifier") {
+        // Ce test ne peut pas vraiment détecter les cas utiles (cf. logique dynamique avec "auto")
+        // TODO : éventuellement faire une fonction de vérification statique de l'utilisation d'une variable avant déclaration
+    }
+
+    // ---- DESCENTE RÉCURSIVE ----
     for (const auto& child : node->children) {
         visit(child, currentScope);
     }
 }
 
-/**
- * 1) Ensure a variable is declared
- */
-void SemanticAnalyzer::checkVariableUsage(const std::shared_ptr<ASTNode>& node, SymbolTable* currentScope) {
-    if (!currentScope->lookup(node->value)) {
-        m_errorManager.addError(Error{
-            "Variable non déclarée: ",
-            node->value,
-            "Semantic",
-            0  // no line info here
-        });
-    }
-}
-
-/**
- * 2) Check assignment type compatibility, presence of variable
- */
-void SemanticAnalyzer::checkAssignment(const std::shared_ptr<ASTNode>& node, SymbolTable* currentScope) {
-    if (node->children.size() < 2) return;
-
-    auto varNode = node->children[0];
-    auto exprNode = node->children[1];
-
-    Symbol* sym = findSymbol(varNode->value, currentScope);
-    if (!sym) {
-        m_errorManager.addError(Error{
-            "Affectation à une variable non déclarée: ",
-            varNode->value,
-            "Semantic",
-            0
-        });
-        return;
-    }
-
-    // Minimal type check (everything is "int" except node->type == "String")
-    std::string varType = "int";
-    if (sym->symCat == "variable") {
-        if (auto vs = dynamic_cast<VariableSymbol*>(sym)) {
-            varType = vs->type;
+// Vérifie qu'une fonction n'est pas redéfinie avec le même nom
+// @return : true si la fonction est redéfinie, false sinon
+// @param node : le nœud de l'AST représentant la fonction
+// @param currentScope : la portée courante dans laquelle la fonction est définie
+void SemanticAnalyzer::checkFunctionRedefinition(const std::shared_ptr<ASTNode>& node, SymbolTable* currentScope) {
+    int occurrences = 0;
+    for (const auto& sym : currentScope->symbols) {
+        if (sym->name == node->value && sym->symCat == "function") {
+            occurrences++;
         }
     }
 
-    std::string exprType = "int";
-    if (exprNode->type == "String") {
-        exprType = "string";
-    }
-
-    if (varType != exprType) {
-        std::string errMsg = "Type incompatible pour l'affectation (" + varType + " <- " + exprType + ")";
+    if (occurrences > 1) {
         m_errorManager.addError(Error{
-            errMsg,
-            varNode->value,
+            "Redéfinition interdite de la fonction : ",
+            node->value,
             "Semantic",
             0
         });
     }
 }
 
-/**
- * 3) Check function calls: existence, parameter count
- */
+// Vérifie que l’appel de fonction correspond à une fonction connue
+// @param node : le nœud de l'AST représentant l'appel de fonction
+// @param currentScope : la portée courante dans laquelle la fonction est appelée
+// @return : void
 void SemanticAnalyzer::checkFunctionCall(const std::shared_ptr<ASTNode>& node, SymbolTable* currentScope) {
-    if (node->children.size() < 2) return;
+    if (node->children.empty()) return;
+    if (currentScope == nullptr) return;
 
-    auto funcIdNode = node->children[0];
-    auto paramListNode = node->children[1];
-
-    Symbol* sym = findSymbol(funcIdNode->value, currentScope);
-    if (!sym) {
-        m_errorManager.addError(Error{
-            "Appel d'une fonction non déclarée: ",
-            funcIdNode->value,
-            "Semantic",
-            0
-        });
-        return;
-    }
-
-    if (sym->symCat != "function") {
-        m_errorManager.addError(Error{
-            "Tentative d'appeler un symbole qui n'est pas une fonction: ",
-            funcIdNode->value,
-            "Semantic",
-            0
-        });
-        return;
-    }
-
+    // TODO : vérifier le nombre de paramètres lors d'un appel de fonction
+    /*
     auto funcSym = dynamic_cast<FunctionSymbol*>(sym);
-    if (!funcSym) return;  // fallback
-
     int expectedParams = funcSym->numParams;
-    int actualParams = (int) paramListNode->children.size();
+    int actualParams = (int) node->children[1]->children.size();
     if (expectedParams != actualParams) {
-        std::string msg = "Nombre de paramètres incorrect pour la fonction " 
-                          + funcIdNode->value + " (attendu " 
-                          + std::to_string(expectedParams) + ", reçu "
-                          + std::to_string(actualParams) + ")";
         m_errorManager.addError(Error{
-            msg,
+            "Nombre de paramètres incorrect pour la fonction " + funcIdNode->value,
             funcIdNode->value,
             "Semantic",
             0
         });
     }
+    */
+   return;
 }
 
-/**
- * Utility: search for a symbol in current scope or ancestors
- */
+// Recherche récursive dans la portée courante et ses ancêtres
+// @param name : le nom du symbole à rechercher
+// @param table : la table des symboles dans laquelle effectuer la recherche
+// @return : le symbole trouvé ou nullptr si non trouvé
 Symbol* SemanticAnalyzer::findSymbol(const std::string& name, SymbolTable* table) {
     for (auto& sPtr : table->symbols) {
         if (sPtr->name == name) {

@@ -10,7 +10,7 @@ def function2():
 
 def function3(parameter1, param2, param3, x):
     print("entrée en fonction 3")
-    z = x * y + 6                       #Est-ce que y est bien le y global qui est utilisé ? Et z, c'est lequel ? (normalement z local-->PB, y global, x param)
+    z = x * y + 6                       #Est-ce que y est bien le y global qui est utilisé ? Et z, cest lequel ? (normalement z local-->PB, y global, x param)
     variable0Function3 = "this is a string"
     variable1Function3 = [True, False, True]
     if x <= 9:
@@ -27,6 +27,7 @@ def function3(parameter1, param2, param3, x):
                 variable2Function3 = 90
                 z = z - i * variable2Function3
                 y = function2()
+        
         return z % variable2Function3
 
 def function4(parameter):

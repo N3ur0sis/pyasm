@@ -9,10 +9,8 @@
 #include "semanticAnalyzer.h"
 #include "codeGenerator.h"  // Include the code generator header
 
-// TODO : régler le bug de la ligne 1 : si on commence en écrivant sur la première ligne, le parseur ne marche pas
 // TODO : avec notre méthode utilisant le type "auto" pour savoir si une variable est initialisée ou pas, il faudra penser, en sortant d'une fonction
 // à remettre le type de tous les paramètres et des variables locales à "auto"
-// TODO : le shawowing pause problème : si on fait de la récursivité, la gestion actuelle du shadowing ne fonctionne pas
 
 #define BOLD "\033[1m"
 #define RESET "\033[0m"
@@ -73,7 +71,7 @@ int main(int argc, char* argv[]) {
         if (errorManager.hasErrors()) {
             std::cout << std::endl;
             errorManager.displayErrors();
-            //return EXIT_FAILURE;
+            return EXIT_FAILURE;
         }
 
         // Print the symbol table
