@@ -10,6 +10,7 @@ void CodeGenerator::generateCode(const std::shared_ptr<ASTNode>& root, const std
     symbolTable = symTable;
     currentSymbolTable = symbolTable;
 
+     // Print the symbol table for debugging
     // Initialize our sections.
     dataSection = "";
     textSection = "";
@@ -39,7 +40,8 @@ void CodeGenerator::generateCode(const std::shared_ptr<ASTNode>& root, const std
             visitNode(child);
         }
     }
-    
+    printf("Symbol table after assembly:\n");
+    currentSymbolTable->print(std::cout, 0);
     endAssembly();
 
     // Build the final assembly code.
@@ -173,32 +175,40 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
     
     } else if (node->type == "ArithOp") {
         if (node->value == "+") {
-            // Check if this is a string concatenation
-            bool isStringOperation = false;
-            if (node->children[0]->type == "String" && node->children[1]->type == "String") {
-                isStringOperation = true;
-            }
-            else if (node->children[0]->type == "Identifier" && isStringVariable(node->children[0]->value)
-                    && node->children[1]->type == "Identifier" && isStringVariable(node->children[1]->value)) {
-            isStringOperation = true;
-            }
-
+            static int opCounter = 0;
+            std::string opId = std::to_string(opCounter++);
+            std::string stringOpLabel = ".string_op_" + opId;
+            std::string intOpLabel = ".int_op_" + opId;
+            std::string endOpLabel = ".end_op_" + opId;
             
-            if (isStringOperation) {                
-                // String concatenation
-                visitNode(node->children[0]);
-                textSection += "push rax\n";
-                visitNode(node->children[1]);
-                textSection += "mov rsi, rax\n";  
-                textSection += "pop rdi\n";      
-            } else {
-                // Integer addition
-                visitNode(node->children[0]);
-                textSection += "push rax\n";
-                visitNode(node->children[1]);
-                textSection += "pop rbx\n";
-                textSection += "add rax, rbx\n";
-            }
+            // Evaluate the left child
+            visitNode(node->children[0]);
+            textSection += "push rax\n";
+            
+            // Evaluate the right child
+            visitNode(node->children[1]);
+            textSection += "mov rbx, rax\n";
+            textSection += "pop rax\n";
+            
+            // CHeck if String
+            textSection += "cmp rax, 10000\n";        
+            textSection += "jge " + stringOpLabel + "\n";
+            
+            textSection += "cmp rbx, 10000\n";        
+            textSection += "jge " + stringOpLabel + "\n";
+            
+            //IF int
+            textSection += intOpLabel + ":\n";
+            textSection += "add rax, rbx\n";
+            textSection += "jmp " + endOpLabel + "\n";
+            
+            //IF String
+            textSection += stringOpLabel + ":\n";
+            textSection += "mov rdi, rax\n";
+            textSection += "mov rsi, rbx\n";
+            textSection += "call str_concat\n";
+            
+            textSection += endOpLabel + ":\n";
         }
         else if (node->value == "-") {
             // Evaluate the left child
@@ -629,7 +639,10 @@ void CodeGenerator::genFunction(const std::shared_ptr<ASTNode>& node) {
 void CodeGenerator::genFunctionCall(const std::shared_ptr<ASTNode>& node) {
     std::string funcName = node->children[0]->value;
     auto args = node->children[1];
-    
+
+    // Mise à jour des types de paramètres dans la table des symboles
+    updateFunctionParamTypes(funcName, args);
+
     // Save caller-saved registers
     textSection += "; Save registers for function call\n";
     textSection += "push rbx\n";
@@ -722,6 +735,7 @@ void CodeGenerator::updateSymbolType(const std::string& name, const std::string&
                 if (sym->name == name && sym->symCat == "variable") {
                     if (auto varSym = dynamic_cast<VariableSymbol*>(sym.get())) {
                         varSym->type = type;
+                        printf("Updated type of variable %s to %s in table %s\n", name.c_str(), type.c_str(), table->scopeName.c_str());
                         return true;
                     }
                 }
@@ -753,6 +767,58 @@ void CodeGenerator::resetFunctionVarTypes(const std::string& funcName) {
                 if (sym->symCat == "variable") {
                     if (auto varSym = dynamic_cast<VariableSymbol*>(sym.get())) {
                         varSym->type = "auto";
+                    }
+                }
+            }
+            break;
+        }
+    }
+}
+
+void CodeGenerator::updateFunctionParamTypes(const std::string& funcName, const std::shared_ptr<ASTNode>& args) {
+    if (!symbolTable) return;
+
+    // Rechercher la table des symboles de la fonction
+    for (const auto& child : symbolTable->children) {
+        if (child->scopeName == "function " + funcName) {
+            
+            textSection += "; Updating parameter types for function " + funcName + "\n";
+            
+            // Parcourir les paramètres et déterminer leurs types
+            std::vector<std::string> paramTypes;
+            for (size_t i = 0; i < args->children.size(); i++) {
+                auto& arg = args->children[i];
+                std::string paramType = "int"; // Par défaut
+                
+                // Déterminer le type en fonction du nœud
+                if (arg->type == "String") {
+                    paramType = "String";
+                } 
+                else if (arg->type == "Identifier" && isStringVariable(arg->value)) {
+                    paramType = "String";
+                }
+                else if (arg->type == "ArithOp" && arg->value == "+") {
+                    // Vérifier s'il s'agit d'une concaténation de chaînes
+                    if ((arg->children[0]->type == "String") || 
+                        (arg->children[1]->type == "String") ||
+                        (arg->children[0]->type == "Identifier" && isStringVariable(arg->children[0]->value)) ||
+                        (arg->children[1]->type == "Identifier" && isStringVariable(arg->children[1]->value))) {
+                        paramType = "String";
+                    }
+                }
+                
+                paramTypes.push_back(paramType);
+                textSection += "; Parameter " + std::to_string(i+1) + " determined as " + paramType + "\n";
+            }
+            
+            // Mettre à jour les types dans la table des symboles
+            size_t paramIdx = 0;
+            for (auto& sym : child->symbols) {
+                if ((sym->symCat == "parameter" || sym->symCat == "variable") && paramIdx < paramTypes.size()) {
+                    if (auto varSym = dynamic_cast<VariableSymbol*>(sym.get())) {
+                        varSym->type = paramTypes[paramIdx];
+                        textSection += "; Set parameter " + sym->name + " to type " + paramTypes[paramIdx] + "\n";
+                        paramIdx++;
                     }
                 }
             }

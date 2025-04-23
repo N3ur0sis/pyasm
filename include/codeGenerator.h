@@ -45,5 +45,6 @@ private:
     bool isStringVariable(const std::string& name);
     void updateSymbolType(const std::string& name, const std::string& type);
     void resetFunctionVarTypes(const std::string& funcName);
+    void updateFunctionParamTypes(const std::string& funcName, const std::shared_ptr<ASTNode>& args);
 
 };
