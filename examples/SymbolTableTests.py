@@ -1,4 +1,3 @@
-
 def function1(param1, param2, z):
     print("hehe")
     x = 7
@@ -28,7 +27,6 @@ def function3(parameter1, param2, param3, x):
                 variable2Function3 = 90
                 z = z - i * variable2Function3
                 y = function2()
-
         return z % variable2Function3
 
 def function4(parameter):
@@ -47,7 +45,6 @@ u = variable2 * variable3
 v = True
 w = False
 a = function1(variable, variable2, u)
-function2()
 
 for i in range(5):
     variableDansFor1 = 7

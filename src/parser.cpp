@@ -211,12 +211,12 @@ std::shared_ptr<ASTNode> Parser::parsePrimary() {
             auto funcCallNode = std::make_shared<ASTNode>("FunctionCall");
             funcCallNode->children.push_back(idNode);
             auto paramListNode = std::make_shared<ASTNode>("ParameterList");
-            while (true) {
+            while (peek().type != TokenType::CAR_RPAREN) {
                 auto exprNode = parseExpr();
-                paramListNode->children.push_back(exprNode);
-                if (!expect(TokenType::CAR_COMMA)) {
-                    break;
+                if (exprNode) {
+                    paramListNode->children.push_back(exprNode);
                 }
+                if (!expect(TokenType::CAR_COMMA)) break;
             }
             funcCallNode->children.push_back(paramListNode);
             expectR(TokenType::CAR_RPAREN);
@@ -531,7 +531,7 @@ std::shared_ptr<ASTNode> Parser::parseSimpleStmt() {
 std::shared_ptr<ASTNode> Parser::parseTest(const std::shared_ptr<ASTNode>& idNode) {
     auto testNode = std::make_shared<ASTNode>("Test");
     auto currentNode = idNode; // Commence avec l'identifiant fourni
-
+    printf("Call of %s\n", idNode->value.c_str());
     // Parsing de expr_prime
     // Si l'identifiant est suivi de parenthèses, il s'agit ici d'un appel de fonction
     if (peek().type == TokenType::CAR_LPAREN) {
