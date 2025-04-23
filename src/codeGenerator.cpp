@@ -10,7 +10,6 @@ void CodeGenerator::generateCode(const std::shared_ptr<ASTNode>& root, const std
     symbolTable = symTable;
     currentSymbolTable = symbolTable;
 
-     // Print the symbol table for debugging
     // Initialize our sections.
     dataSection = "";
     textSection = "";
@@ -40,8 +39,6 @@ void CodeGenerator::generateCode(const std::shared_ptr<ASTNode>& root, const std
             visitNode(child);
         }
     }
-    printf("Symbol table after assembly:\n");
-    currentSymbolTable->print(std::cout, 0);
     endAssembly();
 
     // Build the final assembly code.
@@ -735,7 +732,6 @@ void CodeGenerator::updateSymbolType(const std::string& name, const std::string&
                 if (sym->name == name && sym->symCat == "variable") {
                     if (auto varSym = dynamic_cast<VariableSymbol*>(sym.get())) {
                         varSym->type = type;
-                        printf("Updated type of variable %s to %s in table %s\n", name.c_str(), type.c_str(), table->scopeName.c_str());
                         return true;
                     }
                 }
