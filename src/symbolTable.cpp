@@ -3,6 +3,8 @@
 #include <sstream>
 #include <set>
 
+// TODO : la récursivité fait planter la génération des TDS (core dumped)
+
 int AUTO_OFFSET = 0;
 int nextTableId = 0; // O is the id of the global table
 std::set<std::string> definedFunctions;             // Set to keep track of defined functions
@@ -266,6 +268,7 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& root, SymbolTab
         auto functionDefNode = findFunctionDef(root->children[0], funcName);
         
         if (functionDefNode) {
+            definedFunctions.insert(funcName); // Add function name to the set of defined functions
             // Create function symbol and add to global table
             int functionTableId = nextTableId++;
             if (!globalTable->lookup(funcName)) {
@@ -312,7 +315,6 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& root, SymbolTab
             
             // Add function table to global table
             globalTable->children.push_back(std::move(functionTable));
-            definedFunctions.insert(funcName); // Add function name to the set of defined functions
         }
     }
 

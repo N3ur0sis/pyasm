@@ -1,6 +1,10 @@
+def function1(x):
+    return x +2
+
 
 x = 0
 for i in range(10):
     x = x + 1
 print(x)
+print(function1(x))
 

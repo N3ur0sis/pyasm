@@ -639,6 +639,7 @@ void CodeGenerator::genFunctionCall(const std::shared_ptr<ASTNode>& node) {
 
     // Mise à jour des types de paramètres dans la table des symboles
     updateFunctionParamTypes(funcName, args);
+    symbolTable->print(std::cout);
 
     // Save caller-saved registers
     textSection += "; Save registers for function call\n";

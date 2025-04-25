@@ -1,0 +1,61 @@
+# --- TEST DES ERREURS SEMANTIQUES ---
+
+# Fonction avec shadowing de paramètre
+def funcWithParamShadowing(x, y):
+    x = 7                # Erreur : shadowing du paramètre x
+    z = 10
+    return x + y + z
+
+# Fonction valide
+def otherFunc():
+    return 42
+
+# Fonction avec appel à une fonction non définie
+def callUnknownFunction():
+    result = unknownFunction()  # Erreur : fonction non définie
+
+# Fonction avec redéfinition légale de variable (pas une erreur)
+def funcWithRedef():
+    a = 6
+    a = "Hello"  # OK : changement de type autorisé
+    return a
+
+# Variable utilisée avant d’être affectée (généré au moment du codegen, via type "auto")
+def useBeforeAssignment():
+    print(someVar)  # => devrait générer une erreur sémantique si someVar est toujours de type "auto" (géré dans la gen de code, plus tard)
+    someVar = 123
+
+# Fonction avec des variables de boucle et shadowing
+def loopShadowing():
+    for i in range(5):
+        i = 3        # Erreur : redéfinition de la variable de boucle dans la boucle elle-même
+        j = 4
+        for j in range(2):  # Erreur : shadowing de j défini juste avant
+            print(j)
+
+# Fonction récursive (test annexe pour réfléchir au shadowing dans une récursion)
+def recursiveFunc(n):
+    if n <= 0:
+        return 1
+    else:
+        return n * recursiveFunc(n - 1)
+    
+def otherFunc(x):
+    return x +3
+    
+
+# Shadowing d'une variable de portée immédiate par une variable de boucle
+v = 10
+for v in range(5):  # Erreur : shadowing dans la portée immédiate
+    print(v)
+
+a = 10
+b = "text"
+c = otherFunc()
+loopShadowing()
+result = funcWithParamShadowing(a, b)
+print(result)
+d = callUnknownFunction()
+
+
+

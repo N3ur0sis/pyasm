@@ -1,5 +1,5 @@
 
-shadowing :
+### shadowing :
 
 - une variable locale ne peut avoir le même nom qu'un paramètre de cette même fonction
 - une variable de boucle ne peut avoir le même nom qu'une variable précédemment déclarée dans la portée immédiate
@@ -7,17 +7,19 @@ shadowing :
 // TODO : le shawowing pause problème : si on fait de la récursivité, la gestion actuelle du shadowing ne fonctionne pas (à revérifier)
 
 
-Utilisation avant déclaration :
+### Utilisation avant déclaration :
 
 - utilisation d'une fonction non déclarée
 
-PREVU : lors de la génération de code, si on constate que la variable qu'on veut utiliser est de type "auto" dans la table des symboles, 
+
+- PREVU "utilisation d'une variable non déclarée" : 
+lors de la génération de code, si on constate que la variable qu'on veut utiliser est de type "auto" dans la table des symboles, 
 alors cela signifie que cette variable n'a jamais été initialisée avant l'utilisation, donc on soulèvera une erreur sémantique à ce moment.
 Si une variable est initialisée à un moment, alors son type est inféré et inscrit dans la table des symboles et donc lors de son utilisation, la 
 génération de code va détecter un type précis et ne soulèvera pas d'erreur.
 
 
-Définition de variable :
+### Définition de variable :
 
 - une variable définie avec une certaine valeur et un certain type va simplement écraser la variable précédente
 ex :
@@ -30,6 +32,9 @@ a = "Hello"
 
 
 
-à ajouter :
+### à ajouter :
 - une variable dans une boucle for ne doit pas avoir le même nom que la variable de boucle
 - détection du numéro de ligne dans l'analyse sémantique et dans la création des TDS
+- len, range ou list à interdire
+- unused parameter
+- 
