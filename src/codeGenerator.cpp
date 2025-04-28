@@ -209,6 +209,13 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
             if (type0 != type1) {
                 m_errorManager.addError(Error{"Expected same type for an Arith Operation ; ", "Got " + std::string(type0.c_str()) + " and " + std::string(type1.c_str()), "Semantic", 0});
             }
+            if (type0 != "Integer" && type0 != "String" && type0 != "List") {
+                m_errorManager.addError(Error{"Expected Int or String for an Arith Operation ; ", "Got " + std::string(type0.c_str()), "Semantic", 0});
+            }
+            if (type1 != "Integer" && type1 != "String" && type1 != "List") {
+                m_errorManager.addError(Error{"Expected Int or String or List for an Arith Operation ; ", "Got " + std::string(type0.c_str()), "Semantic", 0});
+            }
+
             
             // CHeck if String
             textSection += "cmp rax, 10000\n";        
@@ -676,7 +683,9 @@ void CodeGenerator::genIf(const std::shared_ptr<ASTNode>& node) {
 void CodeGenerator::genFunction(const std::shared_ptr<ASTNode>& node) {
     std::string funcName = node->value;
     currentFunction = funcName;
-    
+    if (funcName == "range" || funcName == "len" || funcName == "print" || funcName == "range") {
+        m_errorManager.addError(Error{"Function Name Error : " , funcName + " is a reserved function name", "Semantic", 0});
+    }
     if (symbolTable) {
         for (const auto& child : symbolTable->children) {
             if (child->scopeName == "function " + funcName) {
