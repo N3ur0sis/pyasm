@@ -1,0 +1,21 @@
+a = 5
+n = "test"
+print(-a)
+print(-n)
+print(-"test")
+print(-[a])
+
+print("a"-a)
+print(a-[a])
+
+
+print("a"*a)
+print(a*[a])
+
+print("a"//a)
+print(a//[a])
+print(a//0)
+
+print("a"%a)
+print(a%[a])
+print(a%0)
