@@ -577,6 +577,14 @@ void CodeGenerator::genAffect(const std::shared_ptr<ASTNode>& node) {
         valueType = "Integer";
     }
     
+    if (node->children[0]->type == "Identifier") {
+        auto varType = getIdentifierType(node->children[0]->value);
+        if (varType != valueType && varType != "auto") {
+            m_errorManager.addError(Error{"Expected same type for Affectation ; ", "Got " + std::string(varType.c_str()) + " and " + std::string(valueType.c_str()), "Semantic", 0});
+        }
+    }
+
+
     if (symbolTable) {
         updateSymbolType(varName, valueType);
     }
@@ -732,6 +740,23 @@ void CodeGenerator::genFunction(const std::shared_ptr<ASTNode>& node) {
 void CodeGenerator::genFunctionCall(const std::shared_ptr<ASTNode>& node) {
     std::string funcName = node->children[0]->value;
     auto args = node->children[1];
+
+    // Vérifier si la fonction built-in est valide
+    if ((funcName == "range" || funcName == "len" || funcName == "range") && args->children.size() > 1) {
+        m_errorManager.addError(Error{"Params Error : " , funcName + " funtion have one parameter", "Semantic", 0});
+        return;
+    }
+
+    // Vérifier que les parametres sont distincts 2 à 2
+    for (size_t i = 0; i < args->children.size(); ++i) {
+        for (size_t j = i + 1; j < args->children.size(); ++j) {
+            if (args->children[i]->value == args->children[j]->value) {
+                m_errorManager.addError(Error{"Params Error : " , "Duplicate parameter " + args->children[i]->value, "Semantic", 0});
+                return;
+            }
+        }
+    }
+
 
     // Vérifier si la fonction existe dans la table des symboles
     if (symbolTable) {
