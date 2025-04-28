@@ -93,15 +93,15 @@ void SemanticAnalyzer::checkAssignment(const std::shared_ptr<ASTNode>& node, Sym
         return;
     }
 
-    // Minimal type check (everything is "int" except node->type == "String")
-    std::string varType = "int";
+    // Minimal type check (everything is "Integer" except node->type == "String")
+    std::string varType = "Integer";
     if (sym->symCat == "variable") {
         if (auto vs = dynamic_cast<VariableSymbol*>(sym)) {
             varType = vs->type;
         }
     }
 
-    std::string exprType = "int";
+    std::string exprType = "Integer";
     if (exprNode->type == "String") {
         exprType = "string";
     }

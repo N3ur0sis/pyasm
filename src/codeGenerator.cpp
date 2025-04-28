@@ -198,6 +198,18 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
             textSection += "mov rbx, rax\n";
             textSection += "pop rax\n";
             
+            auto type0 = node->children[0]->type;
+            if (node->children[0]->type == "Identifier") {
+                type0 = getIdentifierType(node->children[0]->value);
+            }
+            auto type1 = node->children[1]->type;
+            if (node->children[1]->type == "Identifier") {
+                type1 = getIdentifierType(node->children[1]->value);
+            }
+            if (type0 != type1) {
+                m_errorManager.addError(Error{"Expected same type for an Arith Operation ; ", "Got " + std::string(type0.c_str()) + " and " + std::string(type1.c_str()), "Semantic", 0});
+            }
+            
             // CHeck if String
             textSection += "cmp rax, 10000\n";        
             textSection += "jge " + stringOpLabel + "\n";
@@ -529,7 +541,7 @@ void CodeGenerator::genAffect(const std::shared_ptr<ASTNode>& node) {
         valueType = "String";
     } 
     else if (rightValue->type == "Integer") {
-        valueType = "int";
+        valueType = "Integer";
     }
     else if (rightValue->type == "Boolean") {
         valueType = "bool";
@@ -541,7 +553,7 @@ void CodeGenerator::genAffect(const std::shared_ptr<ASTNode>& node) {
             valueType = "String";
         }
         else {
-            valueType = "int";
+            valueType = "Integer";
         }
     }
     else if (rightValue->type == "Compare") {
@@ -551,11 +563,11 @@ void CodeGenerator::genAffect(const std::shared_ptr<ASTNode>& node) {
         if (isStringVariable(rightValue->value)) {
             valueType = "String";
         } else {
-            valueType = "int";
+            valueType = "Integer";
         }
     }
     else {
-        valueType = "int";
+        valueType = "Integer";
     }
     
     if (symbolTable) {
@@ -828,7 +840,7 @@ bool CodeGenerator::isStringVariable(const std::string& name) {
 
 bool CodeGenerator::isIntVariable(const std::string& name) {
     std::string type = getIdentifierType(name);
-    return type == "int";
+    return type == "Integer";
 }
 
 
@@ -895,7 +907,7 @@ void CodeGenerator::updateFunctionParamTypes(const std::string& funcName, const 
             std::vector<std::string> paramTypes;
             for (size_t i = 0; i < args->children.size(); i++) {
                 auto& arg = args->children[i];
-                std::string paramType = "int"; // Par défaut
+                std::string paramType = "Integer"; // Par défaut
                 
                 // Déterminer le type en fonction du nœud
                 if (arg->type == "String") {
