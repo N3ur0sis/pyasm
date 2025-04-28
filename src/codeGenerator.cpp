@@ -635,14 +635,33 @@ void CodeGenerator::genFor(const std::shared_ptr<ASTNode>& node) {
     if (node->children[1]->type == "FunctionCall" && 
         node->children[1]->children[0]->value == "range") {
         
-        // TODO : Check Possibilité de range(debut ? fin ? pas ?)
         auto paramList = node->children[1]->children[1];
+        if (paramList->children.size() != 1){
+            m_errorManager.addError(Error{"Expected one parameter for range ; ", "Got " + std::to_string(paramList->children.size()), "Semantic", 0});
+            return;
+        }
+        
+
         if (paramList->children.size() >= 1) {
             textSection += "; Initialize loop\n";
             textSection += "mov qword [" + loopVar + "], 0\n";
             
             // Get the end value of the range
-            visitNode(paramList->children[0]);  
+            visitNode(paramList->children[0]); 
+            /*
+            if ((paramList->children[0]->type == "Identifier" && !isIntVariable(paramList->children[0]->value.c_str()))){
+                m_errorManager.addError(Error{"Expected Int for range ; ", "Got " + std::string(paramList->children[0]->type.c_str()), "Semantic", 0});
+                return;
+            }
+            if (!(paramList->children[0]->type == "Integer")){
+                m_errorManager.addError(Error{"Expected Int for range ; ", "Got " + std::string(paramList->children[0]->type.c_str()), "Semantic", 0});
+                return;
+            }
+            if (std::stoi(paramList->children[0]->value) < 0){
+                m_errorManager.addError(Error{"Expected positive Int for range ; ", "Got " + std::string(paramList->children[0]->type.c_str()), "Semantic", 0});
+                return;
+            } 
+            */
             textSection += "push rax\n";
             
             // Start of loop
@@ -779,7 +798,7 @@ void CodeGenerator::genFunctionCall(const std::shared_ptr<ASTNode>& node) {
     auto args = node->children[1];
 
     // Vérifier si la fonction built-in est valide
-    if ((funcName == "range" || funcName == "len" || funcName == "range") && args->children.size() > 1) {
+    if ((funcName == "range" || funcName == "len" || funcName == "range") && args->children.size() != 1) {
         m_errorManager.addError(Error{"Params Error : " , funcName + " funtion have one parameter", "Semantic", 0});
         return;
     }

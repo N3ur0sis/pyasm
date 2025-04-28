@@ -1,0 +1,10 @@
+a = -1
+for i in range(a):
+    print("ok")
+
+for i in range("Test"):
+    print("ok")
+
+for i in range(-5):
+    print("ok")
+
