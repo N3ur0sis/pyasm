@@ -1,3 +1,9 @@
 def range(50):
     return 4
 
+def add(a,b):
+    return a+b
+
+print(add(1,1))
+print(add(1,1,1))
+print(square(5))

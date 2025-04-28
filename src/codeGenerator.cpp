@@ -209,10 +209,10 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
             if (type0 != type1) {
                 m_errorManager.addError(Error{"Expected same type for an Arith Operation ; ", "Got " + std::string(type0.c_str()) + " and " + std::string(type1.c_str()), "Semantic", 0});
             }
-            if (type0 != "Integer" && type0 != "String" && type0 != "List") {
+            if (type0 != "Integer" && type0 != "String" && type0 != "List" && type0 != "auto") {
                 m_errorManager.addError(Error{"Expected Int or String for an Arith Operation ; ", "Got " + std::string(type0.c_str()), "Semantic", 0});
             }
-            if (type1 != "Integer" && type1 != "String" && type1 != "List") {
+            if (type1 != "Integer" && type1 != "String" && type1 != "List" && type0 != "auto") {
                 m_errorManager.addError(Error{"Expected Int or String or List for an Arith Operation ; ", "Got " + std::string(type0.c_str()), "Semantic", 0});
             }
 
@@ -733,8 +733,56 @@ void CodeGenerator::genFunctionCall(const std::shared_ptr<ASTNode>& node) {
     std::string funcName = node->children[0]->value;
     auto args = node->children[1];
 
+    // Vérifier si la fonction existe dans la table des symboles
+    if (symbolTable) {
+        bool functionFound = false;
+        for (const auto& child : symbolTable->children) {
+            if (child->scopeName == "function " + funcName) {
+                functionFound = true;
+
+                int expectedArgs = 0;
+                for (const auto& sym : symbolTable->symbols) {
+                    if (sym->name == funcName && sym->symCat == "function") {
+                        if (auto funcSym = dynamic_cast<FunctionSymbol*>(sym.get())) {
+                            expectedArgs = funcSym->numParams;
+                            break;
+                        }
+                    }
+                }
+
+                if (args->children.size() != static_cast<std::vector<std::shared_ptr<ASTNode>>::size_type>(expectedArgs)) {
+                    m_errorManager.addError(Error{
+                        "Function Call Error: ",
+                        "Function " + funcName + " expects " + std::to_string(expectedArgs) + 
+                        " arguments, but " + std::to_string(args->children.size()) + " were provided.",
+                        "Semantic",
+                        0
+                    });
+                }
+                break;
+            }
+        }
+
+        if (!functionFound) {
+            m_errorManager.addError(Error{
+                "Function Call Error: ",
+                "Function " + funcName + " is not defined.",
+                "Semantic",
+                0
+            });
+        }
+    }
+
     // Mise à jour des types de paramètres dans la table des symboles
     updateFunctionParamTypes(funcName, args);
+    
+    // Définir la table de symboles de la fonction comme courante pendant l'appel
+    for (const auto& child : symbolTable->children) {
+        if (child->scopeName == "function " + funcName) {
+            currentSymbolTable = child.get();
+            break;
+        }
+    }
 
     // Save caller-saved registers
     textSection += "; Save registers for function call\n";
@@ -757,29 +805,30 @@ void CodeGenerator::genFunctionCall(const std::shared_ptr<ASTNode>& node) {
         textSection += "push rax\n";
     }
     
-     // Call the function
-     textSection += "call " + funcName + "\n";
+    // Call the function
+    textSection += "call " + funcName + "\n";
     
-     // Cleanup: remove arguments from stack
-     if (args->children.size() > 0) {
-         textSection += "add rsp, " + std::to_string(args->children.size() * 8) + "\n";
-     }
+    // Cleanup: remove arguments from stack
+    if (args->children.size() > 0) {
+        textSection += "add rsp, " + std::to_string(args->children.size() * 8) + "\n";
+    }
      
-     // Restore stack alignment
-     textSection += "pop rsp\n";  // Restore original stack pointer
+    // Restore stack alignment
+    textSection += "pop rsp\n";  // Restore original stack pointer
      
-     // Restore saved registers in reverse order
-     textSection += "pop r15\n";
-     textSection += "pop r14\n";
-     textSection += "pop r13\n";
-     textSection += "pop r12\n";
-     textSection += "pop rbx\n";
+    // Restore saved registers in reverse order
+    textSection += "pop r15\n";
+    textSection += "pop r14\n";
+    textSection += "pop r13\n";
+    textSection += "pop r12\n";
+    textSection += "pop rbx\n";
      
-     // Réinitialiser les types des variables de la fonction
-     resetFunctionVarTypes(funcName);
+    // Réinitialiser les types des variables de la fonction
+
+    resetFunctionVarTypes(funcName);
      
-     // Result is already in rax
- }
+    // Result is already in rax
+}
 void CodeGenerator::genReturn(const std::shared_ptr<ASTNode>& node) {
     // Evaluate return expression if any
     if (!node->children.empty()) {
