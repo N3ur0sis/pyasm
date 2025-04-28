@@ -94,6 +94,28 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
             genFor(node);
     } else if (node->type == "If") {
         genIf(node);
+    } else if (node->type == "And") {
+        visitNode(node->children[0]);
+        textSection += "push rax\n"; 
+        
+        visitNode(node->children[1]);
+        textSection += "pop rbx\n";   
+        textSection += "and rax, rbx\n"; 
+    } else if (node->type == "Not") {
+        textSection += "not rax\n";  
+    } else if (node->type == "Or") {
+        visitNode(node->children[0]);
+        textSection += "push rax\n"; 
+        
+        visitNode(node->children[1]);
+        textSection += "pop rbx\n";   
+        textSection += "or rax, rbx\n"; 
+    } else if (node->type == "True") {
+        textSection += "mov rax, 1\n";  
+    } else if (node->type == "False") {
+        textSection += "mov rax, 0\n";  
+    } else if (node->type == "List") {
+        genList(node);
     } else if (node->type == "String") {
             static int strCounter = 0;
             std::string strLabel = "str_" + std::to_string(strCounter++);
@@ -736,7 +758,22 @@ void CodeGenerator::genFunction(const std::shared_ptr<ASTNode>& node) {
     }
 
 }
-
+void CodeGenerator::genList(const std::shared_ptr<ASTNode>& node) {
+    std::string listName = node->value;
+    if (declaredVars.find(listName) == declaredVars.end()) {
+        dataSection += listName + ": dq 0\n";
+        declaredVars.insert(listName);
+    }
+    
+    if (node->children.empty()) {
+        textSection += "mov qword [" + listName + "], 0\n";
+        return;
+    }
+    
+    for (const auto& child : node->children) {
+        visitNode(child);
+    }
+}
 void CodeGenerator::genFunctionCall(const std::shared_ptr<ASTNode>& node) {
     std::string funcName = node->children[0]->value;
     auto args = node->children[1];

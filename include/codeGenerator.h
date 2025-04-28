@@ -43,6 +43,8 @@ private:
     void genFunction(const std::shared_ptr<ASTNode>& node);
     void genFunctionCall(const std::shared_ptr<ASTNode>& node);
     void genReturn(const std::shared_ptr<ASTNode>& node);
+    void genList(const std::shared_ptr<ASTNode>& node);
+
     
     // Helper function
     std::string getIdentifierType(const std::string& name);
