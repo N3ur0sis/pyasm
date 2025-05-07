@@ -749,6 +749,15 @@ void CodeGenerator::genFunction(const std::shared_ptr<ASTNode>& node) {
                 
                 // Handle parameters from stack
                 auto paramList = node->children[0];
+                // Vérifier que les parametres sont distincts 2 à 2
+                for (size_t i = 0; i < paramList->children.size(); ++i) {
+                    for (size_t j = i + 1; j < paramList->children.size(); ++j) {
+                        if (paramList->children[i]->value == paramList->children[j]->value) {
+                            m_errorManager.addError(Error{"Params Error : " , "Duplicate parameter " + paramList->children[i]->value, "Semantic", 0});
+                            return;
+                        }
+                    }
+                }
                 for (size_t i = 0; i < paramList->children.size(); i++) {
                     std::string paramName = paramList->children[i]->value;
                     if (declaredVars.find(paramName) == declaredVars.end()) {
@@ -803,15 +812,7 @@ void CodeGenerator::genFunctionCall(const std::shared_ptr<ASTNode>& node) {
         return;
     }
 
-    // Vérifier que les parametres sont distincts 2 à 2
-    for (size_t i = 0; i < args->children.size(); ++i) {
-        for (size_t j = i + 1; j < args->children.size(); ++j) {
-            if (args->children[i]->value == args->children[j]->value) {
-                m_errorManager.addError(Error{"Params Error : " , "Duplicate parameter " + args->children[i]->value, "Semantic", 0});
-                return;
-            }
-        }
-    }
+    
 
 
     // Vérifier si la fonction existe dans la table des symboles

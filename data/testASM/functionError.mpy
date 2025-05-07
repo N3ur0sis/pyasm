@@ -1,7 +1,7 @@
-def range(50):
+def range(a):
     return 4
 
-def add(a,b):
+def add(a,a):
     return a+b
 
 print(add(1,1))
