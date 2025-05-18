@@ -5,6 +5,11 @@ def add(x,y):
     z = x+y
     return z
 
+def rec(x):
+    if x==0:
+        return 0
+    else:
+        return 1+rec(x-1)
 
 a = "Hello"
 b = " World"

@@ -165,7 +165,7 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& root, SymbolTab
             auto varNode = node->children[0];
             auto type = node->children[1]->type;
             if (type != "String"){
-                type = "int"; // Default type for other variables
+                type = "Integer"; // Default type for other variables
             }
             if (varNode && varNode->type == "Identifier") {
                 // Always add variables to the global table unless in a function scope

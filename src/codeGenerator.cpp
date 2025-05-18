@@ -7,6 +7,7 @@
 SymbolTable* currentSymbolTable = nullptr;
 
 void CodeGenerator::generateCode(const std::shared_ptr<ASTNode>& root, const std::string& filename, SymbolTable* symTable) {
+    //m_errorManager.addError(Error{"Expected Test", "", "Semantic", 0});
     symbolTable = symTable;
     currentSymbolTable = symbolTable;
 
@@ -15,7 +16,11 @@ void CodeGenerator::generateCode(const std::shared_ptr<ASTNode>& root, const std
     textSection = "";
     std::string functionSection = ""; // Add a separate section for functions
     declaredVars.clear();
-    dataSection = std::string("concat_buffer: times 2048 db 0\n") + "concat_offset: dq 0\n" + dataSection;
+    dataSection = std::string("concat_buffer: times 2048 db 0\n") + 
+                "concat_offset: dq 0\n" + 
+                "div_zero_msg: db 'Error: Division by zero', 10, 0\n" +
+                "div_zero_len: equ $ - div_zero_msg\n" + 
+                dataSection;
 
     // Generate the text (and data) from the AST.
     startAssembly();
@@ -89,6 +94,28 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
             genFor(node);
     } else if (node->type == "If") {
         genIf(node);
+    } else if (node->type == "And") {
+        visitNode(node->children[0]);
+        textSection += "push rax\n"; 
+        
+        visitNode(node->children[1]);
+        textSection += "pop rbx\n";   
+        textSection += "and rax, rbx\n"; 
+    } else if (node->type == "Not") {
+        textSection += "not rax\n";  
+    } else if (node->type == "Or") {
+        visitNode(node->children[0]);
+        textSection += "push rax\n"; 
+        
+        visitNode(node->children[1]);
+        textSection += "pop rbx\n";   
+        textSection += "or rax, rbx\n"; 
+    } else if (node->type == "True") {
+        textSection += "mov rax, 1\n";  
+    } else if (node->type == "False") {
+        textSection += "mov rax, 0\n";  
+    } else if (node->type == "List") {
+        genList(node);
     } else if (node->type == "String") {
             static int strCounter = 0;
             std::string strLabel = "str_" + std::to_string(strCounter++);
@@ -167,8 +194,14 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
             textSection += "setge al\n"; 
         }
     } else if (node->type == "UnaryOp") {
-        visitNode(node->children[0]);
-        textSection += "neg rax\n";
+        if (node->children[0]->type == "Integer" || (node->children[0]->type == "Identifier" && isIntVariable(node->children[0]->value.c_str()))) {
+            visitNode(node->children[0]);
+            textSection += "neg rax\n";
+        }
+        else{
+            m_errorManager.addError(Error{"Expected Int for an Unary Operation ; ", "Got " + std::string(node->children[0]->type.c_str()), "Semantic", 0});
+        }
+        
     
     } else if (node->type == "ArithOp") {
         if (node->value == "+") {
@@ -186,6 +219,25 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
             visitNode(node->children[1]);
             textSection += "mov rbx, rax\n";
             textSection += "pop rax\n";
+            
+            auto type0 = node->children[0]->type;
+            if (node->children[0]->type == "Identifier") {
+                type0 = getIdentifierType(node->children[0]->value);
+            }
+            auto type1 = node->children[1]->type;
+            if (node->children[1]->type == "Identifier") {
+                type1 = getIdentifierType(node->children[1]->value);
+            }
+            if (type0 != type1) {
+                m_errorManager.addError(Error{"Expected same type for an Arith Operation ; ", "Got " + std::string(type0.c_str()) + " and " + std::string(type1.c_str()), "Semantic", 0});
+            }
+            if (type0 != "Integer" && type0 != "String" && type0 != "List" && type0 != "auto") {
+                m_errorManager.addError(Error{"Expected Int or String for an Arith Operation ; ", "Got " + std::string(type0.c_str()), "Semantic", 0});
+            }
+            if (type1 != "Integer" && type1 != "String" && type1 != "List" && type0 != "auto") {
+                m_errorManager.addError(Error{"Expected Int or String or List for an Arith Operation ; ", "Got " + std::string(type0.c_str()), "Semantic", 0});
+            }
+
             
             // CHeck if String
             textSection += "cmp rax, 10000\n";        
@@ -209,52 +261,102 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
         }
         else if (node->value == "-") {
             // Evaluate the left child
-            visitNode(node->children[0]);
-            textSection += "push rax\n";
-
+            if (node->children[0]->type == "Integer" || (node->children[0]->type == "Identifier" && isIntVariable(node->children[0]->value.c_str()))) {
+                visitNode(node->children[0]);
+                textSection += "push rax\n";
+            }
+            else{
+                m_errorManager.addError(Error{"Expected Int for Sub Operation ; ", "Got " + std::string(node->children[0]->type.c_str()), "Semantic", 0});
+            }
             // Evaluate the right child
-            visitNode(node->children[1]);
-            textSection += "mov rbx, rax\n";
-            textSection += "pop rax\n";
-            textSection += "sub rax, rbx\n";
+            if (node->children[1]->type == "Integer" || (node->children[1]->type == "Identifier" && isIntVariable(node->children[1]->value.c_str()))) {
+                visitNode(node->children[1]);
+                textSection += "mov rbx, rax\n";
+                textSection += "pop rax\n";
+                textSection += "sub rax, rbx\n";
+            }
+            else{
+                m_errorManager.addError(Error{"Expected Int for Sub Operation ; ", "Got " + std::string(node->children[1]->type.c_str()), "Semantic", 0});
+            }
+            
+            
         }
     
     } else if (node->type == "TermOp"){
         if (node->value == "*") {
             // Evaluate the left child
-            visitNode(node->children[0]);
-            textSection += "push rax\n";
-
+            if (node->children[0]->type == "Integer" || (node->children[0]->type == "Identifier" && isIntVariable(node->children[0]->value.c_str()))) {
+                visitNode(node->children[0]);
+                textSection += "push rax\n";
+            }
+            else{
+                m_errorManager.addError(Error{"Expected Int for Mul Operation ; ", "Got " + std::string(node->children[0]->type.c_str()), "Semantic", 0});
+            }
             // Evaluate the right child
-            visitNode(node->children[1]);
-            textSection += "mov rbx, rax\n";
-            textSection += "pop rax\n";
-            textSection += "imul rax, rbx\n";
+            if (node->children[1]->type == "Integer" || (node->children[1]->type == "Identifier" && isIntVariable(node->children[1]->value.c_str()))) {
+                visitNode(node->children[1]);
+                textSection += "mov rbx, rax\n";
+                textSection += "pop rax\n";
+                textSection += "imul rax, rbx\n";
+            }
+            else{
+                m_errorManager.addError(Error{"Expected Int for Mul Operation ; ", "Got " + std::string(node->children[1]->type.c_str()), "Semantic", 0});
+            }
         }
         else if (node->value == "//") {
             // Evaluate the left child
-            visitNode(node->children[0]);
-            textSection += "push rax\n";
+            if (node->children[0]->type == "Integer" || (node->children[0]->type == "Identifier" && isIntVariable(node->children[0]->value.c_str()))) {
+                visitNode(node->children[0]);
+                textSection += "push rax\n";
+            }
+            else{
+                m_errorManager.addError(Error{"Expected Int for Integer Division Operation ; ", "Got " + std::string(node->children[0]->type.c_str()), "Semantic", 0});
+            }
 
             // Evaluate the right child
-            visitNode(node->children[1]);
-            textSection += "mov rbx, rax\n";
-            textSection += "pop rax\n";
-            textSection += "xor rdx, rdx\n";  
-            textSection += "div rbx\n";       
+            if (node->children[1]->type == "Integer" || (node->children[1]->type == "Identifier" && isIntVariable(node->children[1]->value.c_str()))) {
+                visitNode(node->children[1]);
+                
+                // Check if the right child is zero
+                textSection += "cmp rax, 0\n";
+                textSection += "je .division_by_zero_error\n";
+
+                textSection += "mov rbx, rax\n";
+                textSection += "pop rax\n";
+                textSection += "xor rdx, rdx\n";  
+                textSection += "div rbx\n";       
+            }
+            else{
+                m_errorManager.addError(Error{"Expected Int for Integer Division Operation ; ", "Got " + std::string(node->children[1]->type.c_str()), "Semantic", 0});
+            }    
         }
         else if (node->value == "%") {
             // Evaluate the left child
-            visitNode(node->children[0]);
-            textSection += "push rax\n";
-
+            if (node->children[0]->type == "Integer" || (node->children[0]->type == "Identifier" && isIntVariable(node->children[0]->value.c_str()))) {
+                visitNode(node->children[0]);
+                textSection += "push rax\n";
+            }
+            else{
+                m_errorManager.addError(Error{"Expected Int for Modulo Operation ; ", "Got " + std::string(node->children[0]->type.c_str()), "Semantic", 0});
+            }
+            
             // Evaluate the right child
-            visitNode(node->children[1]);
-            textSection += "mov rbx, rax\n";
-            textSection += "pop rax\n";
-            textSection += "xor rdx, rdx\n";  
-            textSection += "div rbx\n";       
-            textSection += "mov rax, rdx\n";  
+            if (node->children[1]->type == "Integer" || (node->children[1]->type == "Identifier" && isIntVariable(node->children[1]->value.c_str()))) {
+                visitNode(node->children[1]);
+                
+                // Check if the right child is zero
+                textSection += "cmp rax, 0\n";
+                textSection += "je .division_by_zero_error\n";
+
+                textSection += "mov rbx, rax\n";
+                textSection += "pop rax\n";
+                textSection += "xor rdx, rdx\n";  
+                textSection += "div rbx\n";       
+                textSection += "mov rax, rdx\n";  
+            }
+            else{
+                m_errorManager.addError(Error{"Expected Int for Modulo Operation ; ", "Got " + std::string(node->children[1]->type.c_str()), "Semantic", 0});
+            }
         }
     } else if (node->type == "Identifier") {
         textSection += "mov rax, qword [" + node->value + "]\n";
@@ -273,6 +375,20 @@ void CodeGenerator::endAssembly() {
     textSection += "mov rax, 60      ; syscall: exit\n";
     textSection += "xor rdi, rdi     ; exit code 0\n";
     textSection += "syscall\n\n";
+
+    // --- Division by Zero Error Handler ---
+    textSection += "\n; Division by zero error handler\n";
+    textSection += ".division_by_zero_error:\n";
+    textSection += "    ; Print error message\n";
+    textSection += "    mov rax, 1          ; syscall: write\n";
+    textSection += "    mov rdi, 1          ; file descriptor: stdout\n";
+    textSection += "    mov rsi, div_zero_msg\n";
+    textSection += "    mov rdx, div_zero_len\n";
+    textSection += "    syscall\n";
+    textSection += "    ; Exit with error code\n";
+    textSection += "    mov rax, 60         ; syscall: exit\n";
+    textSection += "    mov rdi, 1          ; exit code 1 (error)\n";
+    textSection += "    syscall\n\n";
 
     // --- Print Number Function ---
     textSection += "; Function to print a number in RAX\n";
@@ -454,7 +570,7 @@ void CodeGenerator::genAffect(const std::shared_ptr<ASTNode>& node) {
         valueType = "String";
     } 
     else if (rightValue->type == "Integer") {
-        valueType = "int";
+        valueType = "Integer";
     }
     else if (rightValue->type == "Boolean") {
         valueType = "bool";
@@ -466,7 +582,7 @@ void CodeGenerator::genAffect(const std::shared_ptr<ASTNode>& node) {
             valueType = "String";
         }
         else {
-            valueType = "int";
+            valueType = "Integer";
         }
     }
     else if (rightValue->type == "Compare") {
@@ -476,13 +592,21 @@ void CodeGenerator::genAffect(const std::shared_ptr<ASTNode>& node) {
         if (isStringVariable(rightValue->value)) {
             valueType = "String";
         } else {
-            valueType = "int";
+            valueType = "Integer";
         }
     }
     else {
-        valueType = "int";
+        valueType = "Integer";
     }
     
+    if (node->children[0]->type == "Identifier") {
+        auto varType = getIdentifierType(node->children[0]->value);
+        if (varType != valueType && varType != "auto") {
+            m_errorManager.addError(Error{"Expected same type for Affectation ; ", "Got " + std::string(varType.c_str()) + " and " + std::string(valueType.c_str()), "Semantic", 0});
+        }
+    }
+
+
     if (symbolTable) {
         updateSymbolType(varName, valueType);
     }
@@ -511,14 +635,33 @@ void CodeGenerator::genFor(const std::shared_ptr<ASTNode>& node) {
     if (node->children[1]->type == "FunctionCall" && 
         node->children[1]->children[0]->value == "range") {
         
-        // TODO : Check Possibilité de range(debut ? fin ? pas ?)
         auto paramList = node->children[1]->children[1];
+        if (paramList->children.size() != 1){
+            m_errorManager.addError(Error{"Expected one parameter for range ; ", "Got " + std::to_string(paramList->children.size()), "Semantic", 0});
+            return;
+        }
+        
+
         if (paramList->children.size() >= 1) {
             textSection += "; Initialize loop\n";
             textSection += "mov qword [" + loopVar + "], 0\n";
             
             // Get the end value of the range
-            visitNode(paramList->children[0]);  
+            visitNode(paramList->children[0]); 
+            /*
+            if ((paramList->children[0]->type == "Identifier" && !isIntVariable(paramList->children[0]->value.c_str()))){
+                m_errorManager.addError(Error{"Expected Int for range ; ", "Got " + std::string(paramList->children[0]->type.c_str()), "Semantic", 0});
+                return;
+            }
+            if (!(paramList->children[0]->type == "Integer")){
+                m_errorManager.addError(Error{"Expected Int for range ; ", "Got " + std::string(paramList->children[0]->type.c_str()), "Semantic", 0});
+                return;
+            }
+            if (std::stoi(paramList->children[0]->value) < 0){
+                m_errorManager.addError(Error{"Expected positive Int for range ; ", "Got " + std::string(paramList->children[0]->type.c_str()), "Semantic", 0});
+                return;
+            } 
+            */
             textSection += "push rax\n";
             
             // Start of loop
@@ -589,7 +732,9 @@ void CodeGenerator::genIf(const std::shared_ptr<ASTNode>& node) {
 void CodeGenerator::genFunction(const std::shared_ptr<ASTNode>& node) {
     std::string funcName = node->value;
     currentFunction = funcName;
-    
+    if (funcName == "range" || funcName == "len" || funcName == "print" || funcName == "range") {
+        m_errorManager.addError(Error{"Function Name Error : " , funcName + " is a reserved function name", "Semantic", 0});
+    }
     if (symbolTable) {
         for (const auto& child : symbolTable->children) {
             if (child->scopeName == "function " + funcName) {
@@ -604,6 +749,15 @@ void CodeGenerator::genFunction(const std::shared_ptr<ASTNode>& node) {
                 
                 // Handle parameters from stack
                 auto paramList = node->children[0];
+                // Vérifier que les parametres sont distincts 2 à 2
+                for (size_t i = 0; i < paramList->children.size(); ++i) {
+                    for (size_t j = i + 1; j < paramList->children.size(); ++j) {
+                        if (paramList->children[i]->value == paramList->children[j]->value) {
+                            m_errorManager.addError(Error{"Params Error : " , "Duplicate parameter " + paramList->children[i]->value, "Semantic", 0});
+                            return;
+                        }
+                    }
+                }
                 for (size_t i = 0; i < paramList->children.size(); i++) {
                     std::string paramName = paramList->children[i]->value;
                     if (declaredVars.find(paramName) == declaredVars.end()) {
@@ -632,13 +786,85 @@ void CodeGenerator::genFunction(const std::shared_ptr<ASTNode>& node) {
     }
 
 }
-
+void CodeGenerator::genList(const std::shared_ptr<ASTNode>& node) {
+    std::string listName = node->value;
+    if (declaredVars.find(listName) == declaredVars.end()) {
+        dataSection += listName + ": dq 0\n";
+        declaredVars.insert(listName);
+    }
+    
+    if (node->children.empty()) {
+        textSection += "mov qword [" + listName + "], 0\n";
+        return;
+    }
+    
+    for (const auto& child : node->children) {
+        visitNode(child);
+    }
+}
 void CodeGenerator::genFunctionCall(const std::shared_ptr<ASTNode>& node) {
     std::string funcName = node->children[0]->value;
     auto args = node->children[1];
 
+    // Vérifier si la fonction built-in est valide
+    if ((funcName == "range" || funcName == "len" || funcName == "range") && args->children.size() != 1) {
+        m_errorManager.addError(Error{"Params Error : " , funcName + " funtion have one parameter", "Semantic", 0});
+        return;
+    }
+
+    
+
+
+    // Vérifier si la fonction existe dans la table des symboles
+    if (symbolTable) {
+        bool functionFound = false;
+        for (const auto& child : symbolTable->children) {
+            if (child->scopeName == "function " + funcName) {
+                functionFound = true;
+
+                int expectedArgs = 0;
+                for (const auto& sym : symbolTable->symbols) {
+                    if (sym->name == funcName && sym->symCat == "function") {
+                        if (auto funcSym = dynamic_cast<FunctionSymbol*>(sym.get())) {
+                            expectedArgs = funcSym->numParams;
+                            break;
+                        }
+                    }
+                }
+
+                if (args->children.size() != static_cast<std::vector<std::shared_ptr<ASTNode>>::size_type>(expectedArgs)) {
+                    m_errorManager.addError(Error{
+                        "Function Call Error: ",
+                        "Function " + funcName + " expects " + std::to_string(expectedArgs) + 
+                        " arguments, but " + std::to_string(args->children.size()) + " were provided.",
+                        "Semantic",
+                        0
+                    });
+                }
+                break;
+            }
+        }
+
+        if (!functionFound) {
+            m_errorManager.addError(Error{
+                "Function Call Error: ",
+                "Function " + funcName + " is not defined.",
+                "Semantic",
+                0
+            });
+        }
+    }
+
     // Mise à jour des types de paramètres dans la table des symboles
     updateFunctionParamTypes(funcName, args);
+    
+    // Définir la table de symboles de la fonction comme courante pendant l'appel
+    for (const auto& child : symbolTable->children) {
+        if (child->scopeName == "function " + funcName) {
+            currentSymbolTable = child.get();
+            break;
+        }
+    }
 
     // Save caller-saved registers
     textSection += "; Save registers for function call\n";
@@ -661,29 +887,30 @@ void CodeGenerator::genFunctionCall(const std::shared_ptr<ASTNode>& node) {
         textSection += "push rax\n";
     }
     
-     // Call the function
-     textSection += "call " + funcName + "\n";
+    // Call the function
+    textSection += "call " + funcName + "\n";
     
-     // Cleanup: remove arguments from stack
-     if (args->children.size() > 0) {
-         textSection += "add rsp, " + std::to_string(args->children.size() * 8) + "\n";
-     }
+    // Cleanup: remove arguments from stack
+    if (args->children.size() > 0) {
+        textSection += "add rsp, " + std::to_string(args->children.size() * 8) + "\n";
+    }
      
-     // Restore stack alignment
-     textSection += "pop rsp\n";  // Restore original stack pointer
+    // Restore stack alignment
+    textSection += "pop rsp\n";  // Restore original stack pointer
      
-     // Restore saved registers in reverse order
-     textSection += "pop r15\n";
-     textSection += "pop r14\n";
-     textSection += "pop r13\n";
-     textSection += "pop r12\n";
-     textSection += "pop rbx\n";
+    // Restore saved registers in reverse order
+    textSection += "pop r15\n";
+    textSection += "pop r14\n";
+    textSection += "pop r13\n";
+    textSection += "pop r12\n";
+    textSection += "pop rbx\n";
      
-     // Réinitialiser les types des variables de la fonction
-     resetFunctionVarTypes(funcName);
+    // Réinitialiser les types des variables de la fonction
+
+    resetFunctionVarTypes(funcName);
      
-     // Result is already in rax
- }
+    // Result is already in rax
+}
 void CodeGenerator::genReturn(const std::shared_ptr<ASTNode>& node) {
     // Evaluate return expression if any
     if (!node->children.empty()) {
@@ -697,30 +924,66 @@ void CodeGenerator::genReturn(const std::shared_ptr<ASTNode>& node) {
 }
 
 
-// Le Reste n'est pas au point
-bool CodeGenerator::isStringVariable(const std::string& name) {
-    if (!symbolTable) return false;
+// Fonction pour obtenir le type d'un identifiant à partir de la table des symboles
+std::string CodeGenerator::getIdentifierType(const std::string& name) {
+    if (!symbolTable) return "auto";
     
-    std::function<bool(SymbolTable*)> searchInTableAndParents = [&](SymbolTable* table) {
-        while (table) {
-            for (const auto& sym : table->symbols) {
-                if (sym->name == name && sym->symCat == "variable") {
-                    if (auto varSym = dynamic_cast<VariableSymbol*>(sym.get())) {
-                        return varSym->type == "String";
+    // Recherche dans la table courante et ses parents d'abord
+    std::function<std::string(SymbolTable*)> searchInTableHierarchy = [&](SymbolTable* table) -> std::string {
+        SymbolTable* current = table;
+        while (current) {
+            // Chercher dans les symboles de la table courante
+            for (const auto& sym : current->symbols) {
+                if (sym->name == name) {
+                    if (sym->symCat == "variable" || sym->symCat == "parameter") {
+                        if (auto varSym = dynamic_cast<VariableSymbol*>(sym.get())) {
+                            return varSym->type;
+                        }
+                    } else if (sym->symCat == "function") {
+                        if (auto funcSym = dynamic_cast<FunctionSymbol*>(sym.get())) {
+                            return funcSym->returnType;
+                        }
+                    } else if (sym->symCat == "array") {
+                        return "array";
                     }
+                    // Si on trouve le nom mais pas le type
+                    return "auto";
                 }
             }
-            table = table->parent;
+            // Si pas trouvé, chercher dans la table parente
+            current = current->parent;
         }
-        return false;
+        return "";  // Non trouvé dans cette hiérarchie
     };
-
-    if (currentSymbolTable && searchInTableAndParents(currentSymbolTable)) {
-        return true;
+    
+    // Chercher d'abord dans la table courante (par exemple, fonction)
+    if (currentSymbolTable) {
+        std::string type = searchInTableHierarchy(currentSymbolTable);
+        if (!type.empty()) {
+            return type;
+        }
     }
     
-    return searchInTableAndParents(symbolTable);
+    // Si pas trouvé dans la table courante, chercher dans la table globale
+    std::string type = searchInTableHierarchy(symbolTable);
+    if (!type.empty()) {
+        return type;
+    }
+    
+    // Si le type n'est pas trouvé, retourner une valeur par défaut
+    return "auto";
 }
+
+bool CodeGenerator::isStringVariable(const std::string& name) {
+    return getIdentifierType(name) == "String";
+}
+
+bool CodeGenerator::isIntVariable(const std::string& name) {
+    std::string type = getIdentifierType(name);
+    return type == "Integer";
+}
+
+
 void CodeGenerator::updateSymbolType(const std::string& name, const std::string& type) {
     if (!symbolTable) return;
     
@@ -784,7 +1047,7 @@ void CodeGenerator::updateFunctionParamTypes(const std::string& funcName, const 
             std::vector<std::string> paramTypes;
             for (size_t i = 0; i < args->children.size(); i++) {
                 auto& arg = args->children[i];
-                std::string paramType = "int"; // Par défaut
+                std::string paramType = "Integer"; // Par défaut
                 
                 // Déterminer le type en fonction du nœud
                 if (arg->type == "String") {

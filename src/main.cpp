@@ -59,8 +59,7 @@ int main(int argc, char* argv[]) {
             std::cout << std::endl;
             errorManager.displayErrors();
             //return EXIT_FAILURE;
-        }
-
+        }/*
         // 2) Launch semantic analysis
         {
             SemanticAnalyzer semAnalyzer(errorManager);
@@ -73,7 +72,7 @@ int main(int argc, char* argv[]) {
             errorManager.displayErrors();
             return EXIT_FAILURE;
         }
-
+        */
         // Print the symbol table
         std::cout << BOLD << "\nSymbol Table:" << RESET << std::endl;
         symTable->print(std::cout);
@@ -81,9 +80,17 @@ int main(int argc, char* argv[]) {
         std::cout << "\nNo semantic errors. Ready for code generation! :)\n" << std::endl;
 
         // --- Code Generation Phase ---
-        CodeGenerator codeGen;
+        CodeGenerator codeGen(errorManager);
         // Generate the assembly code and write it to "output.asm"
         codeGen.generateCode(ast, "output.asm", symTable.get());
+
+        // Check for code generation errors
+        if (errorManager.hasErrors()) {
+            std::cout << std::endl;
+            errorManager.displayErrors();
+            //return EXIT_FAILURE;
+        }
+        
         std::cout << "Assembly code generated in output.asm" << std::endl;
 
     } catch (const std::exception& e) {
