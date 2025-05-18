@@ -1,0 +1,25 @@
+def square(x):
+  x = x + z
+  return x
+
+y = 5
+
+for i in range(10):
+  do_smth()
+  do_smth2()
+  y = 10
+do_smth3(x)
+
+y =15
+
+for i in range(10):
+    j = 9
+    for k in range(16):
+      k = a + 1
+      for j in range(17):
+        i = 3 * 9
+        for i in range(18):
+          k = a +2
+
+z = 3
+square(4)

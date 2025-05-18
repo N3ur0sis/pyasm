@@ -65,7 +65,7 @@ int main(int argc, char* argv[]) {
             SemanticAnalyzer semAnalyzer(errorManager);
             semAnalyzer.checkSemantics(ast, symTable.get());
         }
-
+        
         // 3) Check for semantic errors
         if (errorManager.hasErrors()) {
             std::cout << std::endl;

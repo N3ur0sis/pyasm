@@ -4,6 +4,9 @@ def factorial(n):
     else:
         return n * factorial(n - 1)
 
-if __name__ == "__main__":
-    factorial(5)
+y = factorial(5)
+print(y)
+
+if not (y == 121):
+    print("Not existe et fonctionne")
 

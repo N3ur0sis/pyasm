@@ -1,0 +1,37 @@
+def multiply(a, b):
+    result = a * b
+    print("Multiplication:", a, "*", b, "=", result)
+    return result
+
+def is_even(n):
+    if n % 2 == 0:
+        print(n, "est pair")
+        return True
+    else:
+        print(n, "est impair")
+        return False
+
+def process_list(numbers):
+    total = 0
+    for num in numbers:
+        if is_even(num):
+            total = total + multiply(num, 2)
+        else:
+            total = total + multiply(num, 3)
+    print("Total calculé :", total)
+    return total
+
+def main():
+    print("Début du programme")
+    values = [1, 2, 3, 4, 5]
+    result = process_list(values)
+    print("Résultat final :", result)
+    
+    for i in range(3):
+        print("Tour de boucle externe :", i)
+        for j in range(2):
+            print("  Boucle interne - i:", i, ", j:", j)
+            print("    Produit i * j =", multiply(i, j))
+    print("Fin du programme")
+
+main()
