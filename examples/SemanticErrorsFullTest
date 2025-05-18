@@ -1,61 +1,75 @@
-# --- TEST DES ERREURS SEMANTIQUES ---
+# Fonctions redéfinies
+def foo(x):
+    return x
 
-# Fonction avec shadowing de paramètre
-def funcWithParamShadowing(x, y):
-    x = 7                # Erreur : shadowing du paramètre x
-    z = 10
-    return x + y + z
+def foo(y):  # ERREUR : redéfinition de la fonction foo
+    return y + 1
 
-# Fonction valide
-def otherFunc():
-    return 42
-
-# Fonction avec appel à une fonction non définie
-def callUnknownFunction():
-    result = unknownFunction()  # Erreur : fonction non définie
-
-# Fonction avec redéfinition légale de variable (pas une erreur)
-def funcWithRedef():
-    a = 6
-    a = "Hello"  # OK : changement de type autorisé
+# Utilisation de noms réservés
+def print(a):  # ERREUR : redéfinition d'un nom réservé
     return a
 
-# Variable utilisée avant d’être affectée (généré au moment du codegen, via type "auto")
-def useBeforeAssignment():
-    print(someVar)  # => devrait générer une erreur sémantique si someVar est toujours de type "auto" (géré dans la gen de code, plus tard)
-    someVar = 123
+# Paramètres dupliqués
+def doublon(x, x):  # ERREUR : paramètres avec le même nom
+    return x
 
-# Fonction avec des variables de boucle et shadowing
-def loopShadowing():
-    for i in range(5):
-        i = 3        # Erreur : redéfinition de la variable de boucle dans la boucle elle-même
-        j = 4
-        for j in range(2):  # Erreur : shadowing de j défini juste avant
-            print(j)
+# Arity mismatch
+def add(a, b):
+    return a + b
 
-# Fonction récursive (test annexe pour réfléchir au shadowing dans une récursion)
-def recursiveFunc(n):
-    if n <= 0:
-        return 1
-    else:
-        return n * recursiveFunc(n - 1)
-    
-def otherFunc(x):
-    return x +3
-    
+# Shadowing variable locale <-> paramètre
+def conflict(a):
+    a = 3  # ERREUR : shadowing avec le paramètre
+    return a
 
-# Shadowing d'une variable de portée immédiate par une variable de boucle
-v = 10
-for v in range(5):  # Erreur : shadowing dans la portée immédiate
-    print(v)
+z = add(5)  # ERREUR : mauvaise arité
+x = foo(z)
 
-a = 10
-b = "text"
-c = otherFunc()
-loopShadowing()
-result = funcWithParamShadowing(a, b)
-print(result)
-d = callUnknownFunction()
+# Built-in avec mauvaise arité
+x = range()       # ERREUR : arité incorrecte (0 param)
+y = len(1, 2)     # ERREUR : arité incorrecte (2 params)
+z = list(1, 2)    # ERREUR : arité incorrecte (2 params)
+print()  # ERREUR : arité incorrecte (0 param)
 
+# Fonction utilisée sans être déclarée
+result = undeclared_function(4)  # ERREUR : fonction non déclarée
 
+# Shadowing boucle
+a = 5
+for a in range(5):  # ERREUR : shadowing avec une variable existante
+    pass
 
+for i in range(5):
+    for i in range(3):  # ERREUR : shadowing boucle imbriquée
+        pass
+
+# Return hors fonction
+return 3  # ERREUR : return en dehors d'une fonction
+
+# Division par zéro (statiquement connue)
+a = 5 // 0  # ERREUR : division par zéro
+
+# Variable non initialisée
+print(uninit_var)  # ERREUR : variable non déclarée / initialisée
+
+# Types incorrects
+a = -"hello"     # ERREUR : opération unaire sur string
+b = [1, 2] + 3    # ERREUR : addition list + int (type incompatible en 2e position)
+c = 3 - "a"       # ERREUR : soustraction avec string
+d = 3 * [1,2]     # ERREUR : multiplication avec list
+e = 4 // "x"      # ERREUR : int div avec string
+f = 10 % [1,2,3]  # ERREUR : modulo avec list
+
+# Réaffectation à un type différent (cas litigieux)
+a = 5
+a = "hello"  # ERREUR selon le code actuel (mais attendu sans erreur ?)
+
+# Vérification type dans range()
+range("abc")  # ERREUR : mauvaise utilisation de range
+
+# Mauvaise inférence dans affectation ?
+a = 5 + [1,2]  # ERREUR : types incompatibles
+
+# Mauvaise affectation détectée ?
+b = "hello"
+b = 42  # ERREUR (actuellement levée mais devrait être autorisée ?)

@@ -13,6 +13,7 @@
 #define CYAN "\033[36m"
 #define BOLD "\033[1m"
 #define UNDERLINE "\033[4m"
+#define MAGENTA "\033[35m"
 
 void ErrorManager::addError(const Error& error) {
     errorQueue.push(error);
@@ -44,8 +45,10 @@ void ErrorManager::displayErrors() const {
             errorColor = BLUE; // Bleu pour les erreurs Lexicales
         } else if (error.type == "Semantic") {
             errorColor = GREEN; // Vert pour les erreurs Sémantiques
+        } else if (error.type == "Semantics") {
+            errorColor = MAGENTA; // Magenta pour les erreurs sémantiques issues de la génération de code
         } else {
-            errorColor = CYAN; // Cyan par défaut pour d'autres types
+            errorColor = CYAN; // Cyan par défaut pour d'autres types (erreurs sémantiques de la création de la TDS)
         }
 
         // Affichage coloré des erreurs

@@ -4,6 +4,8 @@
 
 // Liste des noms de variables de boucle for ouvertes
 std::vector<std::string> loopVariables;
+// Liste des noms de fonctions déjà définies
+std::vector<std::string> definedFunctionsNames;
 
 // Lance l’analyse sémantique à partir de la racine de l’AST
 void SemanticAnalyzer::checkSemantics(const std::shared_ptr<ASTNode>& root, SymbolTable* globalTable) {
@@ -17,7 +19,7 @@ void SemanticAnalyzer::visit(const std::shared_ptr<ASTNode>& node, SymbolTable* 
 
     // ---- DÉFINITION DE FONCTION ----
     if (node->type == "FunctionDefinition") {
-        checkFunctionRedefinition(node, currentScope);
+        checkFunctionRedefinition(node);
 
         // Recherche de la table de symboles locale de la fonction
         SymbolTable* functionTable = nullptr;
@@ -29,7 +31,7 @@ void SemanticAnalyzer::visit(const std::shared_ptr<ASTNode>& node, SymbolTable* 
         }
 
         if (!functionTable) {
-            return; // Fonction probablement mal construite, on ignore
+            return; // Fonction probablement mal construite ou non utilisée, on ignore
         }
 
         // Visite du corps de la fonction uniquement
@@ -46,9 +48,30 @@ void SemanticAnalyzer::visit(const std::shared_ptr<ASTNode>& node, SymbolTable* 
         checkFunctionCall(node, currentScope);
     }
 
+    // ---- APPEL A PRINT ----
+    if (node->type == "Print") {
+        // Vérifie que l'appel de print est correct
+        std::cout << "Print function called with parameters: " << std::endl;
+        std::cout << "childrens empty ? " << (node->children.empty() ? "True" : "False") << std::endl;
+        std::cout << "childrens[0] type: " << node->children[0]->type << std::endl;
+        std::cout << "childrens[0] childrens empty ? " << (node->children[0]->children.empty() ? "True" : "False") << std::endl;
+        std::cout << "childrens[0] childrens[0] type: " << node->children[0]->children[0]->type << std::endl;
+        std::cout << "childrens[0] childrens[0] value: " << node->children[0]->children[0]->value << std::endl;
+        if (node->children.empty() || node->children[0]->type != "List" || node->children[0]->children.empty()) {
+            std::cout << "Print function called with no parameters." << std::endl;
+            m_errorManager.addError(Error{
+                "Print function should be called with at least one parameter.",
+                "",
+                "Semantic",
+                0
+            });
+        }
+    }
+
     // ---- UTILISATION D’IDENTIFICATEUR ----
     if (node->type == "Identifier") {
-        // Ce test ne peut pas vraiment détecter les cas utiles (cf. logique dynamique avec "auto")
+        // Une inférence de types statique n'est pas très efficace ici, mais peut quand même détecter quelques erreurs plus tôt
+        // On va préférer la logique dynamique avec "auto" et vérifications directement dans la génération de code
         // TODO : éventuellement faire une fonction de vérification statique de l'utilisation d'une variable avant déclaration
     }
 
@@ -60,14 +83,22 @@ void SemanticAnalyzer::visit(const std::shared_ptr<ASTNode>& node, SymbolTable* 
     // ---- FOR LOOP INTERN SHADOWING ----
     if (node->type == "For") {
         std::string loopVar = node->children[0]->value;
-        std::cout << "PUSH: " << loopVar << std::endl;
+        if (std::find(loopVariables.begin(), loopVariables.end(), loopVar) != loopVariables.end()) {
+            m_errorManager.addError(Error{
+                "Loop variable name already exists in scope: " + currentScope->scopeName + ". Variable shadowing is not allowed: ",
+                loopVar,
+                "semantic",
+                0
+            });
+        } 
+        // Add loop variable to the list of loop variables
         loopVariables.push_back(loopVar);
     }
     // ---- AFFECT IN FOR LOOP ----
     if (node->type == "Affect") {
         std::string affectIdent = node->children[0]->value;
         if (std::find(loopVariables.begin(), loopVariables.end(), affectIdent) != loopVariables.end()) {
-            m_errorManager.addError({
+            m_errorManager.addError(Error{
                 "You can't affect a variable with this name, shadowing a loop variable is forbidden: ",
                 affectIdent,
                 "Semantic",
@@ -83,7 +114,6 @@ void SemanticAnalyzer::visit(const std::shared_ptr<ASTNode>& node, SymbolTable* 
 
     // ---- SORTIE DU FOR ----
     if (node->type == "For") {
-        std::cout << "POP: " << loopVariables.back() << std::endl;
         loopVariables.pop_back();
     }
 }
@@ -92,31 +122,19 @@ void SemanticAnalyzer::visit(const std::shared_ptr<ASTNode>& node, SymbolTable* 
 // Vérifie qu’une fonction n’est pas redéfinie ou nommée avec 
 // un mot réservé
 // ────────────────────────────────────────────────────────────────
-void SemanticAnalyzer::checkFunctionRedefinition(const std::shared_ptr<ASTNode>& node, SymbolTable* currentScope) {
-    int occurrences = 0;
-    if (kForbiddenNames.count(node->value)) {
-        m_errorManager.addError({
-            "Définir une fonction nommée '" + node->value + "' est interdit (nom réservé).",
-            node->value,
-            "Semantic",
-            0
-        });
-        return;
-    }
+void SemanticAnalyzer::checkFunctionRedefinition(const std::shared_ptr<ASTNode>& node) {
+    // Noms réservés (range, list, len, print) déjà vérifiés dans le parser
 
-    for (const auto& sym : currentScope->symbols) {
-        if (sym->name == node->value && sym->symCat == "function") {
-            occurrences++;
-        }
-    }
-
-    if (occurrences > 1) {
+    // Vérifie si la fonction est déjà définie
+    if (std::find(definedFunctionsNames.begin(), definedFunctionsNames.end(), node->value) != definedFunctionsNames.end()) {
         m_errorManager.addError(Error{
-            "Redéfinition interdite de la fonction : ",
-            node->value,
+            "Function already defined: ",
+            "A function already exists with the name " + node->value + ".",
             "Semantic",
             0
         });
+    } else {
+        definedFunctionsNames.push_back(node->value);
     }
     return;
 }
@@ -132,22 +150,12 @@ void SemanticAnalyzer::checkFunctionCall(const std::shared_ptr<ASTNode>& node, S
     auto paramList = (node->children.size() > 1) ? node->children[1] : nullptr;
 
     if (kForbiddenNames.count(functionCalled->value)) {
-        if (functionCalled->value == "print") {
-          if (!paramList || paramList->children.size() == 0) {
-            m_errorManager.addError({
-                "La fonction print prend au moins un paramètre.",
-                functionCalled->value,
-                "Semantic",
-                0
-            });
-          }
-          return;
-        } 
+        // Print n'est pas dans un FunctionCall, mais une instruction
         // Verifie que les fonction builtin sont appellées avec le bon nombre de paramètres (1)
         if (paramList && paramList->children.size() != 1) {
-            m_errorManager.addError({
-                "La fonction " + functionCalled->value + " prend un et un seul paramètre.",
-                functionCalled->value,
+            m_errorManager.addError(Error{
+                "Function " + functionCalled->value + " expects exactly one parameter.",
+                "",
                 "Semantic",
                 0
             });
@@ -158,9 +166,9 @@ void SemanticAnalyzer::checkFunctionCall(const std::shared_ptr<ASTNode>& node, S
     // vérifie que la fonction appellée a été définie
     Symbol* sym = findSymbol(functionCalled->value, scope);
     if (!sym || sym->symCat != "function") {
-        m_errorManager.addError({
-            "La fonction n’est pas définie : ",
-            functionCalled->value, 
+        m_errorManager.addError(Error{
+            "Function Call Error: ",
+            "Function " + functionCalled->value + " is not defined.",
             "Semantic", 
             0
         });
@@ -173,12 +181,13 @@ void SemanticAnalyzer::checkFunctionCall(const std::shared_ptr<ASTNode>& node, S
         int expected = fnSym->numParams;
         int actual = paramList ? (int)paramList->children.size() : 0;
         if (expected != actual) {
-            m_errorManager.addError({
-                "Nombre de paramètres incorrect pour la fonction : ",
-                functionCalled->value, 
-                "Semantic", 
-                0
-            });
+            m_errorManager.addError(Error{
+                        "Function Call Error: ",
+                        "Function " + fnSym->name + " expects " + std::to_string(expected) + 
+                        " arguments, but " + std::to_string(actual) + " were provided.",
+                        "Semantic",
+                        0
+                    });
         }
         return;
     }
@@ -189,7 +198,7 @@ void SemanticAnalyzer::checkFunctionCall(const std::shared_ptr<ASTNode>& node, S
 // ────────────────────────────────────────────────────────────────
 void SemanticAnalyzer::checkReturnPlacement(SymbolTable* scope){
     if (!insideFunction(scope)) {
-        m_errorManager.addError({
+        m_errorManager.addError(Error{
             "Return statement outside of a function.",
             "", 
             "Syntax", 
@@ -230,13 +239,14 @@ bool SemanticAnalyzer::insideFunction(SymbolTable* tbl){
 // ────────────────────────────────────────────────────────────────
 // Vérifie qu’un identifiant utilisé est bien défini dans la portée
 // ────────────────────────────────────────────────────────────────
+// Inutilisé
 void SemanticAnalyzer::checkIdentifierInitialization(const std::shared_ptr<ASTNode>& node, SymbolTable* scope) {
     if (!node || node->type != "Identifier") return;
 
     Symbol* sym = findSymbol(node->value, scope);
     if (!sym) {
-        m_errorManager.addError({
-            "Utilisation d’une variable non initialisée : ",
+        m_errorManager.addError(Error{
+            "Uninitialized identifier: ",
             node->value,
             "Semantic",
             0

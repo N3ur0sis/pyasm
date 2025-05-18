@@ -199,7 +199,12 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
             textSection += "neg rax\n";
         }
         else{
-            m_errorManager.addError(Error{"Expected Int for an Unary Operation ; ", "Got " + std::string(node->children[0]->type.c_str()), "Semantic", 0});
+            m_errorManager.addError(Error{
+                "Expected Int for an Unary Operation ; ", 
+                "Got " + std::string(node->children[0]->type.c_str()), 
+                "Semantics", 
+                0
+            });
         }
         
     
@@ -229,13 +234,28 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                 type1 = getIdentifierType(node->children[1]->value);
             }
             if (type0 != type1) {
-                m_errorManager.addError(Error{"Expected same type for an Arith Operation ; ", "Got " + std::string(type0.c_str()) + " and " + std::string(type1.c_str()), "Semantic", 0});
+                m_errorManager.addError(Error{
+                    "Expected same type for an Arith Operation ; ", 
+                    "Got " + std::string(type0.c_str()) + " and " + std::string(type1.c_str()), 
+                    "Semantics", 
+                    0
+                });
             }
             if (type0 != "Integer" && type0 != "String" && type0 != "List" && type0 != "auto") {
-                m_errorManager.addError(Error{"Expected Int or String for an Arith Operation ; ", "Got " + std::string(type0.c_str()), "Semantic", 0});
+                m_errorManager.addError(Error{
+                    "Expected Int or String for an Arith Operation ; ", 
+                    "Got " + std::string(type0.c_str()), 
+                    "Semantics", 
+                    0
+                });
             }
             if (type1 != "Integer" && type1 != "String" && type1 != "List" && type0 != "auto") {
-                m_errorManager.addError(Error{"Expected Int or String or List for an Arith Operation ; ", "Got " + std::string(type0.c_str()), "Semantic", 0});
+                m_errorManager.addError(Error{
+                    "Expected Int or String or List for an Arith Operation ; ", 
+                    "Got " + std::string(type0.c_str()), 
+                    "Semantics", 
+                    0
+                });
             }
 
             
@@ -266,7 +286,12 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                 textSection += "push rax\n";
             }
             else{
-                m_errorManager.addError(Error{"Expected Int for Sub Operation ; ", "Got " + std::string(node->children[0]->type.c_str()), "Semantic", 0});
+                m_errorManager.addError(Error{
+                    "Expected Int for Sub Operation ; ", 
+                    "Got " + std::string(node->children[0]->type.c_str()), 
+                    "Semantics", 
+                    0
+                });
             }
             // Evaluate the right child
             if (node->children[1]->type == "Integer" || (node->children[1]->type == "Identifier" && isIntVariable(node->children[1]->value.c_str()))) {
@@ -276,7 +301,12 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                 textSection += "sub rax, rbx\n";
             }
             else{
-                m_errorManager.addError(Error{"Expected Int for Sub Operation ; ", "Got " + std::string(node->children[1]->type.c_str()), "Semantic", 0});
+                m_errorManager.addError(Error{
+                    "Expected Int for Sub Operation ; ", 
+                    "Got " + std::string(node->children[1]->type.c_str()), 
+                    "Semantics", 
+                    0
+                });
             }
             
             
@@ -290,7 +320,12 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                 textSection += "push rax\n";
             }
             else{
-                m_errorManager.addError(Error{"Expected Int for Mul Operation ; ", "Got " + std::string(node->children[0]->type.c_str()), "Semantic", 0});
+                m_errorManager.addError(Error{
+                    "Expected Int for Mul Operation ; ", 
+                    "Got " + std::string(node->children[0]->type.c_str()), 
+                    "Semantics", 
+                    0
+                });
             }
             // Evaluate the right child
             if (node->children[1]->type == "Integer" || (node->children[1]->type == "Identifier" && isIntVariable(node->children[1]->value.c_str()))) {
@@ -300,7 +335,12 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                 textSection += "imul rax, rbx\n";
             }
             else{
-                m_errorManager.addError(Error{"Expected Int for Mul Operation ; ", "Got " + std::string(node->children[1]->type.c_str()), "Semantic", 0});
+                m_errorManager.addError(Error{
+                    "Expected Int for Mul Operation ; ", 
+                    "Got " + std::string(node->children[1]->type.c_str()), 
+                    "Semantics", 
+                    0
+                });
             }
         }
         else if (node->value == "//") {
@@ -310,7 +350,12 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                 textSection += "push rax\n";
             }
             else{
-                m_errorManager.addError(Error{"Expected Int for Integer Division Operation ; ", "Got " + std::string(node->children[0]->type.c_str()), "Semantic", 0});
+                m_errorManager.addError(Error{
+                    "Expected Int for Integer Division Operation ; ", 
+                    "Got " + std::string(node->children[0]->type.c_str()), 
+                    "Semantics", 
+                    0
+                });
             }
 
             // Evaluate the right child
@@ -327,7 +372,12 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                 textSection += "div rbx\n";       
             }
             else{
-                m_errorManager.addError(Error{"Expected Int for Integer Division Operation ; ", "Got " + std::string(node->children[1]->type.c_str()), "Semantic", 0});
+                m_errorManager.addError(Error{
+                    "Expected Int for Integer Division Operation ; ", 
+                    "Got " + std::string(node->children[1]->type.c_str()), 
+                    "Semantics", 
+                    0
+                });
             }    
         }
         else if (node->value == "%") {
@@ -337,7 +387,12 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                 textSection += "push rax\n";
             }
             else{
-                m_errorManager.addError(Error{"Expected Int for Modulo Operation ; ", "Got " + std::string(node->children[0]->type.c_str()), "Semantic", 0});
+                m_errorManager.addError(Error{
+                    "Expected Int for Modulo Operation ; ", 
+                    "Got " + std::string(node->children[0]->type.c_str()), 
+                    "Semantics", 
+                    0
+                });
             }
             
             // Evaluate the right child
@@ -355,7 +410,12 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                 textSection += "mov rax, rdx\n";  
             }
             else{
-                m_errorManager.addError(Error{"Expected Int for Modulo Operation ; ", "Got " + std::string(node->children[1]->type.c_str()), "Semantic", 0});
+                m_errorManager.addError(Error{
+                    "Expected Int for Modulo Operation ; ", 
+                    "Got " + std::string(node->children[1]->type.c_str()), 
+                    "Semantics", 
+                    0
+                });
             }
         }
     } else if (node->type == "Identifier") {
@@ -602,7 +662,12 @@ void CodeGenerator::genAffect(const std::shared_ptr<ASTNode>& node) {
     if (node->children[0]->type == "Identifier") {
         auto varType = getIdentifierType(node->children[0]->value);
         if (varType != valueType && varType != "auto") {
-            m_errorManager.addError(Error{"Expected same type for Affectation ; ", "Got " + std::string(varType.c_str()) + " and " + std::string(valueType.c_str()), "Semantic", 0});
+            m_errorManager.addError(Error{
+                "Expected same type for Affectation ; ", 
+                "Got " + std::string(varType.c_str()) + " and " + std::string(valueType.c_str()), 
+                "Semantics", 
+                0
+            });
         }
     }
 
@@ -637,7 +702,12 @@ void CodeGenerator::genFor(const std::shared_ptr<ASTNode>& node) {
         
         auto paramList = node->children[1]->children[1];
         if (paramList->children.size() != 1){
-            m_errorManager.addError(Error{"Expected one parameter for range ; ", "Got " + std::to_string(paramList->children.size()), "Semantic", 0});
+            m_errorManager.addError(Error{
+                    "Expected one parameter for range ; ", 
+                    "Got " + std::to_string(paramList->children.size()), 
+                    "Semantics", 
+                    0
+                });
             return;
         }
         
@@ -732,9 +802,6 @@ void CodeGenerator::genIf(const std::shared_ptr<ASTNode>& node) {
 void CodeGenerator::genFunction(const std::shared_ptr<ASTNode>& node) {
     std::string funcName = node->value;
     currentFunction = funcName;
-    if (funcName == "range" || funcName == "len" || funcName == "print" || funcName == "range") {
-        m_errorManager.addError(Error{"Function Name Error : " , funcName + " is a reserved function name", "Semantic", 0});
-    }
     if (symbolTable) {
         for (const auto& child : symbolTable->children) {
             if (child->scopeName == "function " + funcName) {
@@ -753,7 +820,12 @@ void CodeGenerator::genFunction(const std::shared_ptr<ASTNode>& node) {
                 for (size_t i = 0; i < paramList->children.size(); ++i) {
                     for (size_t j = i + 1; j < paramList->children.size(); ++j) {
                         if (paramList->children[i]->value == paramList->children[j]->value) {
-                            m_errorManager.addError(Error{"Params Error : " , "Duplicate parameter " + paramList->children[i]->value, "Semantic", 0});
+                            m_errorManager.addError(Error{
+                                "Params Error : " , 
+                                "Duplicate parameter " + paramList->children[i]->value, 
+                                "Semantics", 
+                                0
+                            });
                             return;
                         }
                     }
@@ -807,53 +879,13 @@ void CodeGenerator::genFunctionCall(const std::shared_ptr<ASTNode>& node) {
     auto args = node->children[1];
 
     // Vérifier si la fonction built-in est valide
-    if ((funcName == "range" || funcName == "len" || funcName == "range") && args->children.size() != 1) {
-        m_errorManager.addError(Error{"Params Error : " , funcName + " funtion have one parameter", "Semantic", 0});
-        return;
-    }
+    // L'arité des paramètres est déjà vérifiée dans semanticAnalyser 
 
+    // Déjà vérifié dans semanticAnalyser
     
-
-
-    // Vérifier si la fonction existe dans la table des symboles
-    if (symbolTable) {
-        bool functionFound = false;
-        for (const auto& child : symbolTable->children) {
-            if (child->scopeName == "function " + funcName) {
-                functionFound = true;
-
-                int expectedArgs = 0;
-                for (const auto& sym : symbolTable->symbols) {
-                    if (sym->name == funcName && sym->symCat == "function") {
-                        if (auto funcSym = dynamic_cast<FunctionSymbol*>(sym.get())) {
-                            expectedArgs = funcSym->numParams;
-                            break;
-                        }
-                    }
-                }
-
-                if (args->children.size() != static_cast<std::vector<std::shared_ptr<ASTNode>>::size_type>(expectedArgs)) {
-                    m_errorManager.addError(Error{
-                        "Function Call Error: ",
-                        "Function " + funcName + " expects " + std::to_string(expectedArgs) + 
-                        " arguments, but " + std::to_string(args->children.size()) + " were provided.",
-                        "Semantic",
-                        0
-                    });
-                }
-                break;
-            }
-        }
-
-        if (!functionFound) {
-            m_errorManager.addError(Error{
-                "Function Call Error: ",
-                "Function " + funcName + " is not defined.",
-                "Semantic",
-                0
-            });
-        }
-    }
+    // Vérifier si la fonction existe dans la table des symboles et vérifier le nombre d'arguments
+    // Déjà vérifié dans semanticAnalyser
+    
 
     // Mise à jour des types de paramètres dans la table des symboles
     updateFunctionParamTypes(funcName, args);

@@ -59,7 +59,7 @@ int main(int argc, char* argv[]) {
             std::cout << std::endl;
             errorManager.displayErrors();
             //return EXIT_FAILURE;
-        }/*
+        }
         // 2) Launch semantic analysis
         {
             SemanticAnalyzer semAnalyzer(errorManager);
@@ -70,9 +70,9 @@ int main(int argc, char* argv[]) {
         if (errorManager.hasErrors()) {
             std::cout << std::endl;
             errorManager.displayErrors();
-            return EXIT_FAILURE;
+            //return EXIT_FAILURE;
         }
-        */
+        
         // Print the symbol table
         std::cout << BOLD << "\nSymbol Table:" << RESET << std::endl;
         symTable->print(std::cout);

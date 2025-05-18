@@ -211,7 +211,7 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& root, SymbolTab
                 // Check for shadowing rules - the loop variable should not have the same name as a variable in current scope
                 if (usedTable->immediateLookup(loopVar->value)) {
                     m_errorManager.addError(Error{
-                        "Loop variable name already exists in scope: " + usedTable->scopeName + " Variable shadowing is not allowed: ",
+                        "Loop variable name already exists in scope: " + usedTable->scopeName + ". Variable shadowing is not allowed: ",
                         loopVar->value,
                         "semantic",
                         0

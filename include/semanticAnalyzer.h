@@ -23,7 +23,7 @@ private:
     void visit(const std::shared_ptr<ASTNode>& node, SymbolTable* currentScope);
 
     // Vérifications spécifiques
-    void checkFunctionRedefinition(const std::shared_ptr<ASTNode>& node, SymbolTable* currentScope);
+    void checkFunctionRedefinition(const std::shared_ptr<ASTNode>& node);
     void checkFunctionCall(const std::shared_ptr<ASTNode>& node, SymbolTable* currentScope);
     void checkReturnPlacement(SymbolTable* scope);
 
