@@ -1,10 +1,18 @@
-def function1(x):
-    return x +2
+
+def function2(string, int):
+    b = string + "hello"
+    print(b)
+    j = int * 9
+    print(j)
+
+for i in range(6):
+    x = 10
+    for j in range(7):
+        y = x + 6
+        for i in range(10):
+            print("ça ne devrait pas être ok ici")
+            return function(89,34)
+            z = function2(a,45, 8)
 
 
-x = 0
-for i in range(10):
-    x = x + 1
-print(x)
-print(function1(x))
 
