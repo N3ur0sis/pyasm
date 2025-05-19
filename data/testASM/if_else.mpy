@@ -35,3 +35,8 @@ if x >= -2:
 else:
     print(11)
 
+a = 0
+if a == 0:
+    print("false")
+else:
+    print(a)
