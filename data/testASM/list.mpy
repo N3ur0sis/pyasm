@@ -3,3 +3,6 @@ A = [2]
 B = []
 print(B)
 print(A + L)
+print(L)
+L[5] = 5
+print(L)

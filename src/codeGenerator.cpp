@@ -9,7 +9,7 @@ SymbolTable* currentSymbolTable = nullptr;
 void CodeGenerator::generateCode(const std::shared_ptr<ASTNode>& root, const std::string& filename, SymbolTable* symTable) {
     symbolTable = symTable;
     currentSymbolTable = symbolTable;
-
+    rootNode = root;
     dataSection = "";
     textSection = "";
     std::string functionSection = "";
@@ -24,7 +24,8 @@ void CodeGenerator::generateCode(const std::shared_ptr<ASTNode>& root, const std
     dataSection += "open_bracket: db '['\n";
     dataSection += "close_bracket: db ']'\n";
     dataSection += "comma_space: db ',', 32\n";
-
+    dataSection += "index_error_msg: db 'Error: Index out of bounds', 10, 0\n";
+    dataSection += "index_error_len: equ $ - index_error_msg\n";
     // Generate the text (and data) from the AST.
     startAssembly();
     
@@ -133,7 +134,14 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
             for (size_t i = 0; i < node->children[0]->children.size(); i++) {
                 const auto& item = node->children[0]->children[i];
                 visitNode(item);  
-                genPrint();      
+                auto type0 = item->type;
+                if (type0 == "Identifier") {
+                    type0 = getIdentifierType(item->value);
+                } else if (type0 == "FunctionCall") {
+                    type0 = inferFunctionReturnType(this->rootNode, item->value);
+                    
+                }
+                genPrint(type0);      
 
                 if (i < node->children[0]->children.size() - 1) {
                     textSection += "mov rax, 1\n";        
@@ -151,7 +159,14 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
             for (const auto& child : node->children) {
                 visitNode(child);
             }
-            genPrint();
+            auto type0 = node->children[0]->type;
+            if (type0 == "Identifier") {
+                type0 = getIdentifierType(node->children[0]->value);
+            } else if (type0 == "FunctionCall") {
+                type0 = inferFunctionReturnType(this->rootNode, node->children[0]->value);
+                
+            }
+            genPrint(type0);      
         }
         
         textSection += "mov rax, 1\n";
@@ -224,18 +239,22 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
             textSection += "mov rbx, rax\n";
             textSection += "pop rax\n";
             
-            // Détermination du type du premier opérande (type0)
             auto type0 = node->children[0]->type;
             if (type0 == "Identifier") {
                 type0 = getIdentifierType(node->children[0]->value);
             } else if (type0 == "FunctionCall") {
-                std::string funcName = node->children[0]->children[0]->value;
-                type0 = getFunctionReturnType(funcName);
+                type0 = inferFunctionReturnType(this->rootNode, node->children[0]->value);
+                
             }
+
             auto type1 = node->children[1]->type;
             if (node->children[1]->type == "Identifier") {
                 type1 = getIdentifierType(node->children[1]->value);
             }
+            else if (type1 == "FunctionCall") {
+                type1 = inferFunctionReturnType(this->rootNode, node->children[1]->value);
+            }
+
             if (type0 == "auto") {
                 m_errorManager.addError(Error{
                     "Undefined Variable; ", 
@@ -243,7 +262,6 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                     "Semantics", 
                     0
                 });
-                return;
             }
             if (type1 == "auto") {
                 m_errorManager.addError(Error{
@@ -261,6 +279,8 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                     "Semantics", 
                     0
                 });
+                 return;
+
             }
             if (type0 != "Integer" && type0 != "String" && type0 != "List" && type0 != "auto") {
                 m_errorManager.addError(Error{
@@ -278,7 +298,6 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                     0
                 });
             }
-
             if (type0 == "String"){
                 textSection += stringOpLabel + ":\n";
                 textSection += "mov rdi, rax\n";
@@ -668,7 +687,110 @@ void CodeGenerator::endAssembly() {
     textSection += "    pop r12\n";
     textSection += "    pop rbp\n";
     textSection += "    ret\n\n";
- 
+
+    // Routine pour les chaînes
+textSection += "print_string:\n";
+textSection += "    push rbp\n";
+textSection += "    mov rbp, rsp\n";
+textSection += "    mov rsi, rax\n";
+textSection += "    mov rdx, 0\n";
+textSection += ".print_strlen_loop:\n";
+textSection += "    cmp byte [rsi+rdx], 0\n";
+textSection += "    je .print_strlen_done\n";
+textSection += "    inc rdx\n";
+textSection += "    jmp .print_strlen_loop\n";
+textSection += ".print_strlen_done:\n";
+textSection += "    mov rax, 1\n";
+textSection += "    mov rdi, 1\n";
+textSection += "    syscall\n";
+textSection += "    pop rbp\n";
+textSection += "    ret\n\n";
+
+// Routine pour les autres types (entiers et listes)
+textSection += "print_not_string:\n";
+textSection += "    push rbp\n";
+textSection += "    mov rbp, rsp\n";
+    
+textSection += "    ; Check if list (>= list_buffer)\n";
+textSection += "    mov rcx, list_buffer\n";
+textSection += "    cmp rax, rcx\n";
+textSection += "    jl .print_as_number\n";
+    
+textSection += "    ; Print as list\n";
+textSection += "    mov rbx, rax\n";
+    
+textSection += "    ; Print opening bracket\n";
+textSection += "    push rbx\n";
+textSection += "    mov rax, 1\n";
+textSection += "    mov rdi, 1\n";
+textSection += "    mov rsi, open_bracket\n";
+textSection += "    mov rdx, 1\n";
+textSection += "    syscall\n";
+textSection += "    pop rbx\n";
+    
+textSection += "    ; Check if empty list\n";
+textSection += "    cmp qword [rbx], 0\n";
+textSection += "    je .print_list_end\n";
+    
+textSection += ".print_list_loop:\n";
+textSection += "    ; Get current element\n";
+textSection += "    mov rax, [rbx]\n";
+textSection += "    cmp rax, 0\n";
+textSection += "    je .print_list_end\n";
+    
+textSection += "    ; Save list pointer\n";
+textSection += "    push rbx\n";
+    
+textSection += "    ; Print element\n";
+textSection += "    cmp rax, 10000\n";
+textSection += "    jge .print_element_as_string\n";
+textSection += "    cmp rax, list_buffer\n";
+textSection += "    jge .print_element_as_list\n";
+textSection += "    call print_number\n";
+textSection += "    jmp .print_element_done\n";
+    
+textSection += ".print_element_as_string:\n";
+textSection += "    call print_string\n";
+textSection += "    jmp .print_element_done\n";
+    
+textSection += ".print_element_as_list:\n";
+textSection += "    call print_not_string\n";
+    
+textSection += ".print_element_done:\n";
+textSection += "    ; Move to next element\n";
+textSection += "    pop rbx\n";
+textSection += "    add rbx, 8\n";
+    
+textSection += "    ; Check if at end\n";
+textSection += "    cmp qword [rbx], 0\n";
+textSection += "    je .print_list_end\n";
+    
+textSection += "    ; Print comma and space\n";
+textSection += "    push rbx\n";
+textSection += "    mov rax, 1\n";
+textSection += "    mov rdi, 1\n";
+textSection += "    mov rsi, comma_space\n";
+textSection += "    mov rdx, 2\n";
+textSection += "    syscall\n";
+textSection += "    pop rbx\n";
+    
+textSection += "    jmp .print_list_loop\n";
+    
+textSection += ".print_list_end:\n";
+textSection += "    ; Print closing bracket\n";
+textSection += "    mov rax, 1\n";
+textSection += "    mov rdi, 1\n";
+textSection += "    mov rsi, close_bracket\n";
+textSection += "    mov rdx, 1\n";
+textSection += "    syscall\n";
+textSection += "    jmp .print_not_string_end\n";
+    
+textSection += ".print_as_number:\n";
+textSection += "    call print_number\n";
+    
+textSection += ".print_not_string_end:\n";
+textSection += "    pop rbp\n";
+textSection += "    ret\n\n";
 }
 
 void CodeGenerator::writeToFile(const std::string &filename) {
@@ -680,120 +802,15 @@ void CodeGenerator::writeToFile(const std::string &filename) {
     outFile.close();
 }
 
-void CodeGenerator::genPrint() {
-    static int printCounter = 0;
-    std::string printId = std::to_string(printCounter++);
-    
-    std::string strlenLoopLabel = ".print_strlen_loop_" + printId;
-    std::string strlenDoneLabel = ".print_strlen_done_" + printId;
-    std::string printNumLabel = ".print_num_" + printId;
-    std::string printListLabel = ".print_list_" + printId;
-    std::string printExitLabel = ".print_exit_" + printId;
-    
-    // Vérifier d'abord si c'est une liste (en comparant avec l'adresse du list_buffer)
-    textSection += "mov rcx, list_buffer\n";
-    textSection += "cmp rax, rcx\n";
-    textSection += "jge " + printListLabel + "\n";
-    
-    // Si c'est < 10000, c'est un nombre
-    textSection += "cmp rax, 10000\n";
-    textSection += "jl " + printNumLabel + "\n";
-    
-    // Sinon c'est une chaîne
-    textSection += "mov rsi, rax\n";  
-    textSection += "mov rdx, 0\n";     
-    textSection += strlenLoopLabel + ":\n";
-    textSection += "cmp byte [rsi+rdx], 0\n";
-    textSection += "je " + strlenDoneLabel + "\n";
-    textSection += "inc rdx\n";
-    textSection += "jmp " + strlenLoopLabel + "\n";
-    textSection += strlenDoneLabel + ":\n";
-    textSection += "mov rax, 1\n";     
-    textSection += "mov rdi, 1\n";     
-    textSection += "syscall\n";
-    textSection += "jmp " + printExitLabel + "\n";
-    
-    // Code pour imprimer une liste
-    textSection += printListLabel + ":\n";
-    textSection += "mov rbx, rax\n";        // rbx = adresse de la liste
-    
-    // Imprimer le crochet ouvrant '['
-    textSection += "push rbx\n";
-    textSection += "mov rax, 1\n";
-    textSection += "mov rdi, 1\n";
-    textSection += "mov rsi, open_bracket\n";
-    textSection += "mov rdx, 1\n";
-    textSection += "syscall\n";
-    textSection += "pop rbx\n";
-    
-    textSection += "cmp qword [rbx], 0\n";
-    textSection += "je .print_list_end_" + printId + "\n";
-
-    
-    textSection += ".print_list_loop_" + printId + ":\n";
-    textSection += "mov rax, [rbx]\n";      // Charger l'élément courant
-    textSection += "cmp rax, 0\n";          // Vérifier si c'est la fin (marqueur 0)
-    textSection += "je .print_list_end_" + printId + "\n";  // Si c'est 0, finir
-    
-    // Sauvegarde du pointeur de liste
-    textSection += "push rbx\n";
-    
-    // Note : on ne peut pas faire un appel récursif direct, donc on utilise les appels séparés
-    textSection += "cmp rax, 10000\n";
-    textSection += "jl .print_elem_num_" + printId + "\n";
-    
-    // Si c'est une chaîne
-    textSection += "mov rsi, rax\n";
-    textSection += "mov rdx, 0\n";
-    textSection += ".print_elem_strlen_" + printId + ":\n";
-    textSection += "cmp byte [rsi+rdx], 0\n";
-    textSection += "je .print_elem_done_" + printId + "\n";
-    textSection += "inc rdx\n";
-    textSection += "jmp .print_elem_strlen_" + printId + "\n";
-    textSection += ".print_elem_done_" + printId + ":\n";
-    textSection += "mov rax, 1\n";
-    textSection += "mov rdi, 1\n";
-    textSection += "syscall\n";
-    textSection += "jmp .continue_list_" + printId + "\n";
-    
-    // Si c'est un nombre
-    textSection += ".print_elem_num_" + printId + ":\n";
-    textSection += "call print_number\n";
-    
-    // Continuer avec le prochain élément
-    textSection += ".continue_list_" + printId + ":\n";
-    textSection += "pop rbx\n";               // Restaurer le pointeur de liste
-    textSection += "add rbx, 8\n";            // Passer à l'élément suivant
-    
-    // Imprimer une virgule et un espace si ce n'est pas le dernier élément
-    textSection += "cmp qword [rbx], 0\n";    // Vérifier si l'élément suivant est la fin
-    textSection += "je .print_list_loop_" + printId + "\n";  // Si fin, ne pas imprimer de virgule
-    
-    textSection += "push rbx\n";
-    textSection += "mov rax, 1\n";
-    textSection += "mov rdi, 1\n";
-    textSection += "mov rsi, comma_space\n";
-    textSection += "mov rdx, 2\n";
-    textSection += "syscall\n";
-    textSection += "pop rbx\n";
-    
-    textSection += "jmp .print_list_loop_" + printId + "\n";
-    
-    // Fin de la liste - imprimer le crochet fermant ']'
-    textSection += ".print_list_end_" + printId + ":\n";
-    textSection += "mov rax, 1\n";
-    textSection += "mov rdi, 1\n";
-    textSection += "mov rsi, close_bracket\n";
-    textSection += "mov rdx, 1\n";
-    textSection += "syscall\n";
-    textSection += "jmp " + printExitLabel + "\n";
-    
-    // Print number
-    textSection += printNumLabel + ":\n";
-    textSection += "call print_number\n";
-    
-    textSection += printExitLabel + ":\n";
+void CodeGenerator::genPrint(const std::string& type) {
+    if (type == "String") {
+        textSection += "call print_string\n";
+    }
+    else {
+        textSection += "call print_not_string\n";
+    }
 }
+    
 
 void CodeGenerator::genAffect(const std::shared_ptr<ASTNode>& node) {
     if (node->children.size() < 2) {
@@ -801,8 +818,52 @@ void CodeGenerator::genAffect(const std::shared_ptr<ASTNode>& node) {
     }
     
     std::string varName = node->children[0]->value; 
+    auto leftNode = node->children[0];
     auto rightValue = node->children[1];
-    
+    if (leftNode->type == "ListCall") {
+        std::string listName = leftNode->children[0]->value;
+        auto indexNode = leftNode->children[1];
+        textSection += "; List element assignment\n";
+        textSection += "mov rbx, qword [" + listName + "]\n";  
+        
+        textSection += "; Calculate index\n";
+        visitNode(indexNode);  
+
+        textSection += "; Check if index is valid\n";
+        textSection += "cmp rax, 0\n";
+        static int errorCount = 0;
+        std::string errorLabel = ".index_error_" + std::to_string(errorCount++);
+        textSection += "jl " + errorLabel + "\n";
+        
+        textSection += "; Calculate element address\n";
+        textSection += "shl rax, 3\n"; 
+        textSection += "add rbx, rax\n"; 
+        
+        textSection += "; Evaluate right value\n";
+        visitNode(rightValue);  
+        
+        // 6. Stocker dans l'élément de liste
+        textSection += "; Store value in list element\n";
+        textSection += "mov qword [rbx], rax\n";
+        
+        // Skip error handling
+        std::string endLabel = ".end_list_assign_" + std::to_string(errorCount-1);
+        textSection += "jmp " + endLabel + "\n";
+        
+        // Error handling for invalid index
+        textSection += errorLabel + ":\n";
+        textSection += "mov rax, 1\n";
+        textSection += "mov rdi, 1\n";
+        textSection += "mov rsi, index_error_msg\n";  // Il faudra ajouter ce message dans la section data
+        textSection += "mov rdx, index_error_len\n";
+        textSection += "syscall\n";
+        textSection += "mov rax, 60\n";  // exit
+        textSection += "mov rdi, 1\n";   // code d'erreur
+        textSection += "syscall\n";
+        
+        textSection += endLabel + ":\n";
+        return;
+    }
     // If the variable is not yet declared, declare it in the data section
     if (declaredVars.find(varName) == declaredVars.end()) {
         dataSection += varName + ": dq 0\n";
@@ -811,8 +872,12 @@ void CodeGenerator::genAffect(const std::shared_ptr<ASTNode>& node) {
     
     // Check Type
     std::string valueType;
+
     if (rightValue->type == "True" || rightValue->type == "False") {
         valueType = "Boolean";
+    }
+    else if (rightValue->type == "FunctionCall") {
+        valueType = inferFunctionReturnType(this->rootNode, node->children[0]->value);   
     }
     else if (rightValue->type == "String") {
         valueType = "String";
@@ -1306,4 +1371,56 @@ std::string CodeGenerator::getFunctionReturnType(const std::string& funcName) {
     }
     
     return "auto"; // Type par défaut si la fonction n'est pas trouvée
+}
+
+
+std::string CodeGenerator::inferFunctionReturnType(const std::shared_ptr<ASTNode>& root, const std::string& funcName) {
+    // Cette fonction analyserait l'AST de la fonction pour déterminer son type de retour
+    // En se basant sur les instructions `return`
+    
+    for (const auto& child : root->children) {
+        if (child->type == "Definitions") {
+            for (const auto& def : child->children) {
+                if (def->type == "FunctionDefinition" && def->value == funcName) {
+                    // Trouver tous les noeuds Return dans le corps de la fonction
+                    std::string returnType = "Integer"; // Type par défaut
+                    
+                    std::function<void(const std::shared_ptr<ASTNode>&)> findReturns;
+                    findReturns = [&](const std::shared_ptr<ASTNode>& node) {
+                        if (!node) return;
+                        
+                        if (node->type == "Return" && !node->children.empty()) {
+                            auto returnExpr = node->children[0];
+                            
+                            if (returnExpr->type == "String") {
+                                returnType = "String";
+                            } else if (returnExpr->type == "List") {
+                                returnType = "List";
+                            } else if (returnExpr->type == "FunctionCall") {
+                                // Si c'est un appel récursif, on utilise le type actuel
+                                if (returnExpr->children[0]->value == funcName) {
+                                    // Type récursif, rien à faire
+                                } else {
+                                    returnType = getFunctionReturnType(returnExpr->children[0]->value);
+                                }
+                            }
+                            // Pour les autres expressions, on conserve le type par défaut (Integer)
+                        }
+                        
+                        for (const auto& child : node->children) {
+                            findReturns(child);
+                        }
+                    };
+                    
+                    if (def->children.size() > 1) {
+                        findReturns(def->children[1]); // Le corps est le 2ème enfant
+                    }
+                    
+                    return returnType;
+                }
+            }
+        }
+    }
+    
+    return "Integer"; // Type par défaut
 }

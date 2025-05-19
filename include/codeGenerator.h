@@ -30,13 +30,13 @@ private:
     
     // Add symbol table as a member
     SymbolTable* symbolTable = nullptr;
-    
+    std::shared_ptr<ASTNode> rootNode;
     // Code generation routines.
     void startAssembly();
     void visitNode(const std::shared_ptr<ASTNode>& node);
     void endAssembly();
     void writeToFile(const std::string &filename);
-    void genPrint();
+    void genPrint(const std::string& type);
     void genAffect(const std::shared_ptr<ASTNode>& node);
     void genFor(const std::shared_ptr<ASTNode>& node);
     void genIf(const std::shared_ptr<ASTNode>& node);
@@ -55,5 +55,5 @@ private:
     void updateFunctionParamTypes(const std::string& funcName, const std::shared_ptr<ASTNode>& args);
     void updateFunctionReturnType(const std::string& funcName, const std::string& returnType);
     std::string getFunctionReturnType(const std::string& funcName);
-
+    std::string inferFunctionReturnType(const std::shared_ptr<ASTNode>& root, const std::string& funcName);
 };

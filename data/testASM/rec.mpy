@@ -1,13 +1,10 @@
-def fibo(n):
-    if n <= 1:
-        return n
-    else:
-        return fibo(n-1) + fibo(n-2)
+def add(x):
+    print("add"+"b",x)
+    if x == 0:
+        return 0
+    return 1 + add(x-1)
 
 
-print(fibo(0))  # Affiche 0
-print(fibo(1))  # Affiche 1
-print(fibo(2))  # Affiche 1
-print(fibo(3))  # Affiche 2
-print(fibo(4))  # Affiche 3
-print(fibo(5))  # Affiche 5
+print(add(5))
+A = [1,2]
+print(A,A)
