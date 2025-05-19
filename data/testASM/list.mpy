@@ -1,6 +1,5 @@
-L = [1,2,5,0,3]
-A = [8,9]
-print(L+A)
-print(L+[6])
+L = [1,2,3]
+A = [2]
 B = []
 print(B)
+print(A)

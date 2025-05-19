@@ -1017,29 +1017,33 @@ void CodeGenerator::genFunction(const std::shared_ptr<ASTNode>& node) {
 }
 void CodeGenerator::genList(const std::shared_ptr<ASTNode>& node) {
     int listSize = node->children.size();
-    
     // Obtenir l'adresse de début de la liste
     textSection += "mov rbx, [list_offset]\n";
     textSection += "mov rax, list_buffer\n";
     textSection += "add rax, rbx\n";  
     textSection += "push rax\n";     
-    
-    for (int i = 0; i < listSize; i++) {
-        visitNode(node->children[i]); 
-        
-        // Stocker l'élément dans la liste
+    if ((listSize == 1) && node->children[0] == nullptr) {
         textSection += "mov rcx, [list_offset]\n";
-        textSection += "mov [list_buffer + rcx], rax\n";
+        textSection += "mov qword [list_buffer + rcx], 0\n";  // marqueur de fin
         textSection += "add rcx, 8\n";
         textSection += "mov [list_offset], rcx\n";
-    }
-    
-    textSection += "mov rcx, [list_offset]\n";
-    textSection += "mov qword [list_buffer + rcx], 0\n";  // 0 comme marqueur de fin
-    textSection += "add rcx, 8\n";
-    textSection += "mov [list_offset], rcx\n";
-    
-    // Retourner l'adresse de la liste
+    } 
+    else {
+        for (int i = 0; i < listSize; i++) {
+            visitNode(node->children[i]); 
+            
+            // Stocker l'élément dans la liste
+            textSection += "mov rcx, [list_offset]\n";
+            textSection += "mov [list_buffer + rcx], rax\n";
+            textSection += "add rcx, 8\n";
+            textSection += "mov [list_offset], rcx\n";
+        }
+        textSection += "mov rcx, [list_offset]\n";
+        textSection += "mov qword [list_buffer + rcx], 0\n";  // marqueur de fin
+        textSection += "add rcx, 8\n";
+        textSection += "mov [list_offset], rcx\n";
+    }   
+
     textSection += "pop rax\n";  // rax = adresse de début de la liste
 }
 void CodeGenerator::genFunctionCall(const std::shared_ptr<ASTNode>& node) {
