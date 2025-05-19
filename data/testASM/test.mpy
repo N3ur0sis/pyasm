@@ -1,6 +1,5 @@
-if (True and True):
-    print("ok")
-
-if (not False):
-    print("Not False")
-
+b = 4
+a = [5,b,5]
+b = 1
+print(a)
+print(b)

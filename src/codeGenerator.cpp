@@ -232,6 +232,24 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
             if (node->children[1]->type == "Identifier") {
                 type1 = getIdentifierType(node->children[1]->value);
             }
+            if (type0 == "auto") {
+                m_errorManager.addError(Error{
+                    "Undefined Variable; ", 
+                    "Used " + std::string(node->children[0]->value.c_str()) + " before assignment",
+                    "Semantics", 
+                    0
+                });
+                return;
+            }
+            if (type1 == "auto") {
+                m_errorManager.addError(Error{
+                    "Undefined Variable; ", 
+                    "Used " + std::string(node->children[1]->value.c_str())+ " before assignment",
+                    "Semantics", 
+                    0
+                });
+                return;
+            }
             if (type0 != type1) {
                 m_errorManager.addError(Error{
                     "Expected same type for an Arith Operation ; ", 
@@ -242,16 +260,16 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
             }
             if (type0 != "Integer" && type0 != "String" && type0 != "List" && type0 != "auto") {
                 m_errorManager.addError(Error{
-                    "Expected Int or String for an Arith Operation ; ", 
+                    "Expected Int or String or List for an Arith Operation ; ", 
                     "Got " + std::string(type0.c_str()), 
                     "Semantics", 
                     0
                 });
             }
-            if (type1 != "Integer" && type1 != "String" && type1 != "List" && type0 != "auto") {
+            if (type1 != "Integer" && type1 != "String" && type1 != "List" && type1 != "auto") {
                 m_errorManager.addError(Error{
                     "Expected Int or String or List for an Arith Operation ; ", 
-                    "Got " + std::string(type0.c_str()), 
+                    "Got " + std::string(type1.c_str()), 
                     "Semantics", 
                     0
                 });
@@ -772,6 +790,7 @@ void CodeGenerator::genPrint() {
     
     textSection += printExitLabel + ":\n";
 }
+
 void CodeGenerator::genAffect(const std::shared_ptr<ASTNode>& node) {
     if (node->children.size() < 2) {
         throw std::runtime_error("Invalid ASTNode structure for assignment");
@@ -1025,8 +1044,21 @@ void CodeGenerator::genList(const std::shared_ptr<ASTNode>& node) {
     } 
     else {
         for (int i = 0; i < listSize; i++) {
-            visitNode(node->children[i]); 
             
+            visitNode(node->children[i]); 
+            auto type0 = node->children[i]->type;
+            if (node->children[i]->type == "Identifier") {
+                type0 = getIdentifierType(node->children[i]->value);
+            }
+            if (type0 == "auto") {
+                m_errorManager.addError(Error{
+                    "Undefined Variable; ", 
+                    "Used " + std::string(node->children[i]->value.c_str())+ " before assignment",
+                    "Semantics", 
+                    0
+                });
+                return;
+            }
             textSection += "mov rcx, [list_offset]\n";
             textSection += "mov [list_buffer + rcx], rax\n";
             textSection += "add rcx, 8\n";
