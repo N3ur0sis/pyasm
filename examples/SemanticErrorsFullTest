@@ -24,6 +24,7 @@ def conflict(a):
 
 z = add(5)  # ERREUR : mauvaise arité
 x = foo(z)
+x = doublon(1, 2)  # ERREUR : mauvaise arité
 
 # Built-in avec mauvaise arité
 x = range()       # ERREUR : arité incorrecte (0 param)

@@ -51,19 +51,19 @@ void SemanticAnalyzer::visit(const std::shared_ptr<ASTNode>& node, SymbolTable* 
     // ---- APPEL A PRINT ----
     if (node->type == "Print") {
         // Vérifie que l'appel de print est correct
-        std::cout << "Print function called with parameters: " << std::endl;
-        std::cout << "childrens empty ? " << (node->children.empty() ? "True" : "False") << std::endl;
-        std::cout << "childrens[0] type: " << node->children[0]->type << std::endl;
-        std::cout << "childrens[0] childrens empty ? " << (node->children[0]->children.empty() ? "True" : "False") << std::endl;
-        std::cout << "childrens[0] childrens[0] type: " << node->children[0]->children[0]->type << std::endl;
-        std::cout << "childrens[0] childrens[0] value: " << node->children[0]->children[0]->value << std::endl;
+        // std::cout << "Print function called with parameters: " << std::endl;
+        // std::cout << "childrens empty ? " << (node->children.empty() ? "True" : "False") << std::endl;
+        // std::cout << "childrens[0] type: " << node->children[0]->type << std::endl;
+        // std::cout << "childrens[0] childrens empty ? " << (node->children[0]->children.empty() ? "True" : "False") << std::endl;
+        // std::cout << "childrens[0] childrens[0] type: " << node->children[0]->children[0]->type << std::endl;
+        // std::cout << "childrens[0] childrens[0] value: " << node->children[0]->children[0]->value << std::endl;
         if (node->children.empty() || node->children[0]->type != "List" || node->children[0]->children.empty()) {
             std::cout << "Print function called with no parameters." << std::endl;
             m_errorManager.addError(Error{
                 "Print function should be called with at least one parameter.",
                 "",
                 "Semantic",
-                0
+                std::stoi(node->line)
             });
         }
     }
@@ -77,7 +77,7 @@ void SemanticAnalyzer::visit(const std::shared_ptr<ASTNode>& node, SymbolTable* 
 
     // ---- RETURN PLACEMENT ----
     if (node->type == "Return") {
-        checkReturnPlacement(currentScope);
+        checkReturnPlacement(currentScope, node->line);
     }
 
     // ---- FOR LOOP INTERN SHADOWING ----
@@ -88,7 +88,7 @@ void SemanticAnalyzer::visit(const std::shared_ptr<ASTNode>& node, SymbolTable* 
                 "Loop variable name already exists in scope: " + currentScope->scopeName + ". Variable shadowing is not allowed: ",
                 loopVar,
                 "semantic",
-                0
+                std::stoi(node->line)
             });
         } 
         // Add loop variable to the list of loop variables
@@ -102,7 +102,7 @@ void SemanticAnalyzer::visit(const std::shared_ptr<ASTNode>& node, SymbolTable* 
                 "You can't affect a variable with this name, shadowing a loop variable is forbidden: ",
                 affectIdent,
                 "Semantic",
-                0
+                std::stoi(node->line)
             });
         }
     }
@@ -131,7 +131,7 @@ void SemanticAnalyzer::checkFunctionRedefinition(const std::shared_ptr<ASTNode>&
             "Function already defined: ",
             "A function already exists with the name " + node->value + ".",
             "Semantic",
-            0
+            std::stoi(node->line)
         });
     } else {
         definedFunctionsNames.push_back(node->value);
@@ -157,7 +157,7 @@ void SemanticAnalyzer::checkFunctionCall(const std::shared_ptr<ASTNode>& node, S
                 "Function " + functionCalled->value + " expects exactly one parameter.",
                 "",
                 "Semantic",
-                0
+                std::stoi(node->line)
             });
         }
         return;
@@ -170,7 +170,7 @@ void SemanticAnalyzer::checkFunctionCall(const std::shared_ptr<ASTNode>& node, S
             "Function Call Error: ",
             "Function " + functionCalled->value + " is not defined.",
             "Semantic", 
-            0
+            std::stoi(node->line)
         });
         return;
     }
@@ -186,7 +186,7 @@ void SemanticAnalyzer::checkFunctionCall(const std::shared_ptr<ASTNode>& node, S
                         "Function " + fnSym->name + " expects " + std::to_string(expected) + 
                         " arguments, but " + std::to_string(actual) + " were provided.",
                         "Semantic",
-                        0
+                        std::stoi(node->line)
                     });
         }
         return;
@@ -196,13 +196,13 @@ void SemanticAnalyzer::checkFunctionCall(const std::shared_ptr<ASTNode>& node, S
 // ────────────────────────────────────────────────────────────────
 // Détecte une instruction return en dehors d’un corps de fonction
 // ────────────────────────────────────────────────────────────────
-void SemanticAnalyzer::checkReturnPlacement(SymbolTable* scope){
+void SemanticAnalyzer::checkReturnPlacement(SymbolTable* scope, std::string line){
     if (!insideFunction(scope)) {
         m_errorManager.addError(Error{
             "Return statement outside of a function.",
             "", 
             "Syntax", 
-            0
+            std::stoi(line)
         });
     }
 }
@@ -249,7 +249,7 @@ void SemanticAnalyzer::checkIdentifierInitialization(const std::shared_ptr<ASTNo
             "Uninitialized identifier: ",
             node->value,
             "Semantic",
-            0
+            std::stoi(node->line)
         });
     }
 }

@@ -25,7 +25,7 @@ private:
     // Vérifications spécifiques
     void checkFunctionRedefinition(const std::shared_ptr<ASTNode>& node);
     void checkFunctionCall(const std::shared_ptr<ASTNode>& node, SymbolTable* currentScope);
-    void checkReturnPlacement(SymbolTable* scope);
+    void checkReturnPlacement(SymbolTable* scope, std::string line);
 
     // Recherche d'un symbole dans la portée courante ou ses ancêtres
     Symbol* findSymbol(const std::string& name, SymbolTable* table);
