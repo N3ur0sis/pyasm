@@ -23,9 +23,10 @@ void CodeGenerator::generateCode(const std::shared_ptr<ASTNode>& root, const std
                 dataSection;
     dataSection += "list_buffer: times 8192 dq 0\n";
     dataSection += "list_offset: dq 0\n";  
-    dataSection += "open_bracket: db '[', 0\n";
-    dataSection += "close_bracket: db ']', 0\n";
-    dataSection += "comma_space: db ',', 32, 0\n";
+    dataSection += "open_bracket: db '['\n";
+    dataSection += "close_bracket: db ']'\n";
+    dataSection += "comma_space: db ',', 32\n";
+
     // Generate the text (and data) from the AST.
     startAssembly();
     
@@ -258,6 +259,21 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                 });
             }
 
+            // Check if list (adresse >= list_buffer)
+            textSection += "mov rcx, list_buffer\n";
+            textSection += "cmp rax, rcx\n";
+            textSection += "jl .not_list_left_" + opId + "\n";
+            textSection += "cmp rbx, rcx\n";
+            textSection += "jl .not_list_right_" + opId + "\n";
+            
+            // Les deux sont des listes, appeler list_concat
+            textSection += "mov rdi, rax\n";   
+            textSection += "mov rsi, rbx\n";    
+            textSection += "call list_concat\n";
+            textSection += "jmp " + endOpLabel + "\n";
+            
+            textSection += ".not_list_left_" + opId + ":\n";
+            textSection += ".not_list_right_" + opId + ":\n";
             
             // CHeck if String
             textSection += "cmp rax, 10000\n";        
@@ -557,7 +573,65 @@ void CodeGenerator::endAssembly() {
     textSection += "    mov rbx, r14\n";
     textSection += "    sub rbx, concat_buffer\n";
     textSection += "    mov [concat_offset], rbx\n";
-
+     // --- Ajouter la fonction list_concat ---
+    textSection += "\n; Function to concatenate two lists\n";
+    textSection += "list_concat:\n";
+    textSection += "    push rbp\n";
+    textSection += "    mov rbp, rsp\n";
+    textSection += "    push r12\n";
+    textSection += "    push r13\n";
+    textSection += "    push r14\n";
+    textSection += "    push rbx\n";
+    
+    // Sauvegarder les listes d'entrée
+    textSection += "    mov r12, rdi        ; r12 = liste1\n";
+    textSection += "    mov r13, rsi        ; r13 = liste2\n";
+    
+    // Obtenir un nouvel emplacement pour la liste résultat
+    textSection += "    mov r14, [list_offset]\n";
+    textSection += "    mov rax, list_buffer\n";
+    textSection += "    add rax, r14        ; rax = adresse de la nouvelle liste\n";
+    textSection += "    push rax            ; sauvegarder l'adresse de la nouvelle liste\n";
+    
+    // Copier la première liste
+    textSection += "    mov rsi, r12        ; source = liste1\n";
+    textSection += "    mov rbx, r14        ; destination offset = list_offset actuel\n";
+    
+    // Boucle de copie de la première liste
+    textSection += ".list_copy1_loop:\n";
+    textSection += "    mov rdx, [rsi]      ; charger élément de liste1\n";
+    textSection += "    cmp rdx, 0          ; vérifier si fin de liste\n";
+    textSection += "    je .list_copy1_done\n";
+    textSection += "    mov [list_buffer + rbx], rdx  ; copier l'élément\n";
+    textSection += "    add rsi, 8          ; avancer dans liste1\n";
+    textSection += "    add rbx, 8          ; avancer dans nouvelle liste\n";
+    textSection += "    jmp .list_copy1_loop\n";
+    textSection += ".list_copy1_done:\n";
+    
+    // Copier la deuxième liste
+    textSection += "    mov rsi, r13        ; source = liste2\n";
+    
+    // Boucle de copie de la deuxième liste
+    textSection += ".list_copy2_loop:\n";
+    textSection += "    mov rdx, [rsi]      ; charger élément de liste2\n";
+    textSection += "    cmp rdx, 0          ; vérifier si fin de liste\n";
+    textSection += "    je .list_copy2_done\n";
+    textSection += "    mov [list_buffer + rbx], rdx  ; copier l'élément\n";
+    textSection += "    add rsi, 8          ; avancer dans liste2\n";
+    textSection += "    add rbx, 8          ; avancer dans nouvelle liste\n";
+    textSection += "    jmp .list_copy2_loop\n";
+    textSection += ".list_copy2_done:\n";
+    
+    // Ajouter marqueur de fin (0) à la nouvelle liste
+    textSection += "    mov qword [list_buffer + rbx], 0  ; marquer la fin\n";
+    textSection += "    add rbx, 8          ; inclure le marqueur dans la taille\n";
+    
+    // Mettre à jour list_offset
+    textSection += "    mov [list_offset], rbx\n";
+    
+    // Retourner l'adresse de la nouvelle liste
+    textSection += "    pop rax             ; récupérer l'adresse de la liste résultat\n";
+    
     // Nettoyage
     textSection += "    pop rbx\n";
     textSection += "    pop r14\n";
@@ -622,6 +696,10 @@ void CodeGenerator::genPrint() {
     textSection += "mov rdx, 1\n";
     textSection += "syscall\n";
     textSection += "pop rbx\n";
+    
+    textSection += "cmp qword [rbx], 0\n";
+    textSection += "je .print_list_end_" + printId + "\n";
+
     
     textSection += ".print_list_loop_" + printId + ":\n";
     textSection += "mov rax, [rbx]\n";      // Charger l'élément courant
@@ -938,19 +1016,16 @@ void CodeGenerator::genFunction(const std::shared_ptr<ASTNode>& node) {
 
 }
 void CodeGenerator::genList(const std::shared_ptr<ASTNode>& node) {
-    // Calculer le nombre d'éléments de la liste
     int listSize = node->children.size();
     
-    // Obtenir l'adresse de début de notre liste
-    textSection += "; Creating list with " + std::to_string(listSize) + " elements\n";
+    // Obtenir l'adresse de début de la liste
     textSection += "mov rbx, [list_offset]\n";
     textSection += "mov rax, list_buffer\n";
-    textSection += "add rax, rbx\n";  // rax = adresse de notre liste
-    textSection += "push rax\n";      // sauvegarder l'adresse de début de la liste
+    textSection += "add rax, rbx\n";  
+    textSection += "push rax\n";     
     
-    // Pour chaque élément de la liste
     for (int i = 0; i < listSize; i++) {
-        visitNode(node->children[i]);  // évalue l'élément, résultat dans rax
+        visitNode(node->children[i]); 
         
         // Stocker l'élément dans la liste
         textSection += "mov rcx, [list_offset]\n";
@@ -959,7 +1034,6 @@ void CodeGenerator::genList(const std::shared_ptr<ASTNode>& node) {
         textSection += "mov [list_offset], rcx\n";
     }
     
-    // Ajouter le marqueur de fin (0)
     textSection += "mov rcx, [list_offset]\n";
     textSection += "mov qword [list_buffer + rcx], 0\n";  // 0 comme marqueur de fin
     textSection += "add rcx, 8\n";

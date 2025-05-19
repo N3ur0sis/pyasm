@@ -1,2 +1,6 @@
-L = [1,2,5,3]
-print(L)
+L = [1,2,5,0,3]
+A = [8,9]
+print(L+A)
+print(L+[6])
+B = []
+print(B)
