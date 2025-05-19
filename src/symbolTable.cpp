@@ -190,7 +190,7 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& root, SymbolTab
                         "Variable name already exists in scope as a parameter. Parameter shadowing is not allowed: ",
                         varNode->value,
                         "semantic",
-                        0
+                        std::stoi(varNode->line)
                     });
                 }
             }
@@ -214,7 +214,7 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& root, SymbolTab
                         "Loop variable name already exists in scope: " + usedTable->scopeName + ". Variable shadowing is not allowed: ",
                         loopVar->value,
                         "semantic",
-                        0
+                        std::stoi(loopVar->line)
                     });
                 }
                 // Add loop variable to the for scope

@@ -204,7 +204,7 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                 "Expected Int for an Unary Operation ; ", 
                 "Got " + std::string(node->children[0]->type.c_str()), 
                 "Semantics", 
-                0
+                std::stoi(node->line)
             });
         }
         
@@ -239,7 +239,7 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                     "Expected same type for an Arith Operation ; ", 
                     "Got " + std::string(type0.c_str()) + " and " + std::string(type1.c_str()), 
                     "Semantics", 
-                    0
+                    std::stoi(node->line)
                 });
             }
             if (type0 != "Integer" && type0 != "String" && type0 != "List" && type0 != "auto") {
@@ -247,7 +247,7 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                     "Expected Int or String for an Arith Operation ; ", 
                     "Got " + std::string(type0.c_str()), 
                     "Semantics", 
-                    0
+                    std::stoi(node->line)
                 });
             }
             if (type1 != "Integer" && type1 != "String" && type1 != "List" && type0 != "auto") {
@@ -255,7 +255,7 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                     "Expected Int or String or List for an Arith Operation ; ", 
                     "Got " + std::string(type0.c_str()), 
                     "Semantics", 
-                    0
+                    std::stoi(node->line)
                 });
             }
 
@@ -306,7 +306,7 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                     "Expected Int for Sub Operation ; ", 
                     "Got " + std::string(node->children[0]->type.c_str()), 
                     "Semantics", 
-                    0
+                    std::stoi(node->line)
                 });
             }
             // Evaluate the right child
@@ -321,7 +321,7 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                     "Expected Int for Sub Operation ; ", 
                     "Got " + std::string(node->children[1]->type.c_str()), 
                     "Semantics", 
-                    0
+                    std::stoi(node->line)
                 });
             }
             
@@ -340,7 +340,7 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                     "Expected Int for Mul Operation ; ", 
                     "Got " + std::string(node->children[0]->type.c_str()), 
                     "Semantics", 
-                    0
+                    std::stoi(node->line)
                 });
             }
             // Evaluate the right child
@@ -355,7 +355,7 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                     "Expected Int for Mul Operation ; ", 
                     "Got " + std::string(node->children[1]->type.c_str()), 
                     "Semantics", 
-                    0
+                    std::stoi(node->line)
                 });
             }
         }
@@ -370,7 +370,7 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                     "Expected Int for Integer Division Operation ; ", 
                     "Got " + std::string(node->children[0]->type.c_str()), 
                     "Semantics", 
-                    0
+                    std::stoi(node->line)
                 });
             }
 
@@ -392,7 +392,7 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                     "Expected Int for Integer Division Operation ; ", 
                     "Got " + std::string(node->children[1]->type.c_str()), 
                     "Semantics", 
-                    0
+                    std::stoi(node->line)
                 });
             }    
         }
@@ -407,7 +407,7 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                     "Expected Int for Modulo Operation ; ", 
                     "Got " + std::string(node->children[0]->type.c_str()), 
                     "Semantics", 
-                    0
+                    std::stoi(node->line)
                 });
             }
             
@@ -430,7 +430,7 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                     "Expected Int for Modulo Operation ; ", 
                     "Got " + std::string(node->children[1]->type.c_str()), 
                     "Semantics", 
-                    0
+                    std::stoi(node->line)
                 });
             }
         }
@@ -863,7 +863,7 @@ void CodeGenerator::genFor(const std::shared_ptr<ASTNode>& node) {
                     "Expected one parameter for range ; ", 
                     "Got " + std::to_string(paramList->children.size()), 
                     "Semantics", 
-                    0
+                    std::stoi(node->line)
                 });
             return;
         }
@@ -979,9 +979,9 @@ void CodeGenerator::genFunction(const std::shared_ptr<ASTNode>& node) {
                         if (paramList->children[i]->value == paramList->children[j]->value) {
                             m_errorManager.addError(Error{
                                 "Params Error : " , 
-                                "Duplicate parameter " + paramList->children[i]->value, 
+                                "Duplicate parameter " + paramList->children[i]->value + ". Expected distinct parameters name.", 
                                 "Semantics", 
-                                0
+                                std::stoi(node->line)
                             });
                             return;
                         }

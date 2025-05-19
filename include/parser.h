@@ -8,6 +8,7 @@ struct ASTNode {
     std::string type;
     std::string value;
     std::vector<std::shared_ptr<ASTNode>> children;
+    std::string line = "0"; // Line number for error reporting
 
     ASTNode(std::string t, std::string v = "") : type(std::move(t)), value(std::move(v)) {}
 };

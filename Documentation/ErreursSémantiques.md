@@ -32,7 +32,7 @@ Erreurs de type :
 
 ## Erreurs sémantiques à traiter :
 
-- détection du numéro de ligne dans l'analyse sémantique et dans la création des TDS
+- détection du numéro de ligne dans l'analyse sémantique, dans la création des TDS et dans la gen de code
 - unused parameter
 - utilisation correcte des fonction built-in : range, len, list
 
