@@ -224,9 +224,13 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
             textSection += "mov rbx, rax\n";
             textSection += "pop rax\n";
             
+            // Détermination du type du premier opérande (type0)
             auto type0 = node->children[0]->type;
-            if (node->children[0]->type == "Identifier") {
+            if (type0 == "Identifier") {
                 type0 = getIdentifierType(node->children[0]->value);
+            } else if (type0 == "FunctionCall") {
+                std::string funcName = node->children[0]->children[0]->value;
+                type0 = getFunctionReturnType(funcName);
             }
             auto type1 = node->children[1]->type;
             if (node->children[1]->type == "Identifier") {
@@ -1270,4 +1274,36 @@ void CodeGenerator::updateFunctionParamTypes(const std::string& funcName, const 
             break;
         }
     }
+}
+
+void CodeGenerator::updateFunctionReturnType(const std::string& funcName, const std::string& returnType) {
+    if (!symbolTable) return;
+    
+    for (const auto& child : symbolTable->children) {
+        if (child->scopeName == "function " + funcName) {
+            for (auto& sym : symbolTable->symbols) {
+                if (sym->name == funcName && sym->symCat == "function") {
+                    if (auto funcSym = dynamic_cast<FunctionSymbol*>(sym.get())) {
+                        funcSym->returnType = returnType;
+                        return;
+                    }
+                }
+            }
+            break;
+        }
+    }
+}
+
+std::string CodeGenerator::getFunctionReturnType(const std::string& funcName) {
+    if (!symbolTable) return "auto";
+    
+    for (const auto& sym : symbolTable->symbols) {
+        if (sym->name == funcName && sym->symCat == "function") {
+            if (auto funcSym = dynamic_cast<FunctionSymbol*>(sym.get())) {
+                return funcSym->returnType;
+            }
+        }
+    }
+    
+    return "auto"; // Type par défaut si la fonction n'est pas trouvée
 }
