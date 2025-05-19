@@ -1,3 +1,5 @@
-
-print("a"+"b")
+a = "aaaa"
+b = "bnnn"
+c = a + b
+print(c)
 

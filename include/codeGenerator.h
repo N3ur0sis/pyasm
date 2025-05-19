@@ -53,5 +53,7 @@ private:
     void updateSymbolType(const std::string& name, const std::string& type);
     void resetFunctionVarTypes(const std::string& funcName);
     void updateFunctionParamTypes(const std::string& funcName, const std::shared_ptr<ASTNode>& args);
+    void updateFunctionReturnType(const std::string& funcName, const std::string& returnType);
+    std::string getFunctionReturnType(const std::string& funcName);
 
 };

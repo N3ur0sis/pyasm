@@ -598,21 +598,7 @@ std::shared_ptr<ASTNode> Parser::parseTest(const std::shared_ptr<ASTNode>& idNod
 
         funcCallNode->children.push_back(paramListNode);
         currentNode = funcCallNode;
-    }/*
-    if (peek().type == TokenType::CAR_LBRACKET) {
-        auto listCallNode = std::make_shared<ASTNode>("ListCall");
-        listCallNode->line = std::to_string(peek().line);
-        listCallNode->children.push_back(idNode);
-
-        // Parsing des paramètres
-        expectR(TokenType::CAR_LBRACKET);
-        auto exprNode = parseExpr();
-        expectR(TokenType::CAR_RBRACKET);
-
-        listCallNode->children.push_back(exprNode);
-        currentNode = listCallNode;
-    }*/
-
+    }
     // Parsing des opérations term_prime
     while (peek().type == TokenType::OP_MUL || peek().type == TokenType::OP_DIV || peek().type == TokenType::OP_MOD) {
         auto termOp = next();

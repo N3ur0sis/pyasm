@@ -10,10 +10,13 @@ def rec(x):
         return 0
     else:
         return 1+rec(x-1)
-
+def test():
+    print("coucou")
 a = "Hello"
 b = " World"
 print("Add Integer")
 print(add(4,3))               # 7
 print("Add String")
 print(add(a,b)) # Hello World
+print(rec(5))
+
