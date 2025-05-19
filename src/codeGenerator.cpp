@@ -21,7 +21,11 @@ void CodeGenerator::generateCode(const std::shared_ptr<ASTNode>& root, const std
                 "div_zero_msg: db 'Error: Division by zero', 10, 0\n" +
                 "div_zero_len: equ $ - div_zero_msg\n" + 
                 dataSection;
-
+    dataSection += "list_buffer: times 8192 dq 0\n";
+    dataSection += "list_offset: dq 0\n";  
+    dataSection += "open_bracket: db '[', 0\n";
+    dataSection += "close_bracket: db ']', 0\n";
+    dataSection += "comma_space: db ',', 32, 0\n";
     // Generate the text (and data) from the AST.
     startAssembly();
     
@@ -126,35 +130,31 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
             textSection += "mov rax, " + strLabel + "\n";
        
     } else if (node->type == "Print") {
-        // Check if this is a print with multiple arguments (List)
         if (node->children.size() == 1 && node->children[0]->type == "List") {
-            // Process each argument in the list
             for (size_t i = 0; i < node->children[0]->children.size(); i++) {
                 const auto& item = node->children[0]->children[i];
-                visitNode(item);  // Process one argument
-                genPrint();       // Print that argument
-                
+                visitNode(item);  
+                genPrint();      
+
                 if (i < node->children[0]->children.size() - 1) {
-                    textSection += "mov rax, 1\n";         // write syscall
-                    textSection += "mov rdi, 1\n";         // stdout
-                    textSection += "push rax\n";           // save registers
+                    textSection += "mov rax, 1\n";        
+                    textSection += "mov rdi, 1\n";         
+                    textSection += "push rax\n";          
                     textSection += "push rdi\n";
-                    textSection += "mov rsi, space\n";     // point to space character
-                    textSection += "mov rdx, 1\n";         // length 1
+                    textSection += "mov rsi, space\n";     
+                    textSection += "mov rdx, 1\n";        
                     textSection += "syscall\n";
-                    textSection += "pop rdi\n";            // restore registers
+                    textSection += "pop rdi\n";         
                     textSection += "pop rax\n";
                 }
             }
         } else {
-            // Regular print with single expression
             for (const auto& child : node->children) {
                 visitNode(child);
             }
             genPrint();
         }
         
-        // Always print newline at the end
         textSection += "mov rax, 1\n";
         textSection += "mov rdi, 1\n";
         textSection += "mov rsi, newline\n";
@@ -584,12 +584,19 @@ void CodeGenerator::genPrint() {
     std::string strlenLoopLabel = ".print_strlen_loop_" + printId;
     std::string strlenDoneLabel = ".print_strlen_done_" + printId;
     std::string printNumLabel = ".print_num_" + printId;
+    std::string printListLabel = ".print_list_" + printId;
     std::string printExitLabel = ".print_exit_" + printId;
     
+    // Vérifier d'abord si c'est une liste (en comparant avec l'adresse du list_buffer)
+    textSection += "mov rcx, list_buffer\n";
+    textSection += "cmp rax, rcx\n";
+    textSection += "jge " + printListLabel + "\n";
+    
+    // Si c'est < 10000, c'est un nombre
     textSection += "cmp rax, 10000\n";
     textSection += "jl " + printNumLabel + "\n";
     
-    // Print string
+    // Sinon c'est une chaîne
     textSection += "mov rsi, rax\n";  
     textSection += "mov rdx, 0\n";     
     textSection += strlenLoopLabel + ":\n";
@@ -600,6 +607,78 @@ void CodeGenerator::genPrint() {
     textSection += strlenDoneLabel + ":\n";
     textSection += "mov rax, 1\n";     
     textSection += "mov rdi, 1\n";     
+    textSection += "syscall\n";
+    textSection += "jmp " + printExitLabel + "\n";
+    
+    // Code pour imprimer une liste
+    textSection += printListLabel + ":\n";
+    textSection += "mov rbx, rax\n";        // rbx = adresse de la liste
+    
+    // Imprimer le crochet ouvrant '['
+    textSection += "push rbx\n";
+    textSection += "mov rax, 1\n";
+    textSection += "mov rdi, 1\n";
+    textSection += "mov rsi, open_bracket\n";
+    textSection += "mov rdx, 1\n";
+    textSection += "syscall\n";
+    textSection += "pop rbx\n";
+    
+    textSection += ".print_list_loop_" + printId + ":\n";
+    textSection += "mov rax, [rbx]\n";      // Charger l'élément courant
+    textSection += "cmp rax, 0\n";          // Vérifier si c'est la fin (marqueur 0)
+    textSection += "je .print_list_end_" + printId + "\n";  // Si c'est 0, finir
+    
+    // Sauvegarde du pointeur de liste
+    textSection += "push rbx\n";
+    
+    // Imprimer l'élément courant (appel récursif à genPrint via un call)
+    // Note : on ne peut pas faire un appel récursif direct, donc on utilise les appels séparés
+    textSection += "cmp rax, 10000\n";
+    textSection += "jl .print_elem_num_" + printId + "\n";
+    
+    // Si c'est une chaîne
+    textSection += "mov rsi, rax\n";
+    textSection += "mov rdx, 0\n";
+    textSection += ".print_elem_strlen_" + printId + ":\n";
+    textSection += "cmp byte [rsi+rdx], 0\n";
+    textSection += "je .print_elem_done_" + printId + "\n";
+    textSection += "inc rdx\n";
+    textSection += "jmp .print_elem_strlen_" + printId + "\n";
+    textSection += ".print_elem_done_" + printId + ":\n";
+    textSection += "mov rax, 1\n";
+    textSection += "mov rdi, 1\n";
+    textSection += "syscall\n";
+    textSection += "jmp .continue_list_" + printId + "\n";
+    
+    // Si c'est un nombre
+    textSection += ".print_elem_num_" + printId + ":\n";
+    textSection += "call print_number\n";
+    
+    // Continuer avec le prochain élément
+    textSection += ".continue_list_" + printId + ":\n";
+    textSection += "pop rbx\n";               // Restaurer le pointeur de liste
+    textSection += "add rbx, 8\n";            // Passer à l'élément suivant
+    
+    // Imprimer une virgule et un espace si ce n'est pas le dernier élément
+    textSection += "cmp qword [rbx], 0\n";    // Vérifier si l'élément suivant est la fin
+    textSection += "je .print_list_loop_" + printId + "\n";  // Si fin, ne pas imprimer de virgule
+    
+    textSection += "push rbx\n";
+    textSection += "mov rax, 1\n";
+    textSection += "mov rdi, 1\n";
+    textSection += "mov rsi, comma_space\n";
+    textSection += "mov rdx, 2\n";
+    textSection += "syscall\n";
+    textSection += "pop rbx\n";
+    
+    textSection += "jmp .print_list_loop_" + printId + "\n";
+    
+    // Fin de la liste - imprimer le crochet fermant ']'
+    textSection += ".print_list_end_" + printId + ":\n";
+    textSection += "mov rax, 1\n";
+    textSection += "mov rdi, 1\n";
+    textSection += "mov rsi, close_bracket\n";
+    textSection += "mov rdx, 1\n";
     textSection += "syscall\n";
     textSection += "jmp " + printExitLabel + "\n";
     
@@ -658,7 +737,7 @@ void CodeGenerator::genAffect(const std::shared_ptr<ASTNode>& node) {
     else {
         valueType = "Integer";
     }
-    
+    /*
     if (node->children[0]->type == "Identifier") {
         auto varType = getIdentifierType(node->children[0]->value);
         if (varType != valueType && varType != "auto") {
@@ -670,7 +749,7 @@ void CodeGenerator::genAffect(const std::shared_ptr<ASTNode>& node) {
             });
         }
     }
-
+    */
 
     if (symbolTable) {
         updateSymbolType(varName, valueType);
@@ -859,20 +938,35 @@ void CodeGenerator::genFunction(const std::shared_ptr<ASTNode>& node) {
 
 }
 void CodeGenerator::genList(const std::shared_ptr<ASTNode>& node) {
-    std::string listName = node->value;
-    if (declaredVars.find(listName) == declaredVars.end()) {
-        dataSection += listName + ": dq 0\n";
-        declaredVars.insert(listName);
+    // Calculer le nombre d'éléments de la liste
+    int listSize = node->children.size();
+    
+    // Obtenir l'adresse de début de notre liste
+    textSection += "; Creating list with " + std::to_string(listSize) + " elements\n";
+    textSection += "mov rbx, [list_offset]\n";
+    textSection += "mov rax, list_buffer\n";
+    textSection += "add rax, rbx\n";  // rax = adresse de notre liste
+    textSection += "push rax\n";      // sauvegarder l'adresse de début de la liste
+    
+    // Pour chaque élément de la liste
+    for (int i = 0; i < listSize; i++) {
+        visitNode(node->children[i]);  // évalue l'élément, résultat dans rax
+        
+        // Stocker l'élément dans la liste
+        textSection += "mov rcx, [list_offset]\n";
+        textSection += "mov [list_buffer + rcx], rax\n";
+        textSection += "add rcx, 8\n";
+        textSection += "mov [list_offset], rcx\n";
     }
     
-    if (node->children.empty()) {
-        textSection += "mov qword [" + listName + "], 0\n";
-        return;
-    }
+    // Ajouter le marqueur de fin (0)
+    textSection += "mov rcx, [list_offset]\n";
+    textSection += "mov qword [list_buffer + rcx], 0\n";  // 0 comme marqueur de fin
+    textSection += "add rcx, 8\n";
+    textSection += "mov [list_offset], rcx\n";
     
-    for (const auto& child : node->children) {
-        visitNode(child);
-    }
+    // Retourner l'adresse de la liste
+    textSection += "pop rax\n";  // rax = adresse de début de la liste
 }
 void CodeGenerator::genFunctionCall(const std::shared_ptr<ASTNode>& node) {
     std::string funcName = node->children[0]->value;
@@ -910,7 +1004,7 @@ void CodeGenerator::genFunctionCall(const std::shared_ptr<ASTNode>& node) {
     textSection += "; Align stack\n";
     textSection += "mov rbx, rsp\n";
     textSection += "and rsp, -16\n";
-    textSection += "push rbx\n";  // Save original stack pointer
+    textSection += "push rbx\n";
     
     // Push arguments in reverse order (right to left)
     for (int i = args->children.size() - 1; i >= 0; i--) {
@@ -928,7 +1022,7 @@ void CodeGenerator::genFunctionCall(const std::shared_ptr<ASTNode>& node) {
     }
      
     // Restore stack alignment
-    textSection += "pop rsp\n";  // Restore original stack pointer
+    textSection += "pop rsp\n"; 
      
     // Restore saved registers in reverse order
     textSection += "pop r15\n";
@@ -940,8 +1034,6 @@ void CodeGenerator::genFunctionCall(const std::shared_ptr<ASTNode>& node) {
     // Réinitialiser les types des variables de la fonction
 
     resetFunctionVarTypes(funcName);
-     
-    // Result is already in rax
 }
 void CodeGenerator::genReturn(const std::shared_ptr<ASTNode>& node) {
     // Evaluate return expression if any
