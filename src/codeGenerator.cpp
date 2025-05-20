@@ -344,21 +344,118 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
             textSection += "setge al\n"; 
         }
         textSection += "movzx rax, al\n"; // Correctly set rax to 0 or 1
-    } else if (node->type == "UnaryOp") {
-        if (node->children[0]->type == "Integer" || (node->children[0]->type == "Identifier" && isIntVariable(node->children[0]->value.c_str()))) {
-            visitNode(node->children[0]);
-            textSection += "neg rax\n";
-        }
-        else{
+    }else if (node->type == "UnaryOp") {
+        // ... existing UnaryOp logic from previous correct version ...
+        // Ensure you are using getIdentifierType and getExpressionType as appropriate
+        // and that errors include std::stoi(node->line)
+        if (!node->children.empty()) {
+            std::string operandType = getExpressionType(node->children[0]);
+            if (operandType == "Integer" || operandType == "auto" || operandType == "autoFun") { // Allow auto/autoFun assuming they resolve to int
+                visitNode(node->children[0]);
+                if (node->value == "-") {
+                    textSection += "    neg rax\n";
+                } else {
+                    m_errorManager.addError(Error{
+                        "Unsupported Unary Operation ; ",
+                        "Operator: " + node->value,
+                        "CodeGeneration",
+                        std::stoi(node->line)
+                    });
+                    return; // Stop processing this node
+                }
+            } else {
+                m_errorManager.addError(Error{
+                    "Expected Integer-like type for Unary Operation ; ",
+                    "Got " + operandType,
+                    "CodeGeneration",
+                    std::stoi(node->line)
+                });
+                return; // Stop processing this node
+            }
+        } else {
             m_errorManager.addError(Error{
-                "Expected Int for an Unary Operation ; ", 
-                "Got " + std::string(node->children[0]->type.c_str()), 
-                "Semantics", 
-                0
+                "Unary operation has no operand.",
+                "",
+                "CodeGeneration",
+                std::stoi(node->line)
             });
+            return; // Stop processing this node
         }
-        
-    
+    } else if (node->type == "TermOp") {
+        if (node->children.size() < 2) {
+            m_errorManager.addError({"TermOp requires two children", node->value, "CodeGeneration", std::stoi(node->line)});
+            return;
+        }
+
+        auto leftChild = node->children[0];
+        auto rightChild = node->children[1];
+
+        std::string typeL_str = leftChild->type;
+        if (typeL_str == "Identifier") {
+            typeL_str = getIdentifierType(leftChild->value);
+        } else if (typeL_str == "FunctionCall") {
+            if (!leftChild->children.empty() && leftChild->children[0]->type == "Identifier") {
+                typeL_str = inferFunctionReturnType(this->rootNode, leftChild->children[0]->value);
+            } else {
+                m_errorManager.addError({"Invalid FunctionCall node structure for type inference (left operand).", "", "CodeGeneration", std::stoi(leftChild->line)});
+                typeL_str = "autoFun"; // Fallback
+            }
+        } else { // For literals like Integer, String, etc.
+            typeL_str = getExpressionType(leftChild);
+        }
+
+
+        std::string typeR_str = rightChild->type;
+        if (typeR_str == "Identifier") {
+            typeR_str = getIdentifierType(rightChild->value);
+        } else if (typeR_str == "FunctionCall") {
+            if (!rightChild->children.empty() && rightChild->children[0]->type == "Identifier") {
+                typeR_str = inferFunctionReturnType(this->rootNode, rightChild->children[0]->value);
+            } else {
+                 m_errorManager.addError({"Invalid FunctionCall node structure for type inference (right operand).", "", "CodeGeneration", std::stoi(rightChild->line)});
+                typeR_str = "autoFun"; // Fallback
+            }
+        } else { // For literals
+            typeR_str = getExpressionType(rightChild);
+        }
+
+        bool intLikeL = (typeL_str == "Integer" || typeL_str == "auto" || typeL_str == "autoFun");
+        bool intLikeR = (typeR_str == "Integer" || typeR_str == "auto" || typeR_str == "autoFun");
+
+        if (!intLikeL || !intLikeR) {
+            m_errorManager.addError({
+                "TermOp requires integer-like operands for operator '" + node->value + "'.",
+                "Left type: " + typeL_str + ", Right type: " + typeR_str,
+                "CodeGeneration",
+                std::stoi(node->line)
+            });
+            return; // sortie propre
+        }
+
+        // Génération normale
+        visitNode(leftChild);
+        textSection += "    push rax\n";
+        visitNode(rightChild);
+        textSection += "    mov rbx, rax\n";
+        textSection += "    pop rax\n";
+
+        if (node->value == "*") {
+            textSection += "    imul rax, rbx\n";
+        } else if (node->value == "//" || node->value == "/") {
+            textSection += "    cmp rbx, 0\n";
+            textSection += "    je .division_by_zero_error\n";
+            textSection += "    xor rdx, rdx\n";
+            textSection += "    idiv rbx\n";
+        } else if (node->value == "%") {
+            textSection += "    cmp rbx, 0\n";
+            textSection += "    je .division_by_zero_error\n";
+            textSection += "    xor rdx, rdx\n";
+            textSection += "    idiv rbx\n";
+            textSection += "    mov rax, rdx\n";
+        } else {
+            m_errorManager.addError({"Unsupported TermOp operator: ", node->value, "CodeGeneration", std::stoi(node->line)});
+            return; // Important for unknown operators
+        }
     } else if (node->type == "ArithOp") {
         if (node->value == "+") {
             static int opCounter = 0;
@@ -1410,10 +1507,9 @@ bool CodeGenerator::isStringVariable(const std::string& name) {
 }
 
 bool CodeGenerator::isIntVariable(const std::string& name) {
-    std::string type = getIdentifierType(name);
-    return type == "Integer" || type == "auto"; // Accept "auto" as potentially integer
+    std::string t = getIdentifierType(name); // Ensure getIdentifierType is robust
+    return t == "Integer" || t == "auto" || t == "autoFun";
 }
-
 
 void CodeGenerator::updateSymbolType(const std::string& name, const std::string& type) {
     if (!symbolTable) return;
