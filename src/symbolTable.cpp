@@ -208,14 +208,21 @@ void SymbolTableGenerator::buildScopesAndSymbols(const std::shared_ptr<ASTNode>&
                 }
             } else if (rhsNode->type == "FunctionCall") {
                 if (!rhsNode->children.empty() && rhsNode->children[0]->type == "Identifier") {
-                    // Attempt to find the function in the global scope first, then any broader scope.
-                    Symbol* s = globalTable->findSymbol(rhsNode->children[0]->value); 
-                    if (s && dynamic_cast<FunctionSymbol*>(s)) {
-                        rhsInferredType = dynamic_cast<FunctionSymbol*>(s)->returnType;
-                    } else {
-                        // If not in global, it might be a method or a nested function not yet fully supported for inference here
-                        // For now, fallback if not found in global. A more complex lookup might be needed.
-                        rhsInferredType = "auto"; // Or a more specific "unknown_function_return"
+                    if (rhsNode->children[0]->value == "list") {
+                        rhsInferredType = "List"; 
+                    }
+                    else if (rhsNode->children[0]->value == "len") {
+                        rhsInferredType = "Integer"; 
+                    }
+                    else{
+                        Symbol* s = globalTable->findSymbol(rhsNode->children[0]->value); 
+                        if (s && dynamic_cast<FunctionSymbol*>(s)) {
+                            rhsInferredType = dynamic_cast<FunctionSymbol*>(s)->returnType;
+                        } else {
+                            // If not in global, it might be a method or a nested function not yet fully supported for inference here
+                            // For now, fallback if not found in global. A more complex lookup might be needed.
+                            rhsInferredType = "auto"; // Or a more specific "unknown_function_return"
+                        }
                     }
                 }
             } else if (rhsNode->type == "ArithOp" || rhsNode->type == "TermOp" || rhsNode->type == "Compare" || rhsNode->type == "And" || rhsNode->type == "Or" || rhsNode->type == "Not" || rhsNode->type == "UnaryOp") {
