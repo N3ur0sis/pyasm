@@ -1018,7 +1018,7 @@ void CodeGenerator::genAffect(const std::shared_ptr<ASTNode>& node) {
         valueType = "Integer";
     }
     else if (rightValue->type == "Boolean") {
-        valueType = "bool";
+        valueType = "Boolean";
     }
     else if (rightValue->type == "ArithOp") {
         if (rightValue->value == "+" && 
