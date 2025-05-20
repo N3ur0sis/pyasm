@@ -7,6 +7,7 @@
 SymbolTable* currentSymbolTable = nullptr;
 
 void CodeGenerator::generateCode(const std::shared_ptr<ASTNode>& root, const std::string& filename, SymbolTable* symTable) {
+    
     symbolTable = symTable;
     currentSymbolTable = symbolTable;
     rootNode = root;
@@ -557,72 +558,86 @@ void CodeGenerator::endAssembly() {
     textSection += "    ret\n\n";
     
 
-    // --- Ajouter la fonction list_concat ---
-    textSection += "\n; Function to concatenate two lists\n";
-    textSection += "list_concat:\n";
-    textSection += "    push rbp\n";
-    textSection += "    mov rbp, rsp\n";
-    textSection += "    push r12\n";
-    textSection += "    push r13\n";
-    textSection += "    push r14\n";
-    textSection += "    push rbx\n";
+    // Dans la fonction endAssembly(), remplacer la partie list_concat
+textSection += "\n; Function to concatenate two lists\n";
+textSection += "list_concat:\n";
+textSection += "    push rbp\n";
+textSection += "    mov rbp, rsp\n";
+textSection += "    push r12\n";
+textSection += "    push r13\n";
+textSection += "    push r14\n";
+textSection += "    push rbx\n";
+textSection += "    push r15\n";
     
-    // Sauvegarder les listes d'entrée
-    textSection += "    mov r12, rdi        ; r12 = liste1\n";
-    textSection += "    mov r13, rsi        ; r13 = liste2\n";
+// Sauvegarder les listes d'entrée
+textSection += "    mov r12, rdi        ; r12 = liste1\n";
+textSection += "    mov r13, rsi        ; r13 = liste2\n";
     
-    // Obtenir un nouvel emplacement pour la liste résultat
-    textSection += "    mov r14, [list_offset]\n";
-    textSection += "    mov rax, list_buffer\n";
-    textSection += "    add rax, r14        ; rax = adresse de la nouvelle liste\n";
-    textSection += "    push rax            ; sauvegarder l'adresse de la nouvelle liste\n";
+// Lire les tailles des deux listes
+textSection += "    mov r14, [r12]      ; r14 = taille de liste1\n";
+textSection += "    mov r15, [r13]      ; r15 = taille de liste2\n";
     
-    // Copier la première liste
-    textSection += "    mov rsi, r12        ; source = liste1\n";
-    textSection += "    mov rbx, r14        ; destination offset = list_offset actuel\n";
+// Obtenir un nouvel emplacement pour la liste résultat
+textSection += "    mov rbx, [list_offset]\n";
+textSection += "    mov rax, list_buffer\n";
+textSection += "    add rax, rbx        ; rax = adresse de la nouvelle liste\n";
+textSection += "    push rax            ; sauvegarder l'adresse de la nouvelle liste\n";
     
-    // Boucle de copie de la première liste
-    textSection += ".list_copy1_loop:\n";
-    textSection += "    mov rdx, [rsi]      ; charger élément de liste1\n";
-    textSection += "    cmp rdx, 0          ; vérifier si fin de liste\n";
-    textSection += "    je .list_copy1_done\n";
-    textSection += "    mov [list_buffer + rbx], rdx  ; copier l'élément\n";
-    textSection += "    add rsi, 8          ; avancer dans liste1\n";
-    textSection += "    add rbx, 8          ; avancer dans nouvelle liste\n";
-    textSection += "    jmp .list_copy1_loop\n";
-    textSection += ".list_copy1_done:\n";
+// Calculer et stocker la taille totale
+textSection += "    mov rcx, [list_offset]\n";
+textSection += "    mov rax, r14\n";
+textSection += "    add rax, r15\n";
+textSection += "    mov [list_buffer + rcx], rax  ; stocker la taille totale\n";
+textSection += "    add rcx, 8\n";
+textSection += "    mov [list_offset], rcx\n";
     
-    // Copier la deuxième liste
-    textSection += "    mov rsi, r13        ; source = liste2\n";
+// Copier les éléments de la première liste (sauter la taille)
+textSection += "    mov rsi, r12\n";
+textSection += "    add rsi, 8          ; sauter la taille de liste1\n";
+textSection += "    mov rbx, rcx        ; offset de destination\n";
+textSection += "    mov rcx, r14        ; nombre d'éléments à copier\n";
+textSection += "    cmp rcx, 0\n";
+textSection += "    je .list_copy1_done\n";
     
-    // Boucle de copie de la deuxième liste
-    textSection += ".list_copy2_loop:\n";
-    textSection += "    mov rdx, [rsi]      ; charger élément de liste2\n";
-    textSection += "    cmp rdx, 0          ; vérifier si fin de liste\n";
-    textSection += "    je .list_copy2_done\n";
-    textSection += "    mov [list_buffer + rbx], rdx  ; copier l'élément\n";
-    textSection += "    add rsi, 8          ; avancer dans liste2\n";
-    textSection += "    add rbx, 8          ; avancer dans nouvelle liste\n";
-    textSection += "    jmp .list_copy2_loop\n";
-    textSection += ".list_copy2_done:\n";
+textSection += ".list_copy1_loop:\n";
+textSection += "    mov rdx, [rsi]      ; charger élément de liste1\n";
+textSection += "    mov [list_buffer + rbx], rdx  ; copier l'élément\n";
+textSection += "    add rsi, 8          ; avancer dans liste1\n";
+textSection += "    add rbx, 8          ; avancer dans nouvelle liste\n";
+textSection += "    dec rcx\n";
+textSection += "    jnz .list_copy1_loop\n";
+textSection += ".list_copy1_done:\n";
     
-    // Ajouter marqueur de fin (0) à la nouvelle liste
-    textSection += "    mov qword [list_buffer + rbx], 0  ; marquer la fin\n";
-    textSection += "    add rbx, 8          ; inclure le marqueur dans la taille\n";
+// Copier les éléments de la deuxième liste (sauter la taille)
+textSection += "    mov rsi, r13\n";
+textSection += "    add rsi, 8          ; sauter la taille de liste2\n";
+textSection += "    mov rcx, r15        ; nombre d'éléments à copier\n";
+textSection += "    cmp rcx, 0\n";
+textSection += "    je .list_copy2_done\n";
     
-    // Mettre à jour list_offset
-    textSection += "    mov [list_offset], rbx\n";
+textSection += ".list_copy2_loop:\n";
+textSection += "    mov rdx, [rsi]      ; charger élément de liste2\n";
+textSection += "    mov [list_buffer + rbx], rdx  ; copier l'élément\n";
+textSection += "    add rsi, 8          ; avancer dans liste2\n";
+textSection += "    add rbx, 8          ; avancer dans nouvelle liste\n";
+textSection += "    dec rcx\n";
+textSection += "    jnz .list_copy2_loop\n";
+textSection += ".list_copy2_done:\n";
     
-    // Retourner l'adresse de la nouvelle liste
-    textSection += "    pop rax             ; récupérer l'adresse de la liste résultat\n";
+// Mettre à jour list_offset
+textSection += "    mov [list_offset], rbx\n";
     
-    // Nettoyage
-    textSection += "    pop rbx\n";
-    textSection += "    pop r14\n";
-    textSection += "    pop r13\n";
-    textSection += "    pop r12\n";
-    textSection += "    pop rbp\n";
-    textSection += "    ret\n\n";
+// Retourner l'adresse de la nouvelle liste
+textSection += "    pop rax             ; récupérer l'adresse de la liste résultat\n";
+    
+// Nettoyage
+textSection += "    pop r15\n";
+textSection += "    pop rbx\n";
+textSection += "    pop r14\n";
+textSection += "    pop r13\n";
+textSection += "    pop r12\n";
+textSection += "    pop rbp\n";
+textSection += "    ret\n\n";
 
     textSection += "; Function to concatenate two strings with offset\n";
     textSection += "str_concat:\n";
@@ -689,58 +704,67 @@ void CodeGenerator::endAssembly() {
     textSection += "    ret\n\n";
 
     // Routine pour les chaînes
-textSection += "print_string:\n";
-textSection += "    push rbp\n";
-textSection += "    mov rbp, rsp\n";
-textSection += "    mov rsi, rax\n";
-textSection += "    mov rdx, 0\n";
-textSection += ".print_strlen_loop:\n";
-textSection += "    cmp byte [rsi+rdx], 0\n";
-textSection += "    je .print_strlen_done\n";
-textSection += "    inc rdx\n";
-textSection += "    jmp .print_strlen_loop\n";
-textSection += ".print_strlen_done:\n";
-textSection += "    mov rax, 1\n";
-textSection += "    mov rdi, 1\n";
-textSection += "    syscall\n";
-textSection += "    pop rbp\n";
-textSection += "    ret\n\n";
+    textSection += "print_string:\n";
+    textSection += "    push rbp\n";
+    textSection += "    mov rbp, rsp\n";
+    textSection += "    mov rsi, rax\n";
+    textSection += "    mov rdx, 0\n";
+    textSection += ".print_strlen_loop:\n";
+    textSection += "    cmp byte [rsi+rdx], 0\n";
+    textSection += "    je .print_strlen_done\n";
+    textSection += "    inc rdx\n";
+    textSection += "    jmp .print_strlen_loop\n";
+    textSection += ".print_strlen_done:\n";
+    textSection += "    mov rax, 1\n";
+    textSection += "    mov rdi, 1\n";
+    textSection += "    syscall\n";
+    textSection += "    pop rbp\n";
+    textSection += "    ret\n\n";
 
-// Routine pour les autres types (entiers et listes)
+    // Dans la fonction endAssembly(), remplacer la partie print_not_string
 textSection += "print_not_string:\n";
 textSection += "    push rbp\n";
 textSection += "    mov rbp, rsp\n";
-    
+textSection += "    push r12\n";
+textSection += "    push r13\n";
+        
 textSection += "    ; Check if list (>= list_buffer)\n";
 textSection += "    mov rcx, list_buffer\n";
 textSection += "    cmp rax, rcx\n";
 textSection += "    jl .print_as_number\n";
-    
+        
 textSection += "    ; Print as list\n";
 textSection += "    mov rbx, rax\n";
-    
+textSection += "    mov r12, [rbx]      ; r12 = taille de la liste\n";
+textSection += "    add rbx, 8          ; passer à l'élément suivant\n";
+        
 textSection += "    ; Print opening bracket\n";
 textSection += "    push rbx\n";
+textSection += "    push r12\n";
 textSection += "    mov rax, 1\n";
 textSection += "    mov rdi, 1\n";
 textSection += "    mov rsi, open_bracket\n";
 textSection += "    mov rdx, 1\n";
 textSection += "    syscall\n";
+textSection += "    pop r12\n";
 textSection += "    pop rbx\n";
-    
+        
 textSection += "    ; Check if empty list\n";
-textSection += "    cmp qword [rbx], 0\n";
+textSection += "    cmp r12, 0\n";
 textSection += "    je .print_list_end\n";
-    
+        
+textSection += "    ; Initialize element counter\n";
+textSection += "    mov r13, 0          ; r13 = compteur d'éléments\n";
+        
 textSection += ".print_list_loop:\n";
 textSection += "    ; Get current element\n";
 textSection += "    mov rax, [rbx]\n";
-textSection += "    cmp rax, 0\n";
-textSection += "    je .print_list_end\n";
-    
-textSection += "    ; Save list pointer\n";
+        
+textSection += "    ; Save list pointer and counter\n";
 textSection += "    push rbx\n";
-    
+textSection += "    push r12\n";
+textSection += "    push r13\n";
+        
 textSection += "    ; Print element\n";
 textSection += "    cmp rax, 10000\n";
 textSection += "    jge .print_element_as_string\n";
@@ -748,34 +772,43 @@ textSection += "    cmp rax, list_buffer\n";
 textSection += "    jge .print_element_as_list\n";
 textSection += "    call print_number\n";
 textSection += "    jmp .print_element_done\n";
-    
+        
 textSection += ".print_element_as_string:\n";
 textSection += "    call print_string\n";
 textSection += "    jmp .print_element_done\n";
-    
+        
 textSection += ".print_element_as_list:\n";
 textSection += "    call print_not_string\n";
-    
+        
 textSection += ".print_element_done:\n";
-textSection += "    ; Move to next element\n";
+textSection += "    ; Restore list pointer and counter\n";
+textSection += "    pop r13\n";
+textSection += "    pop r12\n";
 textSection += "    pop rbx\n";
+        
+textSection += "    ; Move to next element\n";
 textSection += "    add rbx, 8\n";
-    
-textSection += "    ; Check if at end\n";
-textSection += "    cmp qword [rbx], 0\n";
-textSection += "    je .print_list_end\n";
-    
+textSection += "    inc r13\n";
+        
+textSection += "    ; Check if we printed all elements\n";
+textSection += "    cmp r13, r12\n";
+textSection += "    jge .print_list_end\n";
+        
 textSection += "    ; Print comma and space\n";
 textSection += "    push rbx\n";
+textSection += "    push r12\n";
+textSection += "    push r13\n";
 textSection += "    mov rax, 1\n";
 textSection += "    mov rdi, 1\n";
 textSection += "    mov rsi, comma_space\n";
 textSection += "    mov rdx, 2\n";
 textSection += "    syscall\n";
+textSection += "    pop r13\n";
+textSection += "    pop r12\n";
 textSection += "    pop rbx\n";
-    
+        
 textSection += "    jmp .print_list_loop\n";
-    
+        
 textSection += ".print_list_end:\n";
 textSection += "    ; Print closing bracket\n";
 textSection += "    mov rax, 1\n";
@@ -784,11 +817,67 @@ textSection += "    mov rsi, close_bracket\n";
 textSection += "    mov rdx, 1\n";
 textSection += "    syscall\n";
 textSection += "    jmp .print_not_string_end\n";
-    
+        
 textSection += ".print_as_number:\n";
 textSection += "    call print_number\n";
-    
+        
 textSection += ".print_not_string_end:\n";
+textSection += "    pop r13\n";
+textSection += "    pop r12\n";
+textSection += "    pop rbp\n";
+textSection += "    ret\n\n";
+
+    // Dans la fonction endAssembly(), remplacer la partie list_range
+textSection += "; Function to create a range list (0...n-1)\n";
+textSection += "list_range:\n";
+textSection += "    push rbp\n";
+textSection += "    mov rbp, rsp\n";
+textSection += "    push rbx\n";
+textSection += "    push r12\n";
+textSection += "    push r13\n";
+        
+textSection += "    ; rax = n (size of the range)\n";
+textSection += "    mov r12, rax        ; r12 = n\n";
+        
+textSection += "    ; Get new list address\n";
+textSection += "    mov rbx, [list_offset]\n";
+textSection += "    mov rax, list_buffer\n";
+textSection += "    add rax, rbx        ; rax = address of the new list\n";
+textSection += "    push rax            ; save list address\n";
+        
+textSection += "    ; Store the size first\n";
+textSection += "    mov rcx, [list_offset]\n";
+textSection += "    mov [list_buffer + rcx], r12\n";
+textSection += "    add rcx, 8\n";
+textSection += "    mov [list_offset], rcx\n";
+        
+textSection += "    ; Initialize counter\n";
+textSection += "    xor r13, r13        ; r13 = 0 (counter)\n";
+textSection += "    cmp r12, 0\n";
+textSection += "    je .list_range_done\n";
+        
+textSection += ".list_range_loop:\n";
+textSection += "    ; Add counter value to list\n";
+textSection += "    mov rcx, [list_offset]\n";
+textSection += "    mov [list_buffer + rcx], r13\n";
+textSection += "    add rcx, 8\n";
+textSection += "    mov [list_offset], rcx\n";
+        
+textSection += "    ; Increment counter\n";
+textSection += "    inc r13\n";
+        
+textSection += "    ; Check if counter < n\n";
+textSection += "    cmp r13, r12\n";
+textSection += "    jl .list_range_loop\n";
+        
+textSection += ".list_range_done:\n";
+textSection += "    ; Return list address\n";
+textSection += "    pop rax\n";
+        
+textSection += "    ; Cleanup\n";
+textSection += "    pop r13\n";
+textSection += "    pop r12\n";
+textSection += "    pop rbx\n";
 textSection += "    pop rbp\n";
 textSection += "    ret\n\n";
 }
@@ -825,46 +914,46 @@ void CodeGenerator::genAffect(const std::shared_ptr<ASTNode>& node) {
         auto indexNode = leftNode->children[1];
         textSection += "; List element assignment\n";
         textSection += "mov rbx, qword [" + listName + "]\n";  
-        
+
+        // Vérifier si l'index est valide
         textSection += "; Calculate index\n";
-        visitNode(indexNode);  
+        visitNode(indexNode);   
 
         textSection += "; Check if index is valid\n";
         textSection += "cmp rax, 0\n";
         static int errorCount = 0;
         std::string errorLabel = ".index_error_" + std::to_string(errorCount++);
         textSection += "jl " + errorLabel + "\n";
+        textSection += "cmp rax, [rbx]\n";  // Comparer avec la taille stockée
+        textSection += "jge " + errorLabel + "\n";
         
         textSection += "; Calculate element address\n";
+        textSection += "add rbx, 8\n"; 
         textSection += "shl rax, 3\n"; 
-        textSection += "add rbx, rax\n"; 
+        textSection += "add rbx, rax\n";
         
         textSection += "; Evaluate right value\n";
         visitNode(rightValue);  
         
-        // 6. Stocker dans l'élément de liste
         textSection += "; Store value in list element\n";
         textSection += "mov qword [rbx], rax\n";
         
-        // Skip error handling
         std::string endLabel = ".end_list_assign_" + std::to_string(errorCount-1);
         textSection += "jmp " + endLabel + "\n";
         
-        // Error handling for invalid index
         textSection += errorLabel + ":\n";
         textSection += "mov rax, 1\n";
         textSection += "mov rdi, 1\n";
-        textSection += "mov rsi, index_error_msg\n";  // Il faudra ajouter ce message dans la section data
+        textSection += "mov rsi, index_error_msg\n";
         textSection += "mov rdx, index_error_len\n";
         textSection += "syscall\n";
-        textSection += "mov rax, 60\n";  // exit
-        textSection += "mov rdi, 1\n";   // code d'erreur
+        textSection += "mov rax, 60\n"; 
+        textSection += "mov rdi, 1\n";  
         textSection += "syscall\n";
         
         textSection += endLabel + ":\n";
         return;
     }
-    // If the variable is not yet declared, declare it in the data section
     if (declaredVars.find(varName) == declaredVars.end()) {
         dataSection += varName + ": dq 0\n";
         declaredVars.insert(varName);
@@ -1100,20 +1189,27 @@ void CodeGenerator::genFunction(const std::shared_ptr<ASTNode>& node) {
 void CodeGenerator::genList(const std::shared_ptr<ASTNode>& node) {
     int listSize = node->children.size();
 
+    // Récupérer l'adresse de la nouvelle liste
     textSection += "mov rbx, [list_offset]\n";
     textSection += "mov rax, list_buffer\n";
     textSection += "add rax, rbx\n";  
     textSection += "push rax\n";     
 
+    
+    
     if ((listSize == 1) && node->children[0] == nullptr) {
         textSection += "mov rcx, [list_offset]\n";
-        textSection += "mov qword [list_buffer + rcx], 0\n";  // marqueur de fin
+        textSection += "mov qword [list_buffer + rcx], 0\n";  
         textSection += "add rcx, 8\n";
         textSection += "mov [list_offset], rcx\n";
     } 
     else {
+        // Stocker la taille comme premier élément
+        textSection += "mov rcx, [list_offset]\n";
+        textSection += "mov qword [list_buffer + rcx], " + std::to_string(listSize) + "\n";
+        textSection += "add rcx, 8\n";
+        textSection += "mov [list_offset], rcx\n";
         for (int i = 0; i < listSize; i++) {
-            
             visitNode(node->children[i]); 
             auto type0 = node->children[i]->type;
             if (node->children[i]->type == "Identifier") {
@@ -1133,10 +1229,6 @@ void CodeGenerator::genList(const std::shared_ptr<ASTNode>& node) {
             textSection += "add rcx, 8\n";
             textSection += "mov [list_offset], rcx\n";
         }
-        textSection += "mov rcx, [list_offset]\n";
-        textSection += "mov qword [list_buffer + rcx], 0\n";  // marqueur de fin
-        textSection += "add rcx, 8\n";
-        textSection += "mov [list_offset], rcx\n";
     }   
 
     textSection += "pop rax\n"; 
@@ -1144,7 +1236,19 @@ void CodeGenerator::genList(const std::shared_ptr<ASTNode>& node) {
 void CodeGenerator::genFunctionCall(const std::shared_ptr<ASTNode>& node) {
     std::string funcName = node->children[0]->value;
     auto args = node->children[1];
+    if (funcName == "list"){
+        if (args->children.size() == 1 && 
+            args->children[0]->type == "FunctionCall" && 
+            args->children[0]->children[0]->value == "range"){
+            
+            auto rangeArgs = args->children[0]->children[1];
+            visitNode(rangeArgs->children[0]);
+            textSection += "push rax\n";
+            textSection += "call list_range\n";
+            return; 
 
+        }
+    }
     updateFunctionParamTypes(funcName, args);
     
     for (const auto& child : symbolTable->children) {
