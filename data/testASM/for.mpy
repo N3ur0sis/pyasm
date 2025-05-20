@@ -1,6 +1,9 @@
 
 x = 0
+y = 0
 for i in range(10):
-    x = x + 5
+    print(i)
+    x = x + i
+    y = y + 5
 print(x)
-
+print(y)

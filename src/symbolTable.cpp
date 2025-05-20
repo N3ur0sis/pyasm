@@ -251,7 +251,51 @@ void SymbolTableGenerator::buildScopesAndSymbols(const std::shared_ptr<ASTNode>&
                 }
             }
         }
-    } else { // For other node types, recurse if they can contain definitions or scopes
+    }else if (node->type == "For") {
+    if (node->children.size() >= 1 && node->children[0]->type == "Identifier") {
+        std::string loopVarName = node->children[0]->value;
+        
+        for (const auto& sym : currentScopeTable->symbols) {
+            if (sym->name == loopVarName) {
+                m_errorManager.addError({"Variable de boucle for masque une variable existante: ", 
+                                         loopVarName, "Semantic", std::stoi(node->line)});
+                break;
+            }
+        }
+
+        bool isGlobal = (currentScopeTable->scopeName == "global");
+        
+        if (isGlobal) {
+            int offset = currentScopeTable->nextDataOffset;
+            VariableSymbol loopVar(loopVarName, "Integer", "variable", offset, true);
+            currentScopeTable->addSymbol(loopVar);
+            currentScopeTable->nextDataOffset += 8; 
+        } else {
+            int offset = -8; 
+            for (const auto& sym : currentScopeTable->symbols) {
+                if (auto vs = dynamic_cast<VariableSymbol*>(sym.get())) {
+                    if (!vs->isGlobal && vs->offset <= offset) {
+                        offset = vs->offset - 8;
+                    }
+                }
+            }
+            VariableSymbol loopVar(loopVarName, "Integer", "variable", offset, false);
+            currentScopeTable->addSymbol(loopVar);
+        }
+        
+        if (node->children.size() >= 2) {
+            buildScopesAndSymbols(node->children[1], globalTable, currentScopeTable);
+        }
+        
+        if (node->children.size() >= 3) {
+            buildScopesAndSymbols(node->children[2], globalTable, currentScopeTable);
+        }
+    } else {
+        m_errorManager.addError({"Boucle for mal formée, identificateur attendu: ", 
+                                 "", "Semantic", std::stoi(node->line)});
+    }
+} 
+    else { // For other node types, recurse if they can contain definitions or scopes
         for (const auto& child : node->children) {
             // Pass currentScopeTable, or a new child scope if this node type creates one (e.g., a 'for' loop scope)
             buildScopesAndSymbols(child, globalTable, currentScopeTable);
