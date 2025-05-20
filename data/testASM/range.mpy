@@ -1,0 +1,12 @@
+# --- while -------------------------------------------------
+n = 3
+s = 0
+
+print(False or 1)
+
+# --- for / range ------------------------------------------
+t = 0
+for i in range(4):   # 0,1,2,3
+    if i and (i or 0):  # condition booléenne dans la boucle
+        t = t + 1
+print(t)         # 3

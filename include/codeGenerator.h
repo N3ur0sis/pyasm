@@ -55,5 +55,8 @@ private:
     void updateFunctionParamTypes(const std::string& funcName, const std::shared_ptr<ASTNode>& args);
     void updateFunctionReturnType(const std::string& funcName, const std::string& returnType);
     std::string getFunctionReturnType(const std::string& funcName);
+
+	std::string newLabel(const std::string& base);
+	void toBool(const std::string& reg);
     std::string inferFunctionReturnType(const std::shared_ptr<ASTNode>& root, const std::string& funcName);
 };
