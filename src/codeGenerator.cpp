@@ -229,7 +229,7 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                 const auto& argNode = node->children[i];
                 visitNode(argNode); // Evaluate argument, result in RAX
                 std::string argType = getExpressionType(argNode);
-
+                printf("argType: %s\n", argType.c_str()); // Debug print
                 if (argType == "Integer" || argType == "Boolean" || argType == "autoFun" /*fallback*/) {
                     this->textSection += "    call print_number\n";
                 } else if (argType == "String") {
@@ -1146,18 +1146,64 @@ void CodeGenerator::genFunctionCall(const std::shared_ptr<ASTNode>& node) {
 
     std::string funcName = node->children[0]->value;
 
-    if (funcName == "range") {
-        // ... existing range handling ...
-        if (node->children.size() > 1 && 
-            (node->children[1]->type == "ActualParameterList" || node->children[1]->type == "ParameterList") && 
-            !node->children[1]->children.empty()) {
-            visitNode(node->children[1]->children[0]); 
-            textSection += "    call list_range      ; rax should contain address of new list\n";
-        } else {
-            m_errorManager.addError({"Range function expects one argument", "", "CodeGeneration", std::stoi(node->line)});
-            textSection += "    mov rax,  0 ; Error case, return null or handle\n";
+   auto args = node->children[1];
+    if (funcName == "list"){
+        printf("list function call\n");
+        if (args->children.size() == 1 && 
+            args->children[0]->type == "FunctionCall" && 
+            args->children[0]->children[0]->value == "range"){
+            
+            auto rangeArgs = args->children[0]->children[1];
+            visitNode(rangeArgs->children[0]);
+            textSection += "call list_range\n";
+            return; 
+
         }
-        return;
+    }
+    if (funcName == "len"){
+        if (args->children.size() == 1){
+            auto param = args->children[0];
+            visitNode(param);  
+            auto type0 = param->type;
+            if (type0 == "Identifier") {
+                type0 = getIdentifierType(param->value);
+            } else if (type0 == "FunctionCall") {
+                type0 = inferFunctionReturnType(this->rootNode, param->children[0]->value);
+                
+            }
+            if (type0 == "auto") {
+                m_errorManager.addError(Error{
+                    "Undefined Variable; ", 
+                    "Used " + std::string(param->value.c_str())+ " before assignment",
+                    "Semantics", 
+                    std::stoi(node->line)
+                });
+                return;
+            }
+            if (type0 != "String" && type0 != "List") {
+                m_errorManager.addError(Error{
+                    "len Error; ", 
+                    "Used len on non-list or non-string variable",
+                    "Semantics", 
+                    std::stoi(node->line)
+                });
+                return;
+            }
+        if (type0 == "List") {
+            textSection += "mov rax, [rax]  ; Taille de la liste\n";
+        } else { // String
+            textSection += "mov rsi, rax    ; rsi = adresse de la chaîne\n";
+            textSection += "mov rax, 0      ; rax = compteur\n";
+            textSection += ".len_strlen_loop:\n";
+            textSection += "cmp byte [rsi+rax], 0\n";
+            textSection += "je .len_strlen_done\n";
+            textSection += "inc rax\n";
+            textSection += "jmp .len_strlen_loop\n";
+            textSection += ".len_strlen_done:\n";
+        }
+        
+        return; 
+        }
     }
     
     int argCount = 0;
@@ -1459,6 +1505,10 @@ std::string CodeGenerator::getExpressionType(const std::shared_ptr<ASTNode>& nod
             // and not covered by inferFunctionReturnType or symbol table.
             // Example:
             // if (node->children[0]->value == "range") return "List";
+            if (node->children[0]->value == "len") return "Integer"; // len() always returns Integer
+            if (node->children[0]->value == "print") return "void"; // print() doesn't return a value
+            if (node->children[0]->value == "list") return "List"; // list() returns a List
+            if (node->children[0]->value == "range") return "List"; // str() returns a String
             return inferFunctionReturnType(this->rootNode, node->children[0]->value);
         }
         return "autoFun"; // Default for function calls if specific type can't be inferred yet

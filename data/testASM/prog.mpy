@@ -1,0 +1,121 @@
+def add(x, y):
+    return x + y
+
+def factorial(n):
+    if n <= 1:
+        return 1
+    return n * factorial(n-1)
+
+def fibonacci(n):
+    if n <= 1:
+        return n
+    return fibonacci(n-1) + fibonacci(n-2)
+# ===== Multiple parameters =====
+def sum_all(a, b, c, d, e):
+    return a + b + c + d + e
+# ===== Function returning list =====
+def generate_sequence():
+    return [10, 20, 30, 40]
+
+# Test program that uses all features correctly
+
+# ===== Variables and basic operations =====
+a = 10
+b = 20
+c = a + b               # Addition: 30
+d = b - a               # Subtraction: 10
+e = a * 3               # Multiplication: 30
+f = b // 3              # Integer division: 6
+g = b % 3               # Modulo: 2
+h = -a                  # Negation: -10
+
+print("===== Basic operations =====")
+print(a, b, c, d, e, f, g, h)
+
+# ===== Strings =====
+greeting = "Hello"
+name = " World"
+message = greeting + name   # String concatenation
+print("===== Strings =====")
+print(message)
+print("Length:", len(message))
+print("Repeated:", greeting * 3)
+
+# ===== Lists =====
+print("===== Lists =====")
+numbers = [1, 2, 3, 4, 5]
+mixed = [42, "text", [1, 2]]
+empty_list = []
+
+print("Original list:", numbers)
+numbers[2] = 99
+print("Modified list:", numbers)
+print("List length:", len(numbers))
+print("Mixed list:", mixed)
+print("Empty list:", empty_list)
+print("Range list:", list(range(5)))
+
+# ===== List operations =====
+list1 = [1, 2, 3]
+list2 = [4, 5, 6]
+combined = list1 + list2
+print("Combined lists:", combined)
+
+# ===== Conditionals =====
+print("===== Conditionals =====")
+x = 15
+if x > 20:
+    print("x is greater than 20")
+else:
+    if x > 10:
+        print("x is between 11 and 20")
+    else:
+        print("x is 10 or less")
+
+# Test all comparison operators
+if x == 15:
+    print("x equals 15")
+if x != 20:
+    print("x is not 20")
+if x < 20:
+    print("x is less than 20")
+if x <= 15:
+    print("x is less than or equal to 15")
+if x > 10:
+    print("x is greater than 10")
+if x >= 15:
+    print("x is greater than or equal to 15")
+
+# ===== Loops =====
+print("===== Loops =====")
+sum = 0
+for i in range(5):
+    sum = sum + i
+    print("Iteration", i, "Sum =", sum)
+
+# ===== Functions =====
+print("===== Functions =====")
+
+
+
+print("5 + 3 =", add(5, 3))
+print("Factorial of 5 =", factorial(5))
+print("Fibonacci of 6 =", fibonacci(6))
+
+
+print("Sum of 1,2,3,4,5 =", sum_all(1, 2, 3, 4, 5))
+
+# ===== Booleans =====
+print("===== Booleans =====")
+is_active = True
+is_complete = False
+print("is_active:", is_active)
+print("is_complete:", is_complete)
+print("is_active AND is_complete:", is_active and is_complete)
+print("is_active OR is_complete:", is_active or is_complete)
+
+
+
+seq = generate_sequence()
+print("Generated sequence:", seq)
+print("End of test program")

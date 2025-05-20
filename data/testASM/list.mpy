@@ -11,7 +11,7 @@ L[0] = 5
 print(L)
 B = list(range(5))
 print(B)
-print( list(range(5)))
+print(list(range(5)))
 s = "string"
 print(len(s))
 print(len(L))
