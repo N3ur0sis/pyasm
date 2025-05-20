@@ -56,4 +56,6 @@ private:
     void updateFunctionReturnType(const std::string& funcName, const std::string& returnType);
     std::string getFunctionReturnType(const std::string& funcName);
 
+	std::string newLabel(const std::string& base);
+	void toBool(const std::string& reg);
 };
