@@ -229,7 +229,6 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                 const auto& argNode = node->children[i];
                 visitNode(argNode); // Evaluate argument, result in RAX
                 std::string argType = getExpressionType(argNode);
-                printf("argType: %s\n", argType.c_str()); // Debug print
                 if (argType == "Integer" || argType == "Boolean" || argType == "autoFun" /*fallback*/) {
                     this->textSection += "    call print_number\n";
                 } else if (argType == "String") {
@@ -1022,8 +1021,25 @@ void CodeGenerator::genIf(const std::shared_ptr<ASTNode>& node) {
     
     // Generate code for the condition expression
     textSection += "; If condition\n";
-    visitNode(node->children[0]); // rax <- valeur
-    toBool("rax");            // rax <- 0 / 1
+    auto condNode = node->children[0];
+    std::string condType = getExpressionType(condNode);
+    
+    visitNode(condNode); // rax <- valeur
+    
+    // L = [] ou L = "" ou L = 0 => false
+    if (condType == "List") {
+        textSection += "    ; Check if list is empty\n";
+        textSection += "    cmp qword [rax], 0    ; Check size at first qword\n";
+        textSection += "    setnz al              ; al = 1 if list is not empty (size > 0)\n";
+        textSection += "    movzx rax, al         ; rax = 0/1\n";
+    } else if (condType == "String") {
+        textSection += "    ; Check if string is empty\n";
+        textSection += "    cmp byte [rax], 0     ; Check if first byte is null\n";
+        textSection += "    setnz al              ; al = 1 if string is not empty\n";
+        textSection += "    movzx rax, al         ; rax = 0/1\n";
+    } else {
+        toBool("rax");            // rax <- 0 / 1
+    }   
     
     // Test if the condition is false (0)
     textSection += "cmp rax, 0\n";
@@ -1187,7 +1203,6 @@ void CodeGenerator::genFunctionCall(const std::shared_ptr<ASTNode>& node) {
 
    auto args = node->children[1];
     if (funcName == "list"){
-        printf("list function call\n");
         if (args->children.size() == 1 && 
             args->children[0]->type == "FunctionCall" && 
             args->children[0]->children[0]->value == "range"){
