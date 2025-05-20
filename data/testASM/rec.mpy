@@ -1,10 +1,16 @@
 def add(x):
-    print("add"+"b",x)
     if x == 0:
         return 0
     return 1 + add(x-1)
 
-
-print(add(5))
-A = [1,2]
-print(A,A)
+def fibo(n):
+    if n<=1:
+        return n
+    n1 = n-1
+    n2 = n-2
+    print(n,n1,n2)
+    n3 = fibo(n1)
+    n4 = fibo(n2)
+    print(n,n3,n4)
+    return n3 +n4
+print(fibo(5))

@@ -7,7 +7,6 @@
 SymbolTable* currentSymbolTable = nullptr;
 
 void CodeGenerator::generateCode(const std::shared_ptr<ASTNode>& root, const std::string& filename, SymbolTable* symTable) {
-    
     symbolTable = symTable;
     currentSymbolTable = symbolTable;
     rootNode = root;
@@ -261,7 +260,7 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                     "Undefined Variable; ", 
                     "Used " + std::string(node->children[0]->value.c_str()) + " before assignment",
                     "Semantics", 
-                    0
+                    std::stoi(node->line)
                 });
             }
             if (type1 == "auto") {
@@ -269,7 +268,7 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                     "Undefined Variable; ", 
                     "Used " + std::string(node->children[1]->value.c_str())+ " before assignment",
                     "Semantics", 
-                    0
+                    std::stoi(node->line)
                 });
                 return;
             }
@@ -335,12 +334,12 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
             textSection += endOpLabel + ":\n";
         }
         else if (node->value == "-") {
-            // Evaluate the left child
-            if (node->children[0]->type == "Integer" || (node->children[0]->type == "Identifier" && isIntVariable(node->children[0]->value.c_str()))) {
-                visitNode(node->children[0]);
-                textSection += "push rax\n";
+            visitNode(node->children[0]); 
+            auto type0 = node->children[0]->type;
+            if (type0 == "Identifier") {
+                type0 = getIdentifierType(node->children[0]->value);
             }
-            else{
+            if (type0 != "Integer"){
                 m_errorManager.addError(Error{
                     "Expected Int for Sub Operation ; ", 
                     "Got " + std::string(node->children[0]->type.c_str()), 
@@ -348,14 +347,13 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                     std::stoi(node->line)
                 });
             }
-            // Evaluate the right child
-            if (node->children[1]->type == "Integer" || (node->children[1]->type == "Identifier" && isIntVariable(node->children[1]->value.c_str()))) {
-                visitNode(node->children[1]);
-                textSection += "mov rbx, rax\n";
-                textSection += "pop rax\n";
-                textSection += "sub rax, rbx\n";
+            textSection += "push rax\n";
+            visitNode(node->children[1]); 
+            auto type1 = node->children[1]->type;
+            if (type1 == "Identifier") {
+                type1 = getIdentifierType(node->children[1]->value);
             }
-            else{
+            if (type1 != "Integer"){
                 m_errorManager.addError(Error{
                     "Expected Int for Sub Operation ; ", 
                     "Got " + std::string(node->children[1]->type.c_str()), 
@@ -363,8 +361,9 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                     std::stoi(node->line)
                 });
             }
-            
-            
+            textSection += "mov rbx, rax\n";
+                textSection += "pop rax\n";
+                textSection += "sub rax, rbx\n";
         }
     
     } else if (node->type == "TermOp"){
@@ -990,6 +989,9 @@ void CodeGenerator::genAffect(const std::shared_ptr<ASTNode>& node) {
     else if (rightValue->type == "Compare") {
         valueType = "Boolean";
     }
+    else if (rightValue->type == "List") {
+        valueType = "List";
+    }
     else if (rightValue->type == "Identifier") {
         if (isStringVariable(rightValue->value)) {
             valueType = "String";
@@ -1220,7 +1222,7 @@ void CodeGenerator::genList(const std::shared_ptr<ASTNode>& node) {
                     "Undefined Variable; ", 
                     "Used " + std::string(node->children[i]->value.c_str())+ " before assignment",
                     "Semantics", 
-                    0
+                    std::stoi(node->line)
                 });
                 return;
             }
@@ -1243,10 +1245,54 @@ void CodeGenerator::genFunctionCall(const std::shared_ptr<ASTNode>& node) {
             
             auto rangeArgs = args->children[0]->children[1];
             visitNode(rangeArgs->children[0]);
-            textSection += "push rax\n";
             textSection += "call list_range\n";
             return; 
 
+        }
+    }
+    if (funcName == "len"){
+        if (args->children.size() == 1){
+            auto param = args->children[0];
+            visitNode(param);  
+            auto type0 = param->type;
+            if (type0 == "Identifier") {
+                type0 = getIdentifierType(param->value);
+            } else if (type0 == "FunctionCall") {
+                type0 = inferFunctionReturnType(this->rootNode, param->children[0]->value);
+                
+            }
+            if (type0 == "auto") {
+                m_errorManager.addError(Error{
+                    "Undefined Variable; ", 
+                    "Used " + std::string(param->value.c_str())+ " before assignment",
+                    "Semantics", 
+                    std::stoi(node->line)
+                });
+                return;
+            }
+            if (type0 != "String" && type0 != "List") {
+                m_errorManager.addError(Error{
+                    "len Error; ", 
+                    "Used len on non-list or non-string variable",
+                    "Semantics", 
+                    std::stoi(node->line)
+                });
+                return;
+            }
+        if (type0 == "List") {
+            textSection += "mov rax, [rax]  ; Taille de la liste\n";
+        } else { // String
+            textSection += "mov rsi, rax    ; rsi = adresse de la chaîne\n";
+            textSection += "mov rax, 0      ; rax = compteur\n";
+            textSection += ".len_strlen_loop:\n";
+            textSection += "cmp byte [rsi+rax], 0\n";
+            textSection += "je .len_strlen_done\n";
+            textSection += "inc rax\n";
+            textSection += "jmp .len_strlen_loop\n";
+            textSection += ".len_strlen_done:\n";
+        }
+        
+        return; 
         }
     }
     updateFunctionParamTypes(funcName, args);
@@ -1306,7 +1352,6 @@ void CodeGenerator::genReturn(const std::shared_ptr<ASTNode>& node) {
 
 std::string CodeGenerator::getIdentifierType(const std::string& name) {
     if (!symbolTable) return "auto";
-    
     std::function<std::string(SymbolTable*)> searchInTableHierarchy = [&](SymbolTable* table) -> std::string {
         SymbolTable* current = table;
         while (current) {
@@ -1358,7 +1403,6 @@ bool CodeGenerator::isIntVariable(const std::string& name) {
 
 void CodeGenerator::updateSymbolType(const std::string& name, const std::string& type) {
     if (!symbolTable) return;
-    
     std::function<bool(SymbolTable*)> updateInTableAndParents = [&](SymbolTable* table) {
         while (table) {
             for (auto& sym : table->symbols) {
@@ -1400,7 +1444,6 @@ void CodeGenerator::resetFunctionVarTypes(const std::string& funcName) {
 
 void CodeGenerator::updateFunctionParamTypes(const std::string& funcName, const std::shared_ptr<ASTNode>& args) {
     if (!symbolTable) return;
-
     for (const auto& child : symbolTable->children) {
         if (child->scopeName == "function " + funcName) {
             
@@ -1425,7 +1468,6 @@ void CodeGenerator::updateFunctionParamTypes(const std::string& funcName, const 
                         paramType = "String";
                     }
                 }
-                
                 paramTypes.push_back(paramType);
                 textSection += "; Parameter " + std::to_string(i+1) + " determined as " + paramType + "\n";
             }
@@ -1481,7 +1523,6 @@ std::string CodeGenerator::getFunctionReturnType(const std::string& funcName) {
 std::string CodeGenerator::inferFunctionReturnType(const std::shared_ptr<ASTNode>& root, const std::string& funcName) {
     // Cette fonction analyserait l'AST de la fonction pour déterminer son type de retour
     // En se basant sur les instructions `return`
-    
     for (const auto& child : root->children) {
         if (child->type == "Definitions") {
             for (const auto& def : child->children) {
@@ -1495,7 +1536,6 @@ std::string CodeGenerator::inferFunctionReturnType(const std::shared_ptr<ASTNode
                         
                         if (node->type == "Return" && !node->children.empty()) {
                             auto returnExpr = node->children[0];
-                            
                             if (returnExpr->type == "String") {
                                 returnType = "String";
                             } else if (returnExpr->type == "List") {
@@ -1507,6 +1547,8 @@ std::string CodeGenerator::inferFunctionReturnType(const std::shared_ptr<ASTNode
                                 } else {
                                     returnType = getFunctionReturnType(returnExpr->children[0]->value);
                                 }
+                            } else if (returnExpr->type == "Identifier") {
+                                 returnType = getIdentifierType(returnExpr->value);
                             }
                             // Pour les autres expressions, on conserve le type par défaut (Integer)
                         }

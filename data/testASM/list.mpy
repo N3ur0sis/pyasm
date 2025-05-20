@@ -1,3 +1,6 @@
+def test():
+    A =  [1,2]
+    return A
 L = [1,2,"aha"]
 A = [2]
 B = []
@@ -9,3 +12,7 @@ print(L)
 B = list(range(5))
 print(B)
 print( list(range(5)))
+s = "string"
+print(len(s))
+print(len(L))
+print(len(test()))
