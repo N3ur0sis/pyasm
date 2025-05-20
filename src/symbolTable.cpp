@@ -3,8 +3,6 @@
 #include <sstream>
 #include <set>
 
-// TODO : la récursivité fait planter la génération des TDS (core dumped)
-
 int AUTO_OFFSET = 0;
 int nextTableId = 0; // O is the id of the global table
 std::set<std::string> definedFunctions;             // Set to keep track of defined functions
@@ -13,13 +11,7 @@ std::set<std::string> definedFunctions;             // Set to keep track of defi
 
 
 void SymbolTable::addSymbol(const Symbol& symbol) {
-    // Vérifie la redéfinition dans la portée courante
-    for (const auto& symPtr : symbols) {
-        if (symPtr->name == symbol.name) {
-            return;
-        }
-    }
-
+    // Ne pas empêcher la redéfinition locale
     std::unique_ptr<Symbol> symClone;
     if (symbol.symCat == "variable") {
         if (auto varSym = dynamic_cast<const VariableSymbol*>(&symbol))
@@ -148,20 +140,24 @@ std::unique_ptr<SymbolTable> SymbolTableGenerator::generate(const std::shared_pt
     return globalTable;
 }
 
-void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& root, SymbolTable* globalTable, const std::shared_ptr<ASTNode>& node, SymbolTable* currentTable) {
+void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& root, SymbolTable* globalTable, 
+                                   const std::shared_ptr<ASTNode>& node, SymbolTable* currentTable) {
     if (!node) {
         return;
     }
 
+    // Use currentTable as usedTable (global if tableID==0, else function scope)
     SymbolTable* usedTable;
     if (currentTable->tableID != 0) {
         usedTable = currentTable;
     } else {
         usedTable = globalTable;
     }
-
+    
+    // Set the node's scopeID with the current scope's tableID
+    node->scopeID = std::to_string(usedTable->tableID);
+    
     // Handle variable assignments and usage
-
     if (node->type == "Affect") {
         if (!node->children.empty()) {
             auto varNode = node->children[0];
@@ -170,9 +166,12 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& root, SymbolTab
                 type = "Integer"; // Default type for other variables
             }
             if (varNode && varNode->type == "Identifier") {
-                // Always add variables to the global table unless in a function scope
-                // If the variable isn't already declared in the current scope
-                if (!usedTable->lookup(varNode->value)) {
+                // If in function scope (tableID > 0), use immediateLookup; otherwise, lookup in global scope.
+                bool alreadyDeclared = (usedTable->tableID > 0) ? 
+                                       usedTable->immediateLookup(varNode->value) :
+                                       usedTable->lookup(varNode->value);
+                                       
+                if (!alreadyDeclared) {
                     VariableSymbol varSymbol(
                         varNode->value,
                         "auto",  // Default type, will be refined later
@@ -194,9 +193,6 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& root, SymbolTab
                     });
                 }
             }
-            
-
-            
         }
     }
     // Handle For loops
@@ -318,7 +314,7 @@ void SymbolTableGenerator::visit(const std::shared_ptr<ASTNode>& root, SymbolTab
         }
     }
 
-    // Recursively visit all other nodes
+    // Recursively visit all other nodes.
     for (const auto& child : node->children) {
         visit(root, globalTable, child, usedTable);
     }
@@ -343,5 +339,55 @@ std::shared_ptr<ASTNode> SymbolTableGenerator::findFunctionDef(const std::shared
     }
     // Function not found, the error will be handled in the semantic analyzer
     
+    return nullptr;
+}
+
+/* 
+* Clone the symbol table.
+* @return a unique pointer to the cloned symbol table.
+*/
+std::unique_ptr<SymbolTable> SymbolTable::clone() const {
+    auto clonedTable = std::make_unique<SymbolTable>(scopeName, nullptr, tableID);
+    clonedTable->nextOffset = nextOffset;
+
+    // Cloner tous les symboles
+    for (const auto& sym : symbols) {
+        if (auto var = dynamic_cast<VariableSymbol*>(sym.get())) {
+            clonedTable->symbols.push_back(std::make_unique<VariableSymbol>(*var));
+        } else if (auto func = dynamic_cast<FunctionSymbol*>(sym.get())) {
+            clonedTable->symbols.push_back(std::make_unique<FunctionSymbol>(*func));
+        } else if (auto arr = dynamic_cast<ArraySymbol*>(sym.get())) {
+            clonedTable->symbols.push_back(std::make_unique<ArraySymbol>(*arr));
+        } else {
+            clonedTable->symbols.push_back(std::make_unique<Symbol>(*sym));
+        }
+    }
+
+    // Cloner récursivement les enfants
+    for (const auto& child : children) {
+        auto clonedChild = child->clone();
+        clonedChild->parent = clonedTable.get(); // Mettre à jour le parent
+        clonedTable->children.push_back(std::move(clonedChild));
+    }
+
+    return clonedTable;
+}
+
+
+
+
+// Get a symbol table by ID
+SymbolTable* SymbolTable::getTableByID(int id) {
+    if (tableID == id) {
+        return this;
+    }
+
+    for (const auto& child : children) {
+        SymbolTable* found = child->getTableByID(id);
+        if (found != nullptr) {
+            return found;
+        }
+    }
+
     return nullptr;
 }

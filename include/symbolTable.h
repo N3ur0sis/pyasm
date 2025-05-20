@@ -83,6 +83,12 @@ public:
     // Calculate size of a type
     static int calculateTypeSize(const std::string& type);
 
+    // Clone the symbol table
+    std::unique_ptr<SymbolTable> clone() const;
+
+    // Get a symbol table by ID
+    SymbolTable* getTableByID(int id);
+
     std::string scopeName;
     SymbolTable* parent;
     std::vector<std::unique_ptr<Symbol>> symbols;

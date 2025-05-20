@@ -9,6 +9,7 @@ struct ASTNode {
     std::string value;
     std::vector<std::shared_ptr<ASTNode>> children;
     std::string line = "0"; // Line number for error reporting
+    std::string scopeID = "0"; // Scope ID for variable search
 
     ASTNode(std::string t, std::string v = "") : type(std::move(t)), value(std::move(v)) {}
 };

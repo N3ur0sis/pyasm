@@ -1,0 +1,26 @@
+def rec(x):
+    if x == 0:
+        return 1
+    if x % 2 == 0:
+        b = 5
+        print("1. b = ", b)
+        rec(x-1)
+    else:
+        b = 4
+        print("2. b = ", b)
+        second_rec(x-1)
+    
+def second_rec(x):
+    if x == 0:
+        return 1
+    if x % 2 == 0:
+        print("1. sb = ", b)
+        second_rec(x-1)
+    else:
+        print("2. sb = ", b)
+        second_rec(x-1)
+
+b = 9
+a = rec(10)
+print(a)
+
