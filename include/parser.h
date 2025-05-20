@@ -20,7 +20,7 @@ public:
     void print(const std::shared_ptr<ASTNode>& node, int depth = 0); // Print AST
     void exportToDot(const std::shared_ptr<ASTNode>& node, std::ostream& out); // Export AST to DOT format
     void generateDotFile(const std::shared_ptr<ASTNode>& root, const std::string& filename); // Generate DOT file
-
+	std::shared_ptr<ASTNode> parsePrint();
 private:
     const std::vector<Token>& tokens;
     ErrorManager& m_errorManager;

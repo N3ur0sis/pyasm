@@ -77,4 +77,6 @@ private:
 
     std::string newLabel(const std::string& base);
     void toBool(const std::string& reg); // Converts value in reg to 0 or 1
+
+	void emitGlobals(SymbolTable* globalScope);
 };

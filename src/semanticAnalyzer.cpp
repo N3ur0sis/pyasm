@@ -48,18 +48,10 @@ void SemanticAnalyzer::visit(const std::shared_ptr<ASTNode>& node, SymbolTable* 
         checkFunctionCall(node, currentScope);
     }
 
-    // ---- APPEL A PRINT ----
+    // ---- PRINT PARAMETER CHECK ----
     if (node->type == "Print") {
-        // Vérifie que l'appel de print est correct
-        // std::cout << "Print function called with parameters: " << std::endl;
-        // std::cout << "childrens empty ? " << (node->children.empty() ? "True" : "False") << std::endl;
-        // std::cout << "childrens[0] type: " << node->children[0]->type << std::endl;
-        // std::cout << "childrens[0] childrens empty ? " << (node->children[0]->children.empty() ? "True" : "False") << std::endl;
-        // std::cout << "childrens[0] childrens[0] type: " << node->children[0]->children[0]->type << std::endl;
-        // std::cout << "childrens[0] childrens[0] value: " << node->children[0]->children[0]->value << std::endl;
-        if (node->children.empty() || node->children[0]->type != "List" || node->children[0]->children.empty()) {
-            std::cout << "Print function called with no parameters." << std::endl;
-            m_errorManager.addError(Error{
+        if (node->children.empty()) { // Simplified check: direct children are arguments
+            m_errorManager.addError({
                 "Print function should be called with at least one parameter.",
                 "",
                 "Semantic",

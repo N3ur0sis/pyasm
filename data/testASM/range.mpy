@@ -1,12 +1,32 @@
+# globals + listes + boucles + fonctions imbriquées + récursivité
+def add(a, b):
+    return a + b
+
 def fact(n):
-    if n<2:
+    if n < 2:
         return 1
-    return n*fact(n-1)
+    return n * fact(n - 1)
 
 def fib(n):
-    if n<2:
+    if n < 2:
         return n
-    return fib(n-1)+fib(n-2)
+    return fib(n-1) + fib(n-2)
 
-print(fib(5))   # 5
-print(fact(6))  # 720
+def mixed(n):
+    s = 0
+    for i in range(n):       # range builtin -> doit créer une liste tempor.
+        s = add(s, i)
+    if s > 10 and n != 4:
+        print("big")
+    return s
+
+g = 3
+l = [1, 2]
+
+print(g)          # 3
+print(add(4, 5))  # 9
+print(fact(6))    # 720
+print(fib(7))     # 13
+print(mixed(6))   # 15
+print(l + [3,4])  # [1,2,3,4]
+

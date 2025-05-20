@@ -487,6 +487,31 @@ std::shared_ptr<ASTNode> Parser::parseStmtSeconde() {
 }
 
 
+// simple_stmt -> "print" "(" print_args ")"      (no NEWLINE here)
+std::shared_ptr<ASTNode> Parser::parsePrint() {
+    if (!expect(TokenType::KW_PRINT)) return nullptr;
+    Token printTok = tokens[pos-1]; // Get the PRINT token for its line number
+    expectR(TokenType::CAR_LPAREN);
+    auto printNode = std::make_shared<ASTNode>("Print");
+    printNode->line = std::to_string(printTok.line);
+    if (peek().type != TokenType::CAR_RPAREN) {
+        do {
+            auto expr = parseExpr();
+            if (expr) { // Ensure expression was parsed successfully
+                printNode->children.push_back(expr);
+            } else {
+                // If parseExpr returns nullptr, it means an error occurred during parsing the argument.
+                // The error should have been reported by parseExpr or its callees.
+                // We might want to stop parsing this print statement or try to recover.
+                // For now, we break, assuming expectR(CAR_RPAREN) will catch further issues.
+                break; 
+            }
+        } while (expect(TokenType::CAR_COMMA));
+    }
+    expectR(TokenType::CAR_RPAREN);
+    return printNode;
+}
+
 
 //simple_stmt -> ident test .
 //simple_stmt -> "return" expr .
@@ -494,6 +519,9 @@ std::shared_ptr<ASTNode> Parser::parseStmtSeconde() {
 //simple_stmt -> "-" indent expr_prime term_prime arith_expr_prime comp_expr_prime and_expr_prime or_expr_prime .
 std::shared_ptr<ASTNode> Parser::parseSimpleStmt() {
     Token tok = peek();
+    if (tok.type == TokenType::KW_PRINT) { // Check for print keyword first
+        return parsePrint();
+    }
     if (expect(TokenType::IDF)) {               
         auto idNode = std::make_shared<ASTNode>("Identifier", tok.value);
         idNode->line = std::to_string(tok.line);
@@ -531,14 +559,7 @@ std::shared_ptr<ASTNode> Parser::parseSimpleStmt() {
         returnNode->children.push_back(parseExpr());
         return returnNode;
     }
-    if (expect(TokenType::KW_PRINT)) {
-        expectR(TokenType::CAR_LPAREN);
-        auto printNode = std::make_shared<ASTNode>("Print");
-        printNode->line = std::to_string(tok.line);
-        printNode->children.push_back(parseE());
-        expectR(TokenType::CAR_RPAREN);
-        return printNode;
-    }
+    // Removed old KW_PRINT handling here as it's now covered by parsePrint() at the start.
     if (expect(TokenType::OP_MINUS)) {
         auto defNode = std::make_shared<ASTNode>("Negative", "-");
         defNode->line = std::to_string(tok.line);

@@ -188,20 +188,66 @@ void SymbolTableGenerator::buildScopesAndSymbols(const std::shared_ptr<ASTNode>&
     } else if (node->type == "Affect") {
         if (node->children.size() >= 2 && node->children[0]->type == "Identifier") {
             std::string varName = node->children[0]->value;
-            if (currentScopeTable->scopeName == "global") { // True global variable
-                if (!currentScopeTable->findImmediateSymbol(varName)) {
-                    // TODO: Determine size based on type if possible, default to 8 bytes (qword)
-                    int varSize = 8; 
-                    VariableSymbol globalVar(varName, "auto" /*TODO: infer type*/, "variable", currentScopeTable->nextDataOffset, true);
-                    currentScopeTable->addSymbol(globalVar);
-                    currentScopeTable->nextDataOffset += varSize; // TODO: Align if necessary
+            std::shared_ptr<ASTNode> rhsNode = node->children[1];
+            
+            std::string rhsInferredType = "auto"; // Default
+
+            if (rhsNode->type == "List") {
+                rhsInferredType = "List";
+            } else if (rhsNode->type == "String") { // Assuming AST node type "String" for string literals
+                rhsInferredType = "String";
+            } else if (rhsNode->type == "Integer") {
+                rhsInferredType = "Integer";
+            } else if (rhsNode->type == "True" || rhsNode->type == "False") {
+                rhsInferredType = "Boolean";
+            } else if (rhsNode->type == "Identifier") {
+                Symbol* s = currentScopeTable->findSymbol(rhsNode->value); // findSymbol checks current and then parents
+                if (s) {
+                    if(auto vs = dynamic_cast<VariableSymbol*>(s)) rhsInferredType = vs->type;
+                    else if(auto fs = dynamic_cast<FunctionSymbol*>(s)) rhsInferredType = fs->returnType; // type of a function name is its return type
+                }
+            } else if (rhsNode->type == "FunctionCall") {
+                if (!rhsNode->children.empty() && rhsNode->children[0]->type == "Identifier") {
+                    // Attempt to find the function in the global scope first, then any broader scope.
+                    Symbol* s = globalTable->findSymbol(rhsNode->children[0]->value); 
+                    if (s && dynamic_cast<FunctionSymbol*>(s)) {
+                        rhsInferredType = dynamic_cast<FunctionSymbol*>(s)->returnType;
+                    } else {
+                        // If not in global, it might be a method or a nested function not yet fully supported for inference here
+                        // For now, fallback if not found in global. A more complex lookup might be needed.
+                        rhsInferredType = "auto"; // Or a more specific "unknown_function_return"
+                    }
+                }
+            } else if (rhsNode->type == "ArithOp" || rhsNode->type == "TermOp" || rhsNode->type == "Compare" || rhsNode->type == "And" || rhsNode->type == "Or" || rhsNode->type == "Not" || rhsNode->type == "UnaryOp") {
+                // For complex expressions, ideally, a full expression type inference would run.
+                // For now, if it's an operation that results in boolean:
+                if (rhsNode->type == "Compare" || rhsNode->type == "And" || rhsNode->type == "Or" || rhsNode->type == "Not") {
+                    rhsInferredType = "Boolean";
+                } else {
+                    // For ArithOp, TermOp, UnaryOp, default to Integer or keep auto if operands are mixed/unknown
+                    // This part can be expanded significantly. For the patch's purpose (l = [1,2,3,4]), this is less critical.
+                    // A simple approach: if any operand is string for '+', it's string. If list for '+', it's list. Else integer.
+                    // This is a placeholder for more robust expression type inference.
+                    rhsInferredType = "Integer"; // Default for other expressions for now
+                }
+            }
+
+
+            Symbol* symToUpdate = currentScopeTable->findSymbol(varName);
+            if (symToUpdate) {
+                if (auto vs = dynamic_cast<VariableSymbol*>(symToUpdate)) {
+                    // Update type if current is 'auto' or if new type is more specific than 'auto'
+                    if ((vs->type == "auto" && rhsInferredType != "auto") || (rhsInferredType != "auto")) {
+                        vs->type = rhsInferredType;
+                    }
                 }
             } else {
-                // Assignment to a local variable or parameter.
-                // Declaration of locals is handled by discoverLocalsAndAssignOffsets.
-                // This spot is more for type updates or semantic checks if 'Affect' is revisited after initial discovery.
-                if (!currentScopeTable->findSymbol(varName)) {
-                     m_errorManager.addError({"Undeclared identifier in assignment: ", varName, "Semantic", std::stoi(node->line)});
+                if (currentScopeTable->scopeName == "global") {
+                    std::string newGlobalType = (rhsInferredType != "auto") ? rhsInferredType : "Integer";
+                    VariableSymbol globalVar(varName, newGlobalType, "global", true, 0); 
+                    currentScopeTable->addSymbol(globalVar);
+                } else {
+                     m_errorManager.addError({"Assignment to undeclared local variable (should be pre-declared by discoverLocals): ", varName, "Semantic", std::stoi(node->line)});
                 }
             }
         }
@@ -221,28 +267,31 @@ void SymbolTableGenerator::discoverLocalsAndAssignOffsets(const std::shared_ptr<
             std::string varName = bodyNode->children[0]->value;
             // Check if it's already a parameter or a previously declared local in this function
             if (!functionScopeTable->findImmediateSymbol(varName)) {
-                VariableSymbol localVar(varName, "auto" /*TODO: infer type*/, "variable", currentLocalOffset, false);
+                VariableSymbol localVar(varName, "auto" /*TODO: infer type*/, "variable", false, currentLocalOffset); // Corrected: assign currentLocalOffset
                 functionScopeTable->addSymbol(localVar);
                 currentLocalOffset -= 8; // Next local goes further down the stack
             }
         }
-    } else if (bodyNode->type == "For") { // Example: loop variable is also a local
+    } else if (bodyNode->type == "For") { 
         if (bodyNode->children.size() >= 1 && bodyNode->children[0]->type == "Identifier") {
             std::string loopVarName = bodyNode->children[0]->value;
             if (!functionScopeTable->findImmediateSymbol(loopVarName)) {
-                 VariableSymbol loopVar(loopVarName, "auto", "loop variable", currentLocalOffset, false);
-                 functionScopeTable->addSymbol(loopVar);
+                 // VariableSymbol loopVar(loopVarName, "auto", "variable", false, currentLocalOffset); // Changed "loop variable" to "variable"
+                 // The patch suggests "Integer" type for loop variable
+                 VariableSymbol lv(loopVarName, "Integer", "variable", false, currentLocalOffset);
+                 functionScopeTable->addSymbol(lv);
                  currentLocalOffset -= 8;
             }
         }
-        // Loop body (e.g., bodyNode->children[2]) needs to be traversed for more locals
-        if (bodyNode->children.size() > 2) { // Assuming body is child 2
+        // discover locals in the loop body as usual
+        if (bodyNode->children.size() > 2 && bodyNode->children[2]) { // Assuming body is child 2
              discoverLocalsAndAssignOffsets(bodyNode->children[2], functionScopeTable, currentLocalOffset);
         }
         // Also traverse iterable if it can contain expressions that declare things (unlikely for simple lang)
-        if (bodyNode->children.size() > 1) {
-             discoverLocalsAndAssignOffsets(bodyNode->children[1], functionScopeTable, currentLocalOffset);
-        }
+        // The patch implies only the body needs discovery after loop var.
+        // if (bodyNode->children.size() > 1) {
+        //      discoverLocalsAndAssignOffsets(bodyNode->children[1], functionScopeTable, currentLocalOffset);
+        // }
         return; // Handled children of 'For' specifically to ensure correct traversal order
     }
     // Add other statements that might declare local variables (e.g. explicit 'var x;' syntax)
