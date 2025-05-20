@@ -1,6 +1,73 @@
-b = 5
-a = 3
-print(6-5)
-print(a-5)
-print(9-b)
-print(a-b)
+# ───────────────────────────────────────────────
+#  Demo program for the mini-Python compiler
+#  (only single-arg range, no nested defs)       
+# ───────────────────────────────────────────────
+
+# ── helpers ─────────────────────────────────────
+def add(a, b):
+    return a + b
+
+def sub(a, b):
+    return a - b
+
+# ── recursion: factorial & fibonacci ───────────
+def fact(n):
+    if n < 2:
+        return 1
+    return n * fact(n - 1)
+
+def fib(n):
+    if n < 2:
+        return n
+    return fib(n - 1) + fib(n - 2)
+
+# ── Euclid gcd (uses %) ────────────────────────
+def gcd(a, b):
+    if a == 0:
+        return b
+    return gcd(b % a, a)
+
+# ── selection-sort (only one-arg range) ────────
+def sel_sort(L):
+    n = len(L)
+    for i in range(n):
+        min_i = i
+        for j in range(n):        # single-arg range
+            if j > i and L[j] < L[min_i]:
+                min_i = j
+        tmp = L[i]
+        L[i] = L[min_i]
+        L[min_i] = tmp
+    return L      # same list, now sorted
+
+# ── power_of_two without nested def ────────────
+def power_of_two(k):
+    if k == 0:
+        return 1
+    return 2 * power_of_two(k - 1)
+
+# ── globals & data ─────────────────────────────
+g_int    = 7
+unsorted = [9, 3, 1, 6, 4, 2]
+extra    = [10, 0]
+
+# ── demo prints ────────────────────────────────
+print("g_int =", g_int)                        # 7
+print("add(5, 8)  =", add(5, 8))               # 13
+print("fact(6)    =", fact(6))                 # 720
+print("fib(7)     =", fib(7))                  # 13
+print("gcd(48,18) =", gcd(48, 18))             # 6
+
+print("unsorted         =", unsorted)
+print("sorted           =", sel_sort(unsorted))
+print("unsorted again   =", unsorted)          # verify in-place sort
+
+print("concat           =", unsorted + extra)  # list concatenation
+
+unsorted[0] = 99                               # mutate by index
+print("after mutate     =", unsorted)
+
+r = list(range(10))                            # built-ins range, list
+print("range list       =", r)
+print("len(r)           =", len(r))            # 10
+print("power_of_two(5)  =", power_of_two(5))   # 32

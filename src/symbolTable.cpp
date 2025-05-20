@@ -160,7 +160,7 @@ void SymbolTableGenerator::buildScopesAndSymbols(const std::shared_ptr<ASTNode>&
         if (node->children.size() > 0 && node->children[0]->type == "FormalParameterList") {
             for (const auto& paramNode : node->children[0]->children) {
                 // Correct constructor: VariableSymbol(name, type, category, isGlobal, offset)
-                VariableSymbol param(paramNode->value, "Integer", "parameter", false, paramOffset); 
+                VariableSymbol param(paramNode->value, "auto",    "parameter", false, paramOffset); 
                 funcScopePtr->addSymbol(param);
                 paramOffset += 8; 
             }
@@ -290,7 +290,14 @@ void SymbolTableGenerator::buildScopesAndSymbols(const std::shared_ptr<ASTNode>&
         if (node->children.size() >= 3) {
             buildScopesAndSymbols(node->children[2], globalTable, currentScopeTable);
         }
-    } else {
+    }else if (node->type == "ListCall") {
+    const std::string& listName = node->children[0]->value;      // L in  L[i]
+    if (Symbol* s = currentScopeTable->findSymbol(listName)) {
+        if (auto *vs = dynamic_cast<VariableSymbol*>(s)) {
+            vs->type = "List";                                    // promote to List
+        }
+    }
+} else {
         m_errorManager.addError({"Boucle for mal formée, identificateur attendu: ", 
                                  "", "Semantic", std::stoi(node->line)});
     }

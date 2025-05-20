@@ -14,6 +14,12 @@ public:
     // Updated to accept symbol table parameter
     void generateCode(const std::shared_ptr<ASTNode>& root, const std::string& filename, 
                       SymbolTable* symTable); // Made symTable non-optional for clarity
+	static inline bool isNumeric(const std::string& t) {
+    return t == "Integer" || t == "Boolean" || t == "auto" || t == "autoFun";
+}
+
+void updateFunctionParamTypes(const std::string& funcName,
+                              const std::vector<std::shared_ptr<ASTNode>>& actualArgs);
 
 private:
     ErrorManager& m_errorManager;
@@ -40,6 +46,8 @@ private:
     int loopLabelCounter;
     int ifLabelCounter;
     int stringLabelCounter;
+
+	FunctionSymbol* currentFuncSym;
 
     // Code generation routines.
     void startAssembly();
@@ -71,7 +79,7 @@ private:
 	 bool isIntVariable(const std::string& name); // Can be: getIdentifierType(name) == "Integer"
      bool isStringVariable(const std::string& name); // Can be: getIdentifierType(name) == "String"
      void resetFunctionVarTypes(const std::string& funcName); // May not be needed with proper scoping
-    void updateFunctionParamTypes(const std::string& funcName, const std::shared_ptr<ASTNode>& args); // Semantic analysis phase?
+    
     void updateFunctionReturnType(const std::string& funcName, const std::string& returnType); // Semantic analysis phase?
     std::string getFunctionReturnType(const std::string& funcName); // Get from FunctionSymbol in SymbolTable
 

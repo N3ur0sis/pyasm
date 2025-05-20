@@ -229,6 +229,8 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                 const auto& argNode = node->children[i];
                 visitNode(argNode); // Evaluate argument, result in RAX
                 std::string argType = getExpressionType(argNode);
+				if (argType == "auto" || argType == "autoFun")
+    argType = "Integer";
                 if (argType == "Integer" || argType == "Boolean" || argType == "autoFun" /*fallback*/) {
                     this->textSection += "    call print_number\n";
                 } else if (argType == "String") {
@@ -291,7 +293,11 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
         std::string typeL = getExpressionType(node->children[0]);
         std::string typeR = getExpressionType(node->children[1]);
 
+		
+
         if (node->value == "+") {
+			if (typeL == "auto")  typeL = "Integer";
+if (typeR == "auto")  typeR = "Integer";
             if (typeL == "List" || typeR == "List") { // Promote to list concat if either is list
                  if (typeL != "List") { /* TODO: Convert rax (non-list) to list if necessary, or error */ }
                  if (typeR != "List") { /* TODO: Convert rbx (non-list) to list if necessary, or error */ }
@@ -311,13 +317,29 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                  textSection += "    mov rax, 0 ; Error for + op\n";
             }
         } else if (node->value == "-") {
-            if (typeL == "Integer" && typeR == "Integer") {
-                textSection += "    sub rax, rbx\n";
-            } else {
-                m_errorManager.addError({"Type mismatch for '-': Expected Integers, got ", typeL + ", " + typeR, "CodeGeneration", std::stoi(node->line)});
-                textSection += "    mov rax, 0 ; Error for - op\n";
-            }
-        } else {
+    auto left  = node->children[0];
+    auto right = node->children[1];
+
+    std::string tL = getExpressionType(left);
+    std::string tR = getExpressionType(right);
+
+    // auto ➜ Integer upgrade
+    if (tL == "auto") tL = "Integer";
+    if (tR == "auto") tR = "Integer";
+
+    if (!isNumeric(tL) || !isNumeric(tR)) {
+        m_errorManager.addError({"Type mismatch for '-': ", tL + ", " + tR,
+                                 "CodeGeneration", std::stoi(node->line)});
+        textSection += "    mov rax, 0\n";
+    } else {
+        visitNode(left);              // → rax
+        textSection += "    push rax\n";
+        visitNode(right);             // → rax
+        textSection += "    mov rbx, rax\n";
+        textSection += "    pop rax\n";
+        textSection += "    sub rax, rbx\n";
+    }
+} else {
             m_errorManager.addError({"Unknown ArithOp: ", node->value, "CodeGeneration", std::stoi(node->line)});
         }
     } else if (node->type == "TermOp") { // Handles *, //, /, %
@@ -334,6 +356,9 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
         std::string typeL = getExpressionType(node->children[0]);
         std::string typeR = getExpressionType(node->children[1]);
 
+		if (typeL == "auto") typeL = "Integer";
+if (typeR == "auto") typeR = "Integer";
+
         if (typeL != "Integer" || typeR != "Integer") {
             m_errorManager.addError({"TermOp requires Integer operands. Got: ", typeL + ", " + typeR, "CodeGeneration", std::stoi(node->line)});
             textSection += "    mov rax, 0 ; Error for TermOp\n";
@@ -344,12 +369,12 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
             textSection += "    imul rax, rbx\n";
         } else if (node->value == "/" || node->value == "//") { // Integer division
             textSection += "    cmp rbx, 0\n";
-            textSection += "    je .division_by_zero_error\n";
+            textSection += "    je division_by_zero_error\n";
             textSection += "    cqo ; Sign-extend rax into rdx:rax for idiv\n";
             textSection += "    idiv rbx\n"; // Quotient in rax, remainder in rdx
         } else if (node->value == "%") {
             textSection += "    cmp rbx, 0\n";
-            textSection += "    je .division_by_zero_error\n";
+            textSection += "    je division_by_zero_error\n";
             textSection += "    cqo\n";
             textSection += "    idiv rbx\n";
             textSection += "    mov rax, rdx\n"; // Remainder is the result
@@ -414,7 +439,44 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
         for (auto &child : node->children) {
             visitNode(child);
         }
-    }
+    }else if (node->type == "ListCall") {           // read  L[i]  -> rax
+    auto listId  = node->children[0];          // Identifier
+    auto indexNd = node->children[1];          // expression for i
+
+    // evaluate the index, result in rax
+    visitNode(indexNd);
+    textSection += "    push rax        ; save index\n";
+
+    // load list base address in rbx
+    textSection += "    mov rbx, " + getIdentifierMemoryOperand(listId->value) + "\n";
+    textSection += "    pop  rcx        ; rcx = index\n";
+
+    std::string bad = newLabel("index_error_read");
+    std::string ok  = newLabel("index_ok");
+
+    textSection += "    cmp rcx, 0\n";
+    textSection += "    jl " + bad + "\n";
+    textSection += "    cmp rcx, [rbx]\n";
+    textSection += "    jge " + bad + "\n";
+
+    textSection += "    add rbx, 8      ; skip size field\n";
+    textSection += "    imul rcx, 8\n";
+    textSection += "    add rbx, rcx\n";
+    textSection += "    mov rax, [rbx]  ; <- element value\n";
+    textSection += "    jmp " + ok + "\n";
+
+    textSection += bad + ":\n";
+    textSection += "    mov rax, 1\n";
+    textSection += "    mov rdi, 1\n";
+    textSection += "    mov rsi, index_error_msg\n";
+    textSection += "    mov rdx, index_error_len\n";
+    textSection += "    syscall\n";
+    textSection += "    mov rax, 60\n";
+    textSection += "    mov rdi, 1\n";
+    textSection += "    syscall\n";
+
+    textSection += ok + ":\n";
+}
      else {
         m_errorManager.addError({"Unrecognized or unhandled ASTNode type in visitNode: ", node->type, "CodeGeneration", std::stoi(node->line)});
         // Default: visit children if any, though this might not be correct for all unhandled types.
@@ -432,7 +494,7 @@ void CodeGenerator::endAssembly() {
 
     // --- Division by Zero Error Handler ---
     textSection += "\n; Division by zero error handler\n";
-    textSection += ".division_by_zero_error:\n";
+    textSection += "division_by_zero_error:\n";
     textSection += "    ; Print error message\n";
     textSection += "    mov rax, 1          ; syscall: write\n";
     textSection += "    mov rdi, 1          ; file descriptor: stdout\n";
@@ -922,6 +984,8 @@ void CodeGenerator::genAffect(const std::shared_ptr<ASTNode>& node) {
     
     // Update type of the variable in the symbol table
     std::string valueType = getExpressionType(rightValueNode);
+	printf("Value type: %s\n", valueType.c_str());
+	
     if (valueType != "auto" && valueType != "autoFun") { // Only update if a concrete type is known
         updateSymbolType(varName, valueType);
     } else if (rightValueNode->type == "Integer") { // Explicit override for literals
@@ -1073,6 +1137,7 @@ void CodeGenerator::genIf(const std::shared_ptr<ASTNode>& node) {
 void CodeGenerator::genFunction(const std::shared_ptr<ASTNode>& node) {
     std::string funcName = node->value;
     FunctionSymbol* funcSym = nullptr;
+	currentFuncSym = funcSym;
     if (symbolTable) { // Assuming global symbol table
         Symbol* sym = symbolTable->findImmediateSymbol(funcName);
         funcSym = dynamic_cast<FunctionSymbol*>(sym);
@@ -1202,6 +1267,15 @@ void CodeGenerator::genFunctionCall(const std::shared_ptr<ASTNode>& node) {
     std::string funcName = node->children[0]->value;
 
    auto args = node->children[1];
+
+   if (funcName != "len"   && funcName != "range" &&  // built-ins
+    funcName != "list"  && funcName != "print")
+{
+    std::vector<std::shared_ptr<ASTNode>> argsList =
+        args ? args->children : std::vector<std::shared_ptr<ASTNode>>{};
+    updateFunctionParamTypes(funcName, argsList);
+}
+   
     if (funcName == "list"){
         if (args->children.size() == 1 && 
             args->children[0]->type == "FunctionCall" && 
@@ -1225,15 +1299,11 @@ void CodeGenerator::genFunctionCall(const std::shared_ptr<ASTNode>& node) {
                 type0 = inferFunctionReturnType(this->rootNode, param->children[0]->value);
                 
             }
-            if (type0 == "auto") {
-                m_errorManager.addError(Error{
-                    "Undefined Variable; ", 
-                    "Used " + std::string(param->value.c_str())+ " before assignment",
-                    "Semantics", 
-                    std::stoi(node->line)
-                });
-                return;
-            }
+    if (type0 == "auto") {
+        // Assume it's a list that we don't know the static type of yet.
+        textSection += "    mov rax, [rax]      ; len(auto-list)\n";
+        return;
+    }
             if (type0 != "String" && type0 != "List") {
                 m_errorManager.addError(Error{
                     "len Error; ", 
@@ -1243,6 +1313,9 @@ void CodeGenerator::genFunctionCall(const std::shared_ptr<ASTNode>& node) {
                 });
                 return;
             }
+
+
+
         if (type0 == "List") {
             textSection += "mov rax, [rax]  ; Taille de la liste\n";
         } else { // String
@@ -1263,10 +1336,15 @@ void CodeGenerator::genFunctionCall(const std::shared_ptr<ASTNode>& node) {
     int argCount = 0;
     const std::vector<std::shared_ptr<ASTNode>>* argListPtr = nullptr;
 
+	
+
     if (node->children.size() > 1 && (node->children[1]->type == "ParameterList" || node->children[1]->type == "ActualParameterList")) {
         argListPtr = &node->children[1]->children;
         argCount = argListPtr->size();
     }
+
+	if (argListPtr)
+        updateFunctionParamTypes(funcName, *argListPtr);
 
     // Stack Alignment: RSP must be 16-byte aligned BEFORE the call.
     // The call pushes 8 bytes (return address).
@@ -1307,6 +1385,9 @@ void CodeGenerator::genReturn(const std::shared_ptr<ASTNode>& node) {
     } else {
         textSection += "    xor rax, rax\n";  
     }
+	if (currentFuncSym && currentFuncSym->returnType == "autoFun") {
+    currentFuncSym->returnType = getExpressionType(node->children[0]);
+}
     
     // Jump to return label
     textSection += "    jmp .return_" + currentFunction + "\n";
@@ -1538,13 +1619,16 @@ std::string CodeGenerator::inferFunctionReturnType(const std::shared_ptr<ASTNode
             }
         }
     }
+
+	if (funcName == "list" || funcName == "range") return "List";
     
     return "Integer"; // Type par défaut
 }
 
 std::string CodeGenerator::getExpressionType(const std::shared_ptr<ASTNode>& node) {
+	
     if (!node) return "auto"; // Or throw an error
-
+	if (node->type == "auto" || node->type == "autoFun") return "Integer";
     if (node->type == "Integer") {
         return "Integer";
     } else if (node->type == "String") {
@@ -1568,7 +1652,10 @@ std::string CodeGenerator::getExpressionType(const std::shared_ptr<ASTNode>& nod
         return "autoFun"; // Default for function calls if specific type can't be inferred yet
     } else if (node->type == "List") {
         return "List";
-    } else if (node->type == "ArithOp" || node->type == "TermOp") {
+    } else if (node->type == "ListCall") {
+    // assume lists of integers for now
+    return "Integer";
+}else if (node->type == "ArithOp" || node->type == "TermOp") {
         // For arithmetic operations, the type often depends on the operands.
         // A more sophisticated type inference would check operand types.
         // For now, let's assume Integer if not clearly string/list.
@@ -1618,4 +1705,50 @@ std::string CodeGenerator::getFunctionReturnType(const std::string& funcName) {
     }
 
     return "auto"; // Type par défaut si la fonction n'est pas trouvée
+}
+
+void CodeGenerator::updateFunctionParamTypes(
+        const std::string&           funcName,
+        const std::vector<std::shared_ptr<ASTNode>>& actualArgs)
+{
+    /* 1) locate the FunctionSymbol in the global scope */
+    auto *fs = dynamic_cast<FunctionSymbol*>(symbolTable
+                                            ? symbolTable->findSymbol(funcName)
+                                            : nullptr);
+    if (!fs) return;                       // unknown function (built-ins etc.)
+
+    /* 2) locate the symbol-table that holds the parameters          */
+    SymbolTable *funcScope = nullptr;
+    for (auto &sub : symbolTable->children)
+        if (sub->scopeName == ("function " + funcName)) {
+            funcScope = sub.get();
+            break;
+        }
+    if (!funcScope) return;                // should not happen
+
+    /* 3) zip(actualArgs, parameters) and fix the “auto” holes       */
+    std::size_t argIdx = 0;
+    for (auto &symPtr : funcScope->symbols) {
+        if (argIdx >= actualArgs.size()) break;          // too many formals
+        if (symPtr->symCat != "parameter")   continue;   // locals start here
+
+        auto *param = dynamic_cast<VariableSymbol*>(symPtr.get());
+        if (!param) continue;                           // safety
+
+        /* infer dynamic type flowing through the call */
+        std::string argType = getExpressionType(actualArgs[argIdx]);
+        if ((argType == "auto" || argType == "autoFun") &&
+            actualArgs[argIdx]->type == "Identifier")
+        {
+            /* for  x  we really want the *declared* type of x, not   *
+             * “Identifier”.                                         */
+            argType = getIdentifierType(actualArgs[argIdx]->value);
+        }
+
+        /* promote: only if still unknown */
+        if (param->type == "auto" && argType != "auto" && !argType.empty())
+            param->type = argType;
+
+        ++argIdx;
+    }
 }

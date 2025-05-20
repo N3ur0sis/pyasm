@@ -28,5 +28,6 @@ print(add(4, 5))  # 9
 print(fact(6))    # 720
 print(fib(7))     # 13
 print(mixed(6))   # 15
+print(l[0])
 print(l + [3,4])  # [1,2,3,4]
 
