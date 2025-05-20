@@ -509,85 +509,85 @@ void CodeGenerator::endAssembly() {
     
 
     // Dans la fonction endAssembly(), remplacer la partie list_concat
-textSection += "\n; Function to concatenate two lists\n";
-textSection += "list_concat:\n";
-textSection += "    push rbp\n";
-textSection += "    mov rbp, rsp\n";
-textSection += "    push r12\n";
-textSection += "    push r13\n";
-textSection += "    push r14\n";
-textSection += "    push rbx\n";
-textSection += "    push r15\n";
-    
-// Sauvegarder les listes d'entrée
-textSection += "    mov r12, rdi        ; r12 = liste1\n";
-textSection += "    mov r13, rsi        ; r13 = liste2\n";
-    
-// Lire les tailles des deux listes
-textSection += "    mov r14, [r12]      ; r14 = taille de liste1\n";
-textSection += "    mov r15, [r13]      ; r15 = taille de liste2\n";
-    
-// Obtenir un nouvel emplacement pour la liste résultat
-textSection += "    mov rbx, [list_offset]\n";
-textSection += "    mov rax, list_buffer\n";
-textSection += "    add rax, rbx        ; rax = adresse de la nouvelle liste\n";
-textSection += "    push rax            ; sauvegarder l'adresse de la nouvelle liste\n";
-    
-// Calculer et stocker la taille totale
-textSection += "    mov rcx, [list_offset]\n";
-textSection += "    mov rax, r14\n";
-textSection += "    add rax, r15\n";
-textSection += "    mov [list_buffer + rcx], rax  ; stocker la taille totale\n";
-textSection += "    add rcx, 8\n";
-textSection += "    mov [list_offset], rcx\n";
-    
-// Copier les éléments de la première liste (sauter la taille)
-textSection += "    mov rsi, r12\n";
-textSection += "    add rsi, 8          ; sauter la taille de liste1\n";
-textSection += "    mov rbx, rcx        ; offset de destination\n";
-textSection += "    mov rcx, r14        ; nombre d'éléments à copier\n";
-textSection += "    cmp rcx, 0\n";
-textSection += "    je .list_copy1_done\n";
-    
-textSection += ".list_copy1_loop:\n";
-textSection += "    mov rdx, [rsi]      ; charger élément de liste1\n";
-textSection += "    mov [list_buffer + rbx], rdx  ; copier l'élément\n";
-textSection += "    add rsi, 8          ; avancer dans liste1\n";
-textSection += "    add rbx, 8          ; avancer dans nouvelle liste\n";
-textSection += "    dec rcx\n";
-textSection += "    jnz .list_copy1_loop\n";
-textSection += ".list_copy1_done:\n";
-    
-// Copier les éléments de la deuxième liste (sauter la taille)
-textSection += "    mov rsi, r13\n";
-textSection += "    add rsi, 8          ; sauter la taille de liste2\n";
-textSection += "    mov rcx, r15        ; nombre d'éléments à copier\n";
-textSection += "    cmp rcx, 0\n";
-textSection += "    je .list_copy2_done\n";
-    
-textSection += ".list_copy2_loop:\n";
-textSection += "    mov rdx, [rsi]      ; charger élément de liste2\n";
-textSection += "    mov [list_buffer + rbx], rdx  ; copier l'élément\n";
-textSection += "    add rsi, 8          ; avancer dans liste2\n";
-textSection += "    add rbx, 8          ; avancer dans nouvelle liste\n";
-textSection += "    dec rcx\n";
-textSection += "    jnz .list_copy2_loop\n";
-textSection += ".list_copy2_done:\n";
-    
-// Mettre à jour list_offset
-textSection += "    mov [list_offset], rbx\n";
-    
-// Retourner l'adresse de la nouvelle liste
-textSection += "    pop rax             ; récupérer l'adresse de la liste résultat\n";
-    
-// Nettoyage
-textSection += "    pop r15\n";
-textSection += "    pop rbx\n";
-textSection += "    pop r14\n";
-textSection += "    pop r13\n";
-textSection += "    pop r12\n";
-textSection += "    pop rbp\n";
-textSection += "    ret\n\n";
+    textSection += "\n; Function to concatenate two lists\n";
+    textSection += "list_concat:\n";
+    textSection += "    push rbp\n";
+    textSection += "    mov rbp, rsp\n";
+    textSection += "    push r12\n";
+    textSection += "    push r13\n";
+    textSection += "    push r14\n";
+    textSection += "    push rbx\n";
+    textSection += "    push r15\n";
+        
+    // Sauvegarder les listes d'entrée
+    textSection += "    mov r12, rdi        ; r12 = liste1\n";
+    textSection += "    mov r13, rsi        ; r13 = liste2\n";
+        
+    // Lire les tailles des deux listes
+    textSection += "    mov r14, [r12]      ; r14 = taille de liste1\n";
+    textSection += "    mov r15, [r13]      ; r15 = taille de liste2\n";
+        
+    // Obtenir un nouvel emplacement pour la liste résultat
+    textSection += "    mov rbx, [list_offset]\n";
+    textSection += "    mov rax, list_buffer\n";
+    textSection += "    add rax, rbx        ; rax = adresse de la nouvelle liste\n";
+    textSection += "    push rax            ; sauvegarder l'adresse de la nouvelle liste\n";
+        
+    // Calculer et stocker la taille totale
+    textSection += "    mov rcx, [list_offset]\n";
+    textSection += "    mov rax, r14\n";
+    textSection += "    add rax, r15\n";
+    textSection += "    mov [list_buffer + rcx], rax  ; stocker la taille totale\n";
+    textSection += "    add rcx, 8\n";
+    textSection += "    mov [list_offset], rcx\n";
+        
+    // Copier les éléments de la première liste (sauter la taille)
+    textSection += "    mov rsi, r12\n";
+    textSection += "    add rsi, 8          ; sauter la taille de liste1\n";
+    textSection += "    mov rbx, rcx        ; offset de destination\n";
+    textSection += "    mov rcx, r14        ; nombre d'éléments à copier\n";
+    textSection += "    cmp rcx, 0\n";
+    textSection += "    je .list_copy1_done\n";
+        
+    textSection += ".list_copy1_loop:\n";
+    textSection += "    mov rdx, [rsi]      ; charger élément de liste1\n";
+    textSection += "    mov [list_buffer + rbx], rdx  ; copier l'élément\n";
+    textSection += "    add rsi, 8          ; avancer dans liste1\n";
+    textSection += "    add rbx, 8          ; avancer dans nouvelle liste\n";
+    textSection += "    dec rcx\n";
+    textSection += "    jnz .list_copy1_loop\n";
+    textSection += ".list_copy1_done:\n";
+        
+    // Copier les éléments de la deuxième liste (sauter la taille)
+    textSection += "    mov rsi, r13\n";
+    textSection += "    add rsi, 8          ; sauter la taille de liste2\n";
+    textSection += "    mov rcx, r15        ; nombre d'éléments à copier\n";
+    textSection += "    cmp rcx, 0\n";
+    textSection += "    je .list_copy2_done\n";
+        
+    textSection += ".list_copy2_loop:\n";
+    textSection += "    mov rdx, [rsi]      ; charger élément de liste2\n";
+    textSection += "    mov [list_buffer + rbx], rdx  ; copier l'élément\n";
+    textSection += "    add rsi, 8          ; avancer dans liste2\n";
+    textSection += "    add rbx, 8          ; avancer dans nouvelle liste\n";
+    textSection += "    dec rcx\n";
+    textSection += "    jnz .list_copy2_loop\n";
+    textSection += ".list_copy2_done:\n";
+        
+    // Mettre à jour list_offset
+    textSection += "    mov [list_offset], rbx\n";
+        
+    // Retourner l'adresse de la nouvelle liste
+    textSection += "    pop rax             ; récupérer l'adresse de la liste résultat\n";
+        
+    // Nettoyage
+    textSection += "    pop r15\n";
+    textSection += "    pop rbx\n";
+    textSection += "    pop r14\n";
+    textSection += "    pop r13\n";
+    textSection += "    pop r12\n";
+    textSection += "    pop rbp\n";
+    textSection += "    ret\n\n";
 
     textSection += "; Function to concatenate two strings with offset\n";
     textSection += "str_concat:\n";
@@ -672,125 +672,164 @@ textSection += "    ret\n\n";
     textSection += "    ret\n\n";
 
     // Dans la fonction endAssembly(), remplacer la partie list_range
-textSection += "; Function to create a range list (0...n-1)\n";
-textSection += "list_range:\n";
-textSection += "    push rbp\n";
-textSection += "    mov rbp, rsp\n";
-textSection += "    push rbx\n";
-textSection += "    push r12\n";
-textSection += "    push r13\n";
-        
-textSection += "    ; rax = n (size of the range)\n";
-textSection += "    mov r12, rax        ; r12 = n\n";
-        
-textSection += "    ; Get new list address\n";
-textSection += "    mov rbx, [list_offset]\n";
-textSection += "    mov rax, list_buffer\n";
-textSection += "    add rax, rbx        ; rax = address of the new list\n";
-textSection += "    push rax            ; save list address\n";
-        
-textSection += "    ; Store the size first\n";
-textSection += "    mov rcx, [list_offset]\n";
-textSection += "    mov [list_buffer + rcx], r12\n";
-textSection += "    add rcx, 8\n";
-textSection += "    mov [list_offset], rcx\n";
-        
-textSection += "    ; Initialize counter\n";
-textSection += "    xor r13, r13        ; r13 = 0 (counter)\n";
-textSection += "    cmp r12, 0\n";
-textSection += "    je .list_range_done\n";
-        
-textSection += ".list_range_loop:\n";
-textSection += "    ; Add counter value to list\n";
-textSection += "    mov rcx, [list_offset]\n";
-textSection += "    mov [list_buffer + rcx], r13\n";
-textSection += "    add rcx, 8\n";
-textSection += "    mov [list_offset], rcx\n";
-        
-textSection += "    ; Increment counter\n";
-textSection += "    inc r13\n";
-        
-textSection += "    ; Check if counter < n\n";
-textSection += "    cmp r13, r12\n";
-textSection += "    jl .list_range_loop\n";
-        
-textSection += ".list_range_done:\n";
-textSection += "    ; Return list address\n";
-textSection += "    pop rax\n";
-        
-textSection += "    ; Cleanup\n";
-textSection += "    pop r13\n";
-textSection += "    pop r12\n";
-textSection += "    pop rbx\n";
-textSection += "    pop rbp\n";
-textSection += "    ret\n\n";
-
-    // --- revised print_not_string ----------------------------------------
-    textSection += "; Function to print a list (elements separated by space, enclosed in brackets)\n";
-    textSection += "print_not_string:          ; RAX = address of list\n";
+    textSection += "; Function to create a range list (0...n-1)\n";
+    textSection += "list_range:\n";
     textSection += "    push rbp\n";
-    textSection += "    mov  rbp, rsp\n";
+    textSection += "    mov rbp, rsp\n";
     textSection += "    push rbx\n";
-    textSection += "    push r12            ; will be our loop-counter\n";
-    // RCX is clobbered by syscall, so we don't strictly need to save/restore it if we don't rely on its value across syscalls
-    // However, the provided patch saves rdx, rsi, rdi, r8, r9. Let's stick to that for consistency.
-    // textSection += "    push rcx             ; Not strictly needed if r12 is counter and rcx is scratch for syscall\n";
-    textSection += "    push rdx\n";
-    textSection += "    push rsi\n";
-    textSection += "    push rdi\n";
-    textSection += "    push r8\n";
-    textSection += "    push r9\n";
+    textSection += "    push r12\n";
+    textSection += "    push r13\n";
+            
+    textSection += "    ; rax = n (size of the range)\n";
+    textSection += "    mov r12, rax        ; r12 = n\n";
+            
+    textSection += "    ; Get new list address\n";
+    textSection += "    mov rbx, [list_offset]\n";
+    textSection += "    mov rax, list_buffer\n";
+    textSection += "    add rax, rbx        ; rax = address of the new list\n";
+    textSection += "    push rax            ; save list address\n";
+            
+    textSection += "    ; Store the size first\n";
+    textSection += "    mov rcx, [list_offset]\n";
+    textSection += "    mov [list_buffer + rcx], r12\n";
+    textSection += "    add rcx, 8\n";
+    textSection += "    mov [list_offset], rcx\n";
+            
+    textSection += "    ; Initialize counter\n";
+    textSection += "    xor r13, r13        ; r13 = 0 (counter)\n";
+    textSection += "    cmp r12, 0\n";
+    textSection += "    je .list_range_done\n";
+            
+    textSection += ".list_range_loop:\n";
+    textSection += "    ; Add counter value to list\n";
+    textSection += "    mov rcx, [list_offset]\n";
+    textSection += "    mov [list_buffer + rcx], r13\n";
+    textSection += "    add rcx, 8\n";
+    textSection += "    mov [list_offset], rcx\n";
+            
+    textSection += "    ; Increment counter\n";
+    textSection += "    inc r13\n";
+            
+    textSection += "    ; Check if counter < n\n";
+    textSection += "    cmp r13, r12\n";
+    textSection += "    jl .list_range_loop\n";
+            
+    textSection += ".list_range_done:\n";
+    textSection += "    ; Return list address\n";
+    textSection += "    pop rax\n";
+            
+    textSection += "    ; Cleanup\n";
+    textSection += "    pop r13\n";
+    textSection += "    pop r12\n";
+    textSection += "    pop rbx\n";
+    textSection += "    pop rbp\n";
+    textSection += "    ret\n\n";
 
-    textSection += "    mov  rbx, rax          ; rbx = base address of the list structure\n";
-    textSection += "    mov  r12, [rbx]        ; r12 = size of the list   <<<<<  keep counter here\n";
-    textSection += "    add  rbx, 8            ; rbx -> first element\n";
+        // --- revised print_not_string ----------------------------------------
+    // Remplacer la fonction print_not_string par celle-ci:
 
-    // print '['
-    textSection += "    mov  rax, 1\n";
-    textSection += "    mov  rdi, 1\n";
-    textSection += "    mov  rsi, open_bracket\n";
-    textSection += "    mov  rdx, 1\n";
-    textSection += "    syscall\n";
+textSection += "; Function to print a list (elements separated by space, enclosed in brackets)\n";
+textSection += "print_not_string:          ; RAX = address of list\n";
+textSection += "    push rbp\n";
+textSection += "    mov  rbp, rsp\n";
+textSection += "    push rbx\n";
+textSection += "    push r12            ; will be our loop-counter\n";
+textSection += "    push rdx\n";
+textSection += "    push rsi\n";
+textSection += "    push rdi\n";
+textSection += "    push r8\n";
+textSection += "    push r9\n";
 
-    textSection += ".print_list_loop:\n";
-    textSection += "    cmp  r12, 0\n";
-    textSection += "    je   .print_list_done\n";
+textSection += "    mov  rbx, rax          ; rbx = base address of the list structure\n";
+textSection += "    mov  r12, [rbx]        ; r12 = size of the list\n";
+textSection += "    add  rbx, 8            ; rbx -> first element\n";
 
-    textSection += "    mov  r8, [rbx]         ; element -> r8\n";
-    textSection += "    mov  rax, r8\n";
-    textSection += "    call print_number\n";
+// print '['
+textSection += "    mov  rax, 1\n";
+textSection += "    mov  rdi, 1\n";
+textSection += "    mov  rsi, open_bracket\n";
+textSection += "    mov  rdx, 1\n";
+textSection += "    syscall\n";
 
-    textSection += "    add  rbx, 8\n";
-    textSection += "    dec  r12               ; --counter\n";
-    textSection += "    cmp  r12, 0\n";
-    textSection += "    je   .print_list_done  ; last element -> skip \", \"\n";
+textSection += ".print_list_loop:\n";
+textSection += "    cmp  r12, 0\n";
+textSection += "    je   .print_list_done\n";
 
-    // print ", "
-    textSection += "    mov  rax, 1\n";
-    textSection += "    mov  rdi, 1\n";
-    textSection += "    mov  rsi, comma_space\n";
-    textSection += "    mov  rdx, 2\n";
-    textSection += "    syscall\n";
-    textSection += "    jmp  .print_list_loop\n";
+textSection += "    mov  r8, [rbx]         ; element -> r8\n";
+textSection += "    ; Check if element is a likely pointer (above certain address threshold)\n";
+textSection += "    cmp  r8, 0x1000        ; Addresses below this are likely integers\n";
+textSection += "    jb   .print_as_number\n";
 
-    textSection += ".print_list_done:\n";
-    // print ']'
-    textSection += "    mov  rax, 1\n";
-    textSection += "    mov  rdi, 1\n";
-    textSection += "    mov  rsi, close_bracket\n";
-    textSection += "    mov  rdx, 1\n";
-    textSection += "    syscall\n";
+textSection += "    mov  rax, r8\n";
+textSection += "    ; Try to read the first byte safely\n";
+textSection += "    push rcx\n";
+textSection += "    mov  rcx, r8\n";
+textSection += "    shr  rcx, 48           ; Get top 16 bits - if non-zero, likely invalid addr\n";
+textSection += "    cmp  rcx, 0\n";
+textSection += "    jne  .not_a_string\n";
+textSection += "    pop  rcx\n";
 
-    textSection += "    pop  r9\n";
-    textSection += "    pop  r8\n";
-    textSection += "    pop  rdi\n";
-    textSection += "    pop  rsi\n";
-    textSection += "    pop  rdx\n";
-    // textSection += "    pop  rcx\n"; // If it was pushed
-    textSection += "    pop  r12\n";
-    textSection += "    pop  rbx\n";
-    textSection += "    pop  rbp\n";
-    textSection += "    ret\n";
+textSection += "    ; Now test if this might be a string (has ASCII characters and null-terminator)\n";
+textSection += "    push rcx\n";
+textSection += "    xor  rcx, rcx\n";
+textSection += ".check_string_loop:\n";
+textSection += "    cmp  rcx, 20           ; Limite max: 20 caractères à vérifier\n";
+textSection += "    jge  .not_a_string\n";
+textSection += "    mov  r9b, byte [rax+rcx]\n";
+textSection += "    cmp  r9b, 0            ; Fin de la chaîne?\n";
+textSection += "    je   .print_as_string\n";
+textSection += "    cmp  r9b, 32\n";
+textSection += "    jl   .not_a_string\n";
+textSection += "    cmp  r9b, 126\n";
+textSection += "    jg   .not_a_string\n";
+textSection += "    inc  rcx\n";
+textSection += "    jmp  .check_string_loop\n";
+
+textSection += ".not_a_string:\n";
+textSection += "    pop  rcx\n";
+textSection += "    jmp  .print_as_number\n";
+
+textSection += ".print_as_string:\n";
+textSection += "    pop  rcx\n";
+textSection += "    mov  rax, r8\n";
+textSection += "    call print_string\n";
+textSection += "    jmp  .after_element_print\n";
+
+textSection += ".print_as_number:\n";
+textSection += "    mov  rax, r8\n";
+textSection += "    call print_number\n";
+
+textSection += ".after_element_print:\n";
+textSection += "    add  rbx, 8\n";
+textSection += "    dec  r12\n";
+textSection += "    cmp  r12, 0\n";
+textSection += "    je   .print_list_done\n";
+
+// print ", "
+textSection += "    mov  rax, 1\n";
+textSection += "    mov  rdi, 1\n";
+textSection += "    mov  rsi, comma_space\n";
+textSection += "    mov  rdx, 2\n";
+textSection += "    syscall\n";
+textSection += "    jmp  .print_list_loop\n";
+
+textSection += ".print_list_done:\n";
+// print ']'
+textSection += "    mov  rax, 1\n";
+textSection += "    mov  rdi, 1\n";
+textSection += "    mov  rsi, close_bracket\n";
+textSection += "    mov  rdx, 1\n";
+textSection += "    syscall\n";
+
+textSection += "    pop  r9\n";
+textSection += "    pop  r8\n";
+textSection += "    pop  rdi\n";
+textSection += "    pop  rsi\n";
+textSection += "    pop  rdx\n";
+textSection += "    pop  r12\n";
+textSection += "    pop  rbx\n";
+textSection += "    pop  rbp\n";
+textSection += "    ret\n";
     // ----------------------------------------------------------------------
 
     // Legacy alias for print_list to keep old code working, now points to the real implementation

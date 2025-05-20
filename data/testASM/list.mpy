@@ -16,3 +16,4 @@ s = "string"
 print(len(s))
 print(len(L))
 print(len(test()))
+
