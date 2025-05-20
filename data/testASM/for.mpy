@@ -1,9 +1,16 @@
-
 x = 0
 y = 0
 for i in range(10):
-    print(i)
+    print("variable d'itération : ",i)
     x = x + i
     y = y + 5
-print(x)
-print(y)
+print("x = ",x)
+print("y = ",y)
+
+L = [19,5,4]
+k = 0
+for j in L:
+    print("Element " ,k , " de L : ", j)
+    k = k+1
+
+
