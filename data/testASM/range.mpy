@@ -1,12 +1,12 @@
-# --- while -------------------------------------------------
-n = 3
-s = 0
+def fact(n):
+    if n<2:
+        return 1
+    return n*fact(n-1)
 
-print(False or 1)
+def fib(n):
+    if n<2:
+        return n
+    return fib(n-1)+fib(n-2)
 
-# --- for / range ------------------------------------------
-t = 0
-for i in range(4):   # 0,1,2,3
-    if i and (i or 0):  # condition booléenne dans la boucle
-        t = t + 1
-print(t)         # 3
+print(fib(5))   # 5
+print(fact(6))  # 720

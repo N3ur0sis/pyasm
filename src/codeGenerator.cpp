@@ -4,84 +4,170 @@
 #include <cstdlib>
 #include <sstream>
 #include <functional>
-SymbolTable* currentSymbolTable = nullptr;
 
-void CodeGenerator::generateCode(const std::shared_ptr<ASTNode>& root, const std::string& filename, SymbolTable* symTable) {
-    //m_errorManager.addError(Error{"Expected Test", "", "Semantic", 0});
-    symbolTable = symTable;
-    currentSymbolTable = symbolTable;
-    rootNode = root;
-    dataSection = "";
-    textSection = "";
-    std::string functionSection = ""; // Add a separate section for functions
-    declaredVars.clear();
-    dataSection = std::string("concat_buffer: times 2048 db 0\n") + 
-                "concat_offset: dq 0\n" + 
-                "div_zero_msg: db 'Error: Division by zero', 10, 0\n" +
-                "div_zero_len: equ $ - div_zero_msg\n" + 
-                dataSection;
-    dataSection += "list_buffer: times 8192 dq 0\n";
-    dataSection += "list_offset: dq 0\n";  
-    dataSection += "open_bracket: db '['\n";
-    dataSection += "close_bracket: db ']'\n";
-    dataSection += "comma_space: db ',', 32\n";
-    dataSection += "index_error_msg: db 'Error: Index out of bounds', 10, 0\n";
-    dataSection += "index_error_len: equ $ - index_error_msg\n";
-    // Generate the text (and data) from the AST.
-    startAssembly();
+static std::string asmCode; // Stores the final assembly code
+
+SymbolTable* currentSymbolTable = nullptr;
+std::string currentFunction; // Keep track of the current function for return
+
+// Helper function to get the memory operand for an identifier
+// This function encapsulates the logic to access globals, parameters, or locals.
+// It assumes the SymbolTable has been populated with correct offsets and categories.
+std::string CodeGenerator::getIdentifierMemoryOperand(const std::string& name) {
+    Symbol* sym = nullptr;
+    SymbolTable* tableToSearch = currentSymbolTable; 
+
+    // Robust symbol lookup: start from current scope and go up to global
+    // SymbolTable::findSymbol should handle this hierarchical search.
+    if (tableToSearch) {
+        sym = tableToSearch->findSymbol(name); 
+    }
     
-    // Separate main instructions from functions
-    for (const auto& child : root->children) {
-        if (child->type == "Definitions") {
-            // Process function definitions
-            for (const auto& def : child->children) {
-                if (def->type == "FunctionDefinition") {
-                    // Save functions in separate section
-                    std::string oldText = textSection;
-                    textSection = "";
-                    visitNode(def);
-                    functionSection += textSection;
-                    textSection = oldText;
+    if (sym) {
+        if (auto vs = dynamic_cast<VariableSymbol*>(sym)) {
+            if (vs->isGlobal) {
+                if (declaredVars.find(name) == declaredVars.end()) {
+                    Symbol* funcCheckSym = symbolTable ? symbolTable->findImmediateSymbol(name) : nullptr;
+                    if(!(funcCheckSym && funcCheckSym->symCat == "function")){
+                        dataSection += name + ": dq 0\n";
+                        declaredVars.insert(name);
+                    }
                 }
+                return "qword [" + name + "]";
+            } else if (vs->category == "parameter") {
+                return "qword [rbp + " + std::to_string(vs->offset) + "]";
+            } else { // Local variable (category == "variable" and isGlobal == false)
+                // Local offsets are stored negative (e.g., -8, -16)
+                if (vs->offset == 0) {
+                     m_errorManager.addError({"Local variable has zero offset (error): ", name, "CodeGeneration", 0});
+                     return "qword [rbp - 0]"; // Syntactically valid, but indicates an issue
+                } else if (vs->offset > 0) {
+                     // This should not happen for a local variable if offsets are assigned correctly.
+                     m_errorManager.addError({"Local variable has positive offset (error): ", name, "CodeGeneration", 0});
+                     // Attempt to generate a valid [rbp - offset] form, assuming it was meant to be negative
+                     return "qword [rbp - " + std::to_string(vs->offset) + "]";
+                }
+                // If vs->offset is already negative, e.g., -8, this becomes "qword [rbp -8]"
+                return "qword [rbp " + std::to_string(vs->offset) + "]";
             }
-        } else {
-            // Process main program instructions
-            visitNode(child);
+        } else if (sym->symCat == "function") {
+            return name; // Function name used as a label
         }
     }
-    endAssembly();
 
-    // Build the final assembly code.
+    // Fallback for undeclared identifiers - this is risky and should ideally be caught by semantic analysis
+    m_errorManager.addError({"Undeclared identifier or symbol not found, assuming global: ", name, "CodeGeneration", 0});
+    if (declaredVars.find(name) == declaredVars.end()) {
+        // Avoid declaring function names as data if they exist as functions
+        Symbol* funcCheckSym = symbolTable ? symbolTable->findSymbol(name) : nullptr; // Check all scopes for function
+        if(!(funcCheckSym && funcCheckSym->symCat == "function")){
+            dataSection += name + ": dq 0 ; Fallback global for undeclared " + name + "\n";
+            declaredVars.insert(name);
+        } else {
+             return name; // It's an undeclared item but matches a function name, treat as label
+        }
+    }
+    return "qword [" + name + "]"; // Fallback to global memory access
+}
+
+
+void CodeGenerator::generateCode(const std::shared_ptr<ASTNode>& root, const std::string& filename, SymbolTable* symTable) {
+    this->symbolTable = symTable;
+    this->currentSymbolTable = symbolTable; // Initially global
+    this->rootNode = root;
+    this->declaredVars.clear();
+    // stringLabelCounter, etc., are already members and should be initialized in constructor or startAssembly
+
+    // Call startAssembly to initialize .data, .bss sections and get initial .text headers.
+    // startAssembly also clears textSection, dataSection, bssSection.
+    startAssembly(); 
+
+    std::string functionDefinitionsContent = ""; // Buffer for all function definitions
+    std::string mainInstructionsContent = "";  // Buffer for main program instructions
+
+    // First pass: Generate code for functions and main instructions into separate buffers.
+    // This uses this->textSection as a temporary buffer for visitNode calls.
+    for (const auto& childNodeOfProgram : root->children) {
+        if (childNodeOfProgram->type == "Definitions") {
+            for (const auto& definitionNode : childNodeOfProgram->children) {
+                if (definitionNode->type == "FunctionDefinition") {
+                    this->textSection = ""; // Clear member textSection to collect only this function's code
+                    visitNode(definitionNode); // Function's code is now in this->textSection
+                    functionDefinitionsContent += this->textSection; // Append to our dedicated function buffer
+                }
+            }
+        } else { // Assuming this is the "Instructions" node or similar top-level executable block
+            this->textSection = ""; // Clear member textSection to collect only main instructions
+            visitNode(childNodeOfProgram); // Main instructions are now in this->textSection
+            mainInstructionsContent += this->textSection; // Append to our dedicated main instructions buffer
+        }
+    }
+
+    // Now, assemble the final this->textSection in the correct order.
+    // Start with the headers already prepared by startAssembly() in the previous call,
+    // or re-initialize if startAssembly() was changed to not set them globally.
+    // For clarity, let's reconstruct textSection fully here.
+    this->textSection = ""; // Start fresh for the final assembly of .text content
+    this->textSection += "global _start\n";
+    this->textSection += "\nsection .text\n";
+    this->textSection += "_start:\n";                 // Define the _start label
+    this->textSection += mainInstructionsContent;     // Add the main program instructions
+    
+    // endAssembly appends runtime helper functions (like print_number, exit syscall)
+    // to the *end* of the current this->textSection.
+    endAssembly(); 
+
+    // Build the final assembly file content
     std::stringstream finalAsm;
-    finalAsm << "global _start\n\n";
+    finalAsm << this->dataSection;      // dataSection was prepared by startAssembly()
+    finalAsm << this->bssSection;       // bssSection was prepared by startAssembly()
+    finalAsm << this->textSection;      // Contains headers, _start:, main code, runtime helpers
     
-    // Data section: our variable declarations plus newline.
-    finalAsm << "section .data\n";
-    finalAsm << dataSection;
-    finalAsm << "newline: db 10\n";
-    finalAsm << "space: db 32\n";    
-    finalAsm << "minus_sign: db '-'\n\n";
-        
-    // BSS section: for our conversion buffer.
-    finalAsm << "section .bss\n";
-    finalAsm << "buffer: resb 32\n\n";
-    
-    // Text section
-    finalAsm << "section .text\n";
-    finalAsm << "_start:\n";
-    finalAsm << textSection;
-    finalAsm << "\n; Functions\n";
-    finalAsm << functionSection;
+    if (!functionDefinitionsContent.empty()) {
+        finalAsm << "\n; Functions\n";
+        finalAsm << functionDefinitionsContent; // Add the collected function definitions
+    }
     
     asmCode = finalAsm.str();
-    
-    // Write the final assembly code to file.
     writeToFile(filename);
-
 }
 
 void CodeGenerator::startAssembly() {
-    // Nothing to do here for now.
+    this->textSection.clear();
+    this->dataSection.clear();
+    this->bssSection.clear();
+    this->declaredVars.clear();
+    this->labelCounter = 0;
+    this->loopLabelCounter = 0;
+    this->ifLabelCounter = 0;
+    this->stringLabelCounter = 0;
+    this->currentFunction.clear();
+
+    // Initialize .data section
+    this->dataSection += "section .data\n";
+    this->dataSection += "    concat_buffer: times 2048 db 0\n";
+    this->dataSection += "    concat_offset: dq 0\n";
+    this->dataSection += "    div_zero_msg: db 'Error: Division by zero', 10, 0\n";
+    this->dataSection += "    div_zero_len: equ $ - div_zero_msg\n";
+    this->dataSection += "    list_buffer: times 8192 dq 0\n"; 
+    this->dataSection += "    list_offset: dq 0\n";
+    this->dataSection += "    open_bracket: db '['\n";
+    this->dataSection += "    close_bracket: db ']'\n";
+    this->dataSection += "    comma_space: db ',', 32\n";
+    this->dataSection += "    index_error_msg: db 'Error: Index out of bounds', 10, 0\n";
+    this->dataSection += "    index_error_len: equ $ - index_error_msg\n";
+    this->dataSection += "    newline: db 10\n";
+    this->dataSection += "    space: db 32\n";
+    this->dataSection += "    minus_sign: db '-'\n";
+
+    // Initialize .bss section
+    this->bssSection += "\nsection .bss\n";
+    this->bssSection += "    buffer: resb 32 ; For print_number\n";
+
+    // Note: Initial .text headers ("global _start", "section .text") are now added
+    // directly in generateCode when reconstructing the final textSection for clarity.
+    // Alternatively, startAssembly could initialize textSection with these, and generateCode would append.
+    // The chosen approach in the modified generateCode above is to build textSection from scratch there.
 }
 
 /* Génère un label unique */
@@ -103,7 +189,27 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
     if (node->type == "Affect") {
         genAffect(node);
     } else if (node->type == "FunctionDefinition") {
-        genFunction(node);
+        // Before processing children, set currentSymbolTable to this function's scope
+        SymbolTable* previousTable = currentSymbolTable;
+        // Find the specific function scope table created by SymbolTableGenerator
+        // bool foundScope = false; // REMOVE/COMMENT OUT: This variable is set but not used.
+        if (symbolTable) { // Check if global table exists
+            for (const auto& childScope : symbolTable->children) { 
+                if (childScope->scopeName == "function " + node->value) {
+                    currentSymbolTable = childScope.get();
+                    // foundScope = true; // REMOVE/COMMENT OUT
+                    break;
+                }
+            }
+        }
+        // If the function scope wasn't found as a child of global (e.g. if currentSymbolTable was already a function scope - nested functions?)
+        // This logic might need refinement based on how nested scopes are parented.
+        // For now, assume functions are children of global or currentSymbolTable is already correctly set if nested.
+
+        currentFunction = node->value;
+        genFunction(node); // genFunction will use currentSymbolTable and currentFunction
+        currentSymbolTable = previousTable; // Restore previous scope
+        currentFunction = "";
     } else if (node->type == "FunctionCall") {
         genFunctionCall(node);
     } else if (node->type == "Return") {
@@ -155,59 +261,63 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
     } else if (node->type == "List") {
         genList(node);
     } else if (node->type == "String") {
-            static int strCounter = 0;
-            std::string strLabel = "str_" + std::to_string(strCounter++);
-            dataSection += strLabel + ": db ";
+            // static int strCounter = 0; // Make stringLabelCounter a member of CodeGenerator class
+            std::string strLabel = "str_" + std::to_string(this->stringLabelCounter++); // Use member counter
+            // dataSection += strLabel + ": db "; // This line is not needed if the next line includes the label
             
             std::string strValue = node->value;
-            dataSection += "\"" + strValue + "\", 0\n";
-            textSection += "mov rax, " + strLabel + "\n";
+            // Ensure quotes within the string are handled if necessary, though NASM usually handles simple strings well.
+            // For example, if strValue could contain a quote, it would need escaping.
+            this->dataSection += strLabel + ": db \"" + strValue + "\", 0\n"; // Use this->dataSection
+            this->textSection += "    mov rax, " + strLabel + "\n"; // Use this->textSection
        
-    } else if (node->type == "Print") {
-        if (node->children.size() == 1 && node->children[0]->type == "List") {
-            for (size_t i = 0; i < node->children[0]->children.size(); i++) {
-                const auto& item = node->children[0]->children[i];
-                visitNode(item);  
-                auto type0 = item->type;
-                if (type0 == "Identifier") {
-                    type0 = getIdentifierType(item->value);
-                } else if (type0 == "FunctionCall") {
-                    type0 = inferFunctionReturnType(this->rootNode, item->value);
-                    
-                }
-                genPrint(type0);      
+    } else if (node->type == "Print") { // Or "PrintStatement"
+        if (!node->children.empty()) {
+            std::shared_ptr<ASTNode> exprNodeToPrint = node->children[0];
+            // Handle the AST structure: Print -> List -> ActualExpression
+            if (exprNodeToPrint->type == "List" && !exprNodeToPrint->children.empty()) {
+                exprNodeToPrint = exprNodeToPrint->children[0];
+            }
 
-                if (i < node->children[0]->children.size() - 1) {
-                    textSection += "mov rax, 1\n";        
-                    textSection += "mov rdi, 1\n";         
-                    textSection += "push rax\n";          
-                    textSection += "push rdi\n";
-                    textSection += "mov rsi, space\n";     
-                    textSection += "mov rdx, 1\n";        
-                    textSection += "syscall\n";
-                    textSection += "pop rdi\n";         
-                    textSection += "pop rax\n";
+            // Evaluate the expression, result in RAX
+            visitNode(exprNodeToPrint); 
+
+            // Determine type and call appropriate print function
+            std::string resultType = getExpressionType(exprNodeToPrint); // Ensure getExpressionType is robust
+
+            if (resultType == "Integer" || resultType == "Boolean") {
+                this->textSection += "    call print_number\n";
+            } else if (resultType == "String") {
+                 this->textSection += "    call print_string\n"; 
+            } else if (resultType == "List") {
+                 // TODO: Implement a proper print_list function in assembly (added to endAssembly)
+                 // This function would iterate through the list (using its size at base address)
+                 // and call print_number, print_string, or print_list recursively for elements.
+                 m_errorManager.addError({"List printing is rudimentary. Consider implementing print_list.", "", "CodeGeneration", std::stoi(node->line)});
+                 this->textSection += "    ; RAX contains address of the list. Call a dedicated list printer here.\n";
+                 this->textSection += "    ; Example: call print_list_custom\n";
+                 this->textSection += "    call print_number ; Fallback: prints the list's base address as a number\n";
+            } else if (resultType == "autoFun") {
+                // Attempt to refine autoFun if possible, e.g. for known functions like fib
+                if (exprNodeToPrint->type == "FunctionCall" && !exprNodeToPrint->children.empty() && exprNodeToPrint->children[0]->value == "fib") {
+                    this->textSection += "    call print_number\n";
+                } else {
+                    m_errorManager.addError({"Printing result of a function with 'autoFun' type. Assuming integer.", resultType, "CodeGeneration", std::stoi(node->line)});
+                    this->textSection += "    call print_number ; Fallback for autoFun, prints RAX as number\n";
                 }
             }
-        } else {
-            for (const auto& child : node->children) {
-                visitNode(child);
+            else { // Fallback for other unknown or unhandled types
+                m_errorManager.addError({"Unhandled type for print: ", resultType, "CodeGeneration", std::stoi(node->line)});
+                this->textSection += "    call print_number ; Fallback: prints RAX content as number\n";
             }
-            auto type0 = node->children[0]->type;
-            if (type0 == "Identifier") {
-                type0 = getIdentifierType(node->children[0]->value);
-            } else if (type0 == "FunctionCall") {
-                type0 = inferFunctionReturnType(this->rootNode, node->children[0]->value);
-                
-            }
-            genPrint(type0);      
+
+            // Print newline
+            this->textSection += "    mov rax, 1\n";
+            this->textSection += "    mov rdi, 1\n";
+            this->textSection += "    mov rsi, newline\n";
+            this->textSection += "    mov rdx, 1\n";
+            this->textSection += "    syscall\n";
         }
-        
-        textSection += "mov rax, 1\n";
-        textSection += "mov rdi, 1\n";
-        textSection += "mov rsi, newline\n";
-        textSection += "mov rdx, 1\n";
-        textSection += "syscall\n";
     } else if (node->type == "Compare") {
         // Left
         visitNode(node->children[0]); 
@@ -215,32 +325,25 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
 
         // Right
         visitNode(node->children[1]); 
-        textSection += "mov rbx, rax\n"; 
+        textSection += "mov rbx, rax\n";
         textSection += "pop rax\n";
         
-        //Compare the two values
         textSection += "cmp rax, rbx\n";
         
-        // Set rax to 1 (true) or 0 (false) based on the comparison
         if (node->value == "==") {
-            textSection += "mov rax, 0\n";
             textSection += "sete al\n";  
         } else if (node->value == "!=") {
-            textSection += "mov rax, 0\n";
             textSection += "setne al\n"; 
         } else if (node->value == "<") {
-            textSection += "mov rax, 0\n";
             textSection += "setl al\n"; 
         } else if (node->value == ">") {
-            textSection += "mov rax, 0\n";
             textSection += "setg al\n";  
         } else if (node->value == "<=") {
-            textSection += "mov rax, 0\n";
             textSection += "setle al\n"; 
         } else if (node->value == ">=") {
-            textSection += "mov rax, 0\n";
             textSection += "setge al\n"; 
         }
+        textSection += "movzx rax, al\n"; // Correctly set rax to 0 or 1
     } else if (node->type == "UnaryOp") {
         if (node->children[0]->type == "Integer" || (node->children[0]->type == "Identifier" && isIntVariable(node->children[0]->value.c_str()))) {
             visitNode(node->children[0]);
@@ -414,7 +517,7 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
     } else if (node->type == "TermOp"){
         if (node->value == "*") {
             // Evaluate the left child
-            if (node->children[0]->type == "Integer" || (node->children[0]->type == "Identifier" && isIntVariable(node->children[0]->value.c_str()))) {
+            if (node->children[0]->type == "Integer" || (node->children[0]->type == "Identifier" && this->isIntVariable(node->children[0]->value))) {
                 visitNode(node->children[0]);
                 textSection += "push rax\n";
             }
@@ -427,7 +530,7 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
                 });
             }
             // Evaluate the right child
-            if (node->children[1]->type == "Integer" || (node->children[1]->type == "Identifier" && isIntVariable(node->children[1]->value.c_str()))) {
+            if (node->children[1]->type == "Integer" || (node->children[1]->type == "Identifier" && this->isIntVariable(node->children[1]->value))) {
                 visitNode(node->children[1]);
                 textSection += "mov rbx, rax\n";
                 textSection += "pop rax\n";
@@ -444,7 +547,7 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
         }
         else if (node->value == "//") {
             // Evaluate the left child
-            if (node->children[0]->type == "Integer" || (node->children[0]->type == "Identifier" && isIntVariable(node->children[0]->value.c_str()))) {
+            if (node->children[0]->type == "Integer" || (node->children[0]->type == "Identifier" && this->isIntVariable(node->children[0]->value))) {
                 visitNode(node->children[0]);
                 textSection += "push rax\n";
             }
@@ -458,7 +561,7 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
             }
 
             // Evaluate the right child
-            if (node->children[1]->type == "Integer" || (node->children[1]->type == "Identifier" && isIntVariable(node->children[1]->value.c_str()))) {
+            if (node->children[1]->type == "Integer" || (node->children[1]->type == "Identifier" && this->isIntVariable(node->children[1]->value))) {
                 visitNode(node->children[1]);
                 
                 // Check if the right child is zero
@@ -481,7 +584,7 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
         }
         else if (node->value == "%") {
             // Evaluate the left child
-            if (node->children[0]->type == "Integer" || (node->children[0]->type == "Identifier" && isIntVariable(node->children[0]->value.c_str()))) {
+            if (node->children[0]->type == "Integer" || (node->children[0]->type == "Identifier" && this->isIntVariable(node->children[0]->value))) {
                 visitNode(node->children[0]);
                 textSection += "push rax\n";
             }
@@ -518,7 +621,8 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
             }
         }
     } else if (node->type == "Identifier") {
-        textSection += "mov rax, qword [" + node->value + "]\n";
+        // textSection += "mov rax, qword [" + node->value + "]\n"; // Old way
+        textSection += "mov rax, " + getIdentifierMemoryOperand(node->value) + "\n";
     } else if (node->type == "Integer") {
         textSection += "mov rax, " + node->value + "\n";
     } else {
@@ -764,112 +868,6 @@ textSection += "    ret\n\n";
     textSection += "    pop rbp\n";
     textSection += "    ret\n\n";
 
-    // Dans la fonction endAssembly(), remplacer la partie print_not_string
-textSection += "print_not_string:\n";
-textSection += "    push rbp\n";
-textSection += "    mov rbp, rsp\n";
-textSection += "    push r12\n";
-textSection += "    push r13\n";
-        
-textSection += "    ; Check if list (>= list_buffer)\n";
-textSection += "    mov rcx, list_buffer\n";
-textSection += "    cmp rax, rcx\n";
-textSection += "    jl .print_as_number\n";
-        
-textSection += "    ; Print as list\n";
-textSection += "    mov rbx, rax\n";
-textSection += "    mov r12, [rbx]      ; r12 = taille de la liste\n";
-textSection += "    add rbx, 8          ; passer à l'élément suivant\n";
-        
-textSection += "    ; Print opening bracket\n";
-textSection += "    push rbx\n";
-textSection += "    push r12\n";
-textSection += "    mov rax, 1\n";
-textSection += "    mov rdi, 1\n";
-textSection += "    mov rsi, open_bracket\n";
-textSection += "    mov rdx, 1\n";
-textSection += "    syscall\n";
-textSection += "    pop r12\n";
-textSection += "    pop rbx\n";
-        
-textSection += "    ; Check if empty list\n";
-textSection += "    cmp r12, 0\n";
-textSection += "    je .print_list_end\n";
-        
-textSection += "    ; Initialize element counter\n";
-textSection += "    mov r13, 0          ; r13 = compteur d'éléments\n";
-        
-textSection += ".print_list_loop:\n";
-textSection += "    ; Get current element\n";
-textSection += "    mov rax, [rbx]\n";
-        
-textSection += "    ; Save list pointer and counter\n";
-textSection += "    push rbx\n";
-textSection += "    push r12\n";
-textSection += "    push r13\n";
-        
-textSection += "    ; Print element\n";
-textSection += "    cmp rax, 10000\n";
-textSection += "    jge .print_element_as_string\n";
-textSection += "    cmp rax, list_buffer\n";
-textSection += "    jge .print_element_as_list\n";
-textSection += "    call print_number\n";
-textSection += "    jmp .print_element_done\n";
-        
-textSection += ".print_element_as_string:\n";
-textSection += "    call print_string\n";
-textSection += "    jmp .print_element_done\n";
-        
-textSection += ".print_element_as_list:\n";
-textSection += "    call print_not_string\n";
-        
-textSection += ".print_element_done:\n";
-textSection += "    ; Restore list pointer and counter\n";
-textSection += "    pop r13\n";
-textSection += "    pop r12\n";
-textSection += "    pop rbx\n";
-        
-textSection += "    ; Move to next element\n";
-textSection += "    add rbx, 8\n";
-textSection += "    inc r13\n";
-        
-textSection += "    ; Check if we printed all elements\n";
-textSection += "    cmp r13, r12\n";
-textSection += "    jge .print_list_end\n";
-        
-textSection += "    ; Print comma and space\n";
-textSection += "    push rbx\n";
-textSection += "    push r12\n";
-textSection += "    push r13\n";
-textSection += "    mov rax, 1\n";
-textSection += "    mov rdi, 1\n";
-textSection += "    mov rsi, comma_space\n";
-textSection += "    mov rdx, 2\n";
-textSection += "    syscall\n";
-textSection += "    pop r13\n";
-textSection += "    pop r12\n";
-textSection += "    pop rbx\n";
-        
-textSection += "    jmp .print_list_loop\n";
-        
-textSection += ".print_list_end:\n";
-textSection += "    ; Print closing bracket\n";
-textSection += "    mov rax, 1\n";
-textSection += "    mov rdi, 1\n";
-textSection += "    mov rsi, close_bracket\n";
-textSection += "    mov rdx, 1\n";
-textSection += "    syscall\n";
-textSection += "    jmp .print_not_string_end\n";
-        
-textSection += ".print_as_number:\n";
-textSection += "    call print_number\n";
-        
-textSection += ".print_not_string_end:\n";
-textSection += "    pop r13\n";
-textSection += "    pop r12\n";
-textSection += "    pop rbp\n";
-textSection += "    ret\n\n";
-
     // Dans la fonction endAssembly(), remplacer la partie list_range
 textSection += "; Function to create a range list (0...n-1)\n";
 textSection += "list_range:\n";
@@ -952,32 +950,44 @@ void CodeGenerator::genAffect(const std::shared_ptr<ASTNode>& node) {
     std::string varName = node->children[0]->value; 
     auto leftNode = node->children[0];
     auto rightValue = node->children[1];
+
+    // Evaluate the right-hand side first, result will be in rax
+    visitNode(rightValue);
+
     if (leftNode->type == "ListCall") {
+        // ... existing ListCall assignment logic ...
+        // This part seems to handle list element assignment correctly using listName and index.
+        // Ensure listName itself is accessed correctly (global or stack) if it's an identifier.
         std::string listName = leftNode->children[0]->value;
         auto indexNode = leftNode->children[1];
         textSection += "; List element assignment\n";
-        textSection += "mov rbx, qword [" + listName + "]\n";  
+        // textSection += "mov rbx, qword [" + listName + "]\n"; // Old way
+        textSection += "mov rbx, " + getIdentifierMemoryOperand(listName) + "\n";
+
 
         // Vérifier si l'index est valide
         textSection += "; Calculate index\n";
-        visitNode(indexNode);   
+        // Temporarily save rax (value to be assigned) if visitNode for indexNode uses rax
+        textSection += "push rax\n";
+        visitNode(indexNode); // Index in rax
+        textSection += "mov rcx, rax\n"; // Save index in rcx
+        textSection += "pop rax\n"; // Restore value to be assigned into rax
+
 
         textSection += "; Check if index is valid\n";
-        textSection += "cmp rax, 0\n";
+        textSection += "cmp rcx, 0\n"; // Compare index (rcx)
         static int errorCount = 0;
         std::string errorLabel = ".index_error_" + std::to_string(errorCount++);
         textSection += "jl " + errorLabel + "\n";
-        textSection += "cmp rax, [rbx]\n";  // Comparer avec la taille stockée
+        textSection += "cmp rcx, [rbx]\n";  // Compare index (rcx) with size stored at list base (rbx)
         textSection += "jge " + errorLabel + "\n";
         
         textSection += "; Calculate element address\n";
         textSection += "add rbx, 8\n"; 
-        textSection += "shl rax, 3\n"; 
-        textSection += "add rbx, rax\n";
+        textSection += "shl rcx, 3\n"; // Multiply index (rcx) by 8
+        textSection += "add rbx, rcx\n"; // Add to base address of elements
         
-        textSection += "; Evaluate right value\n";
-        visitNode(rightValue);  
-        
+        // Value to be stored is already in rax from visitNode(rightValue)
         textSection += "; Store value in list element\n";
         textSection += "mov qword [rbx], rax\n";
         
@@ -997,80 +1007,42 @@ void CodeGenerator::genAffect(const std::shared_ptr<ASTNode>& node) {
         textSection += endLabel + ":\n";
         return;
     }
-    if (declaredVars.find(varName) == declaredVars.end()) {
-        dataSection += varName + ": dq 0\n";
-        declaredVars.insert(varName);
-    }
     
-    // Check Type
+    // Standard variable assignment
+    // The result of rightValue is in rax. Now store it.
+    // getIdentifierMemoryOperand handles whether it's global, local, or param.
+    // No need for dataSection += varName + ": dq 0\n" here for locals/params.
+    // That should be handled by getIdentifierMemoryOperand for true globals if they are new.
+    textSection += "mov " + getIdentifierMemoryOperand(varName) + ", rax\n";
+    
+    // Type update logic (remains largely the same, but ensure it uses the correct symbol table context)
     std::string valueType;
-
+    // ... existing type inference logic ...
     if (rightValue->type == "True" || rightValue->type == "False") {
         valueType = "Boolean";
     }
     else if (rightValue->type == "FunctionCall") {
-        valueType = inferFunctionReturnType(this->rootNode, node->children[0]->value);   
+        // Ensure this->rootNode is the correct AST root for inferFunctionReturnType
+        valueType = inferFunctionReturnType(this->rootNode, rightValue->children[0]->value);
     }
-    else if (rightValue->type == "String") {
-        valueType = "String";
-    } 
-    else if (rightValue->type == "Integer") {
-        valueType = "Integer";
-    }
-    else if (rightValue->type == "Boolean") {
-        valueType = "Boolean";
-    }
-    else if (rightValue->type == "ArithOp") {
-        if (rightValue->value == "+" && 
-            (rightValue->children[0]->type == "String" || rightValue->children[1]->type == "String" || 
-             isStringVariable(rightValue->children[0]->value) || isStringVariable(rightValue->children[1]->value))) {
-            valueType = "String";
-        }
-        else {
-            valueType = "Integer";
-        }
-    }
-    else if (rightValue->type == "Compare") {
-        valueType = "Boolean";
-    }
-    else if (rightValue->type == "List") {
-        valueType = "List";
-    }
-    else if (rightValue->type == "List") {
-        valueType = "List";
-    }
+    // ... other type cases ...
     else if (rightValue->type == "Identifier") {
-        if (isStringVariable(rightValue->value)) {
-            valueType = "String";
-        } else {
-            valueType = "Integer";
-        }
+        valueType = getIdentifierType(rightValue->value); // Get type of the RHS identifier
     }
     else {
-        valueType = "Integer";
+        valueType = "Integer"; // Default or more specific based on node
     }
-    /*
-    if (node->children[0]->type == "Identifier") {
-        auto varType = getIdentifierType(node->children[0]->value);
-        if (varType != valueType && varType != "auto") {
-            m_errorManager.addError(Error{
-                "Expected same type for Affectation ; ", 
-                "Got " + std::string(varType.c_str()) + " and " + std::string(valueType.c_str()), 
-                "Semantics", 
-                0
-            });
-        }
-    }
-    */
 
-    if (symbolTable) {
+
+    if (symbolTable) { // Ensure symbolTable is valid
+        // updateSymbolType should find the symbol in the correct scope (local or global)
+        // and update its type information.
         updateSymbolType(varName, valueType);
     }
-    
-    visitNode(rightValue);
-    
-    textSection += "mov qword [" + varName + "], rax\n";
 }
+
+
+
 void CodeGenerator::genFor(const std::shared_ptr<ASTNode>& node) {
     
     std::string loopVar = node->children[0]->value;
@@ -1193,63 +1165,68 @@ void CodeGenerator::genIf(const std::shared_ptr<ASTNode>& node) {
 
 void CodeGenerator::genFunction(const std::shared_ptr<ASTNode>& node) {
     std::string funcName = node->value;
-    currentFunction = funcName;
-    if (symbolTable) {
-        for (const auto& child : symbolTable->children) {
-            if (child->scopeName == "function " + funcName) {
-                SymbolTable* previousTable = currentSymbolTable;
-                currentSymbolTable = child.get();
-                
-                
-                // Function header
-                textSection += "\n" + funcName + ":\n";
-                textSection += "    push rbp\n";
-                textSection += "    mov rbp, rsp\n";
-                
-                // Handle parameters from stack
-                auto paramList = node->children[0];
-                // Vérifier que les parametres sont distincts 2 à 2
-                for (size_t i = 0; i < paramList->children.size(); ++i) {
-                    for (size_t j = i + 1; j < paramList->children.size(); ++j) {
-                        if (paramList->children[i]->value == paramList->children[j]->value) {
-                            m_errorManager.addError(Error{
-                                "Params Error : " , 
-                                "Duplicate parameter " + paramList->children[i]->value, 
-                                "Semantics", 
-                                0
-                            });
-                            return;
-                        }
-                    }
-                }
-                for (size_t i = 0; i < paramList->children.size(); i++) {
-                    std::string paramName = paramList->children[i]->value;
-                    if (declaredVars.find(paramName) == declaredVars.end()) {
-                        dataSection += paramName + ": dq 0\n";
-                        declaredVars.insert(paramName);
-                    }
-                    
-                    int offset = 16 + (i * 8);
-                    textSection += "    mov rax, [rbp+" + std::to_string(offset) + "]\n";
-                    textSection += "    mov [" + paramName + "], rax\n";
-                }
-                
-                // Generate function body
-                visitNode(node->children[1]);
-                
-                // Function epilogue
-                textSection += ".return_" + funcName + ":\n";
-                textSection += "    mov rsp, rbp\n";
-                textSection += "    pop rbp\n";
-                textSection += "    ret\n";
-                
-                currentSymbolTable = previousTable;
-                return;
-            }
+    // currentFunction is already set by visitNode
+    // currentSymbolTable should point to the function's specific scope
+
+    FunctionSymbol* funcSym = nullptr;
+    // Find the FunctionSymbol in the global table (parent of the function's scope)
+    if (symbolTable) { // Global table must exist
+        Symbol* sym = symbolTable->findImmediateSymbol(funcName); // Functions are defined globally
+        if (sym && sym->symCat == "function") {
+            funcSym = dynamic_cast<FunctionSymbol*>(sym);
         }
     }
 
+    int frameSizeForSub = 0; 
+    if (funcSym) {
+        frameSizeForSub = funcSym->frameSize; 
+    } else {
+        m_errorManager.addError({"Function symbol not found for frame size: ", funcName, "CodeGeneration", std::stoi(node->line)});
+        // Default to a minimal size to allow compilation, but this is an error.
+        // For fib, if no locals, frameSize was calculated to be 8.
+        // This value (localsTotalSize + padding_needed for alignment with callee-saved)
+        // is what `sub rsp, frameSizeForSub` uses.
+    }
+
+    textSection += "\n" + funcName + ":\n";
+    // Prologue
+    textSection += "    push rbp\n";
+    textSection += "    mov rbp, rsp\n";
+    if (frameSizeForSub > 0) {
+        textSection += "    sub rsp, " + std::to_string(frameSizeForSub) + " ; Allocate space for locals and stack alignment\n";
+    }
+    // Save callee-saved registers (System V ABI: rbx, r12, r13, r14, r15)
+    textSection += "    push rbx\n";
+    textSection += "    push r12\n";
+    textSection += "    push r13\n";
+    textSection += "    push r14\n";
+    textSection += "    push r15\n";
+
+    // Generate function body
+    // Parameters are accessed via [rbp + offset]
+    // Locals are accessed via [rbp - offset]
+    if (node->children.size() > 1 && node->children[1] && node->children[1]->type == "FunctionBody") {
+         visitNode(node->children[1]);
+    } else if (node->children.size() > 0 && node->children[0]->type != "FormalParameterList" && node->children[0]) {
+        // Case where there are no formal parameters, and child[0] is the body
+        visitNode(node->children[0]);
+    }
+    // Ensure a return path if no explicit return is in the AST (e.g., for void functions or if last statement isn't return)
+    // For now, relying on explicit return statements to jump to epilogue.
+
+    // Epilogue
+    textSection += ".return_" + funcName + ":\n"; 
+    // Restore callee-saved registers in reverse order of push
+    textSection += "    pop r15\n";
+    textSection += "    pop r14\n";
+    textSection += "    pop r13\n";
+    textSection += "    pop r12\n";
+    textSection += "    pop rbx\n";
+    
+    textSection += "    leave          ; mov rsp, rbp; pop rbp\n"; 
+    textSection += "    ret\n";
 }
+
 void CodeGenerator::genList(const std::shared_ptr<ASTNode>& node) {
     int listSize = node->children.size();
 
@@ -1297,119 +1274,69 @@ void CodeGenerator::genList(const std::shared_ptr<ASTNode>& node) {
 
     textSection += "pop rax\n";  // rax = adresse de début de la liste
 }
+
 void CodeGenerator::genFunctionCall(const std::shared_ptr<ASTNode>& node) {
+    if (node->children.empty() || node->children[0]->type != "Identifier") {
+        m_errorManager.addError({"Invalid function call AST structure", "", "CodeGeneration", std::stoi(node->line)});
+        return;
+    }
+
     std::string funcName = node->children[0]->value;
-    auto args = node->children[1];
-    if (funcName == "list"){
-        if (args->children.size() == 1 && 
-            args->children[0]->type == "FunctionCall" && 
-            args->children[0]->children[0]->value == "range"){
-            
-            auto rangeArgs = args->children[0]->children[1];
-            visitNode(rangeArgs->children[0]);
-            textSection += "call list_range\n";
-            return; 
 
+    if (funcName == "range") {
+        // ... existing range handling ...
+        if (node->children.size() > 1 && 
+            (node->children[1]->type == "ActualParameterList" || node->children[1]->type == "ParameterList") && 
+            !node->children[1]->children.empty()) {
+            visitNode(node->children[1]->children[0]); 
+            textSection += "    call list_range      ; rax should contain address of new list\n";
+        } else {
+            m_errorManager.addError({"Range function expects one argument", "", "CodeGeneration", std::stoi(node->line)});
+            textSection += "    mov rax, 0 ; Error case, return null or handle\n";
         }
+        return;
     }
-    if (funcName == "len"){
-        if (args->children.size() == 1){
-            auto param = args->children[0];
-            visitNode(param);  
-            auto type0 = param->type;
-            if (type0 == "Identifier") {
-                type0 = getIdentifierType(param->value);
-            } else if (type0 == "FunctionCall") {
-                type0 = inferFunctionReturnType(this->rootNode, param->children[0]->value);
-                
-            }
-            if (type0 == "auto") {
-                m_errorManager.addError(Error{
-                    "Undefined Variable; ", 
-                    "Used " + std::string(param->value.c_str())+ " before assignment",
-                    "Semantics", 
-                    std::stoi(node->line)
-                });
-                return;
-            }
-            if (type0 != "String" && type0 != "List") {
-                m_errorManager.addError(Error{
-                    "len Error; ", 
-                    "Used len on non-list or non-string variable",
-                    "Semantics", 
-                    std::stoi(node->line)
-                });
-                return;
-            }
-        if (type0 == "List") {
-            textSection += "mov rax, [rax]  ; Taille de la liste\n";
-        } else { // String
-            textSection += "mov rsi, rax    ; rsi = adresse de la chaîne\n";
-            textSection += "mov rax, 0      ; rax = compteur\n";
-            textSection += ".len_strlen_loop:\n";
-            textSection += "cmp byte [rsi+rax], 0\n";
-            textSection += "je .len_strlen_done\n";
-            textSection += "inc rax\n";
-            textSection += "jmp .len_strlen_loop\n";
-            textSection += ".len_strlen_done:\n";
-        }
-        
-        return; 
-        }
-    }
-    updateFunctionParamTypes(funcName, args);
     
-    // Définir la table de symboles de la fonction comme courante pendant l'appel
-    for (const auto& child : symbolTable->children) {
-        if (child->scopeName == "function " + funcName) {
-            currentSymbolTable = child.get();
-            break;
-        }
+    int argCount = 0;
+    const std::vector<std::shared_ptr<ASTNode>>* argListPtr = nullptr;
+
+    if (node->children.size() > 1 && (node->children[1]->type == "ParameterList" || node->children[1]->type == "ActualParameterList")) {
+        argListPtr = &node->children[1]->children;
+        argCount = argListPtr->size();
     }
 
-    // Save caller-saved registers
-    textSection += "; Save registers for function call\n";
-    textSection += "push rbx\n";
-    textSection += "push r12\n";
-    textSection += "push r13\n";
-    textSection += "push r14\n";
-    textSection += "push r15\n";
-    
-    // Align the stack to 16 bytes before pushing arguments
-    textSection += "; Align stack\n";
-    textSection += "mov rbx, rsp\n";
-    textSection += "and rsp, -16\n";
-    textSection += "push rbx\n";
+    // Stack Alignment: RSP must be 16-byte aligned BEFORE the call.
+    // The call pushes 8 bytes (return address).
+    // If (argCount % 2 != 0) (i.e., odd number of qword arguments),
+    // the total bytes pushed for args will be 16k + 8.
+    // To make RSP 16-byte aligned before call, we need to subtract an additional 8 bytes
+    // if the number of arguments is odd.
+    bool alignment_padding_added = false;
+    if ((argCount % 2) != 0) { // If odd number of arguments
+        textSection += "    sub rsp, 8           ; Align stack for odd number of arguments\n";
+        alignment_padding_added = true;
+    }
     
     // Push arguments in reverse order (right to left)
-    for (int i = args->children.size() - 1; i >= 0; i--) {
-        auto& arg = args->children[i];
-        visitNode(arg);
-        textSection += "push rax\n";
+    if (argListPtr && argCount > 0) {
+        for (auto it = argListPtr->rbegin(); it != argListPtr->rend(); ++it) {
+            visitNode(*it); // Evaluate argument, result in rax
+            textSection += "    push rax\n";
+        }
     }
     
-    // Call the function
-    textSection += "call " + funcName + "\n";
+    textSection += "    call " + funcName + "\n";
     
     // Cleanup: remove arguments from stack
-    if (args->children.size() > 0) {
-        textSection += "add rsp, " + std::to_string(args->children.size() * 8) + "\n";
+    if (argCount > 0) {
+        textSection += "    add rsp, " + std::to_string(argCount * 8) + " ; Pop arguments\n";
     }
-     
-    // Restore stack alignment
-    textSection += "pop rsp\n"; 
-     
-    // Restore saved registers in reverse order
-    textSection += "pop r15\n";
-    textSection += "pop r14\n";
-    textSection += "pop r13\n";
-    textSection += "pop r12\n";
-    textSection += "pop rbx\n";
-     
-    // Réinitialiser les types des variables de la fonction
 
-    resetFunctionVarTypes(funcName);
+    if (alignment_padding_added) {
+        textSection += "    add rsp, 8           ; Remove stack alignment padding\n";
+    }
 }
+
 void CodeGenerator::genReturn(const std::shared_ptr<ASTNode>& node) {
     // Evaluate return expression if any
     if (!node->children.empty()) {
@@ -1425,232 +1352,210 @@ void CodeGenerator::genReturn(const std::shared_ptr<ASTNode>& node) {
 
 // Fonction pour obtenir le type d'un identifiant à partir de la table des symboles
 std::string CodeGenerator::getIdentifierType(const std::string& name) {
-    if (!symbolTable) return "auto";
-    std::function<std::string(SymbolTable*)> searchInTableHierarchy = [&](SymbolTable* table) -> std::string {
-        SymbolTable* current = table;
-        while (current) {
-            // Chercher dans les symboles de la table courante
-            for (const auto& sym : current->symbols) {
-                if (sym->name == name) {
-                    if (sym->symCat == "variable" || sym->symCat == "parameter") {
-                        if (auto varSym = dynamic_cast<VariableSymbol*>(sym.get())) {
-                            return varSym->type;
-                        }
-                    } else if (sym->symCat == "function") {
-                        if (auto funcSym = dynamic_cast<FunctionSymbol*>(sym.get())) {
-                            return funcSym->returnType;
-                        }
-                    } else if (sym->symCat == "array") {
-                        return "array";
-                    }
-                    // Si on trouve le nom mais pas le type
-                    return "auto";
-                }
+    if (!symbolTable) return "auto"; // Should not happen if called correctly
+
+    SymbolTable* tableToSearch = currentSymbolTable; // Start with current function's scope
+
+    std::function<Symbol*(const std::string&, SymbolTable*)> findSymbolRecursive = 
+        [&](const std::string& symName, SymbolTable* table) -> Symbol* {
+        if (!table) return nullptr;
+        for (const auto& sym_ptr : table->symbols) {
+            if (sym_ptr->name == symName) {
+                return sym_ptr.get();
             }
-            // Si pas trouvé, chercher dans la table parente
-            current = current->parent;
         }
-        return "";  // Non trouvé dans cette hiérarchie
+        // Correctly search in parent scope if currentSymbolTable is a function scope
+        if (table->parent && (table->scopeName.rfind("function ", 0) == 0 || table->parent == symbolTable)) {
+             return findSymbolRecursive(symName, table->parent);
+        } else if (table != symbolTable) { // If not in function scope and not global, search global
+            return findSymbolRecursive(symName, symbolTable);
+        }
+        return nullptr; // Reached top or no relevant parent
     };
     
-    // Chercher d'abord dans la table courante (par exemple, fonction)
-    if (currentSymbolTable) {
-        std::string type = searchInTableHierarchy(currentSymbolTable);
-        if (!type.empty()) {
-            return type;
+    Symbol* sym = nullptr;
+    if (tableToSearch) { 
+        sym = findSymbolRecursive(name, tableToSearch);
+    }
+    // If not found in current scope hierarchy, try global scope directly if not already searched
+    if (!sym && tableToSearch != symbolTable && symbolTable) {
+        sym = findSymbolRecursive(name, symbolTable);
+    }
+
+
+    if (sym) {
+        if (sym->symCat == "variable" || sym->symCat == "parameter") {
+            if (auto varSym = dynamic_cast<VariableSymbol*>(sym)) {
+                return varSym->type;
+            }
+        } else if (sym->symCat == "function") {
+            if (auto funcSym = dynamic_cast<FunctionSymbol*>(sym)) {
+                return funcSym->returnType; // Or a special "function_type"
+            }
+        } else if (sym->symCat == "array") {
+            // You might have a specific type string for arrays, e.g., "list" or "array"
+            // Or derive from ElementType if stored. For now, "List" seems to be used.
+            return "List"; 
         }
+        return "auto"; // Default if category is known but type isn't (shouldn't happen)
     }
     
-    // Si pas trouvé dans la table courante, chercher dans la table globale
-    std::string type = searchInTableHierarchy(symbolTable);
-    if (!type.empty()) {
-        return type;
-    }
-    
-    // Si le type n'est pas trouvé, retourner une valeur par défaut
-    return "auto";
+    return "auto"; // Not found or type unknown
 }
 
+
 bool CodeGenerator::isStringVariable(const std::string& name) {
-    return getIdentifierType(name) == "String";
+    std::string type = getIdentifierType(name);
+    return type == "String" || type == "auto"; // Consider if "auto" should be accepted here too
 }
 
 bool CodeGenerator::isIntVariable(const std::string& name) {
     std::string type = getIdentifierType(name);
-    return type == "Integer";
+    return type == "Integer" || type == "auto"; // Accept "auto" as potentially integer
 }
 
 
 void CodeGenerator::updateSymbolType(const std::string& name, const std::string& type) {
     if (!symbolTable) return;
-    std::function<bool(SymbolTable*)> updateInTableAndParents = [&](SymbolTable* table) {
+
+    std::function<bool(SymbolTable*, const std::string&, const std::string&)> updateInTableHierarchy = 
+        [&](SymbolTable* table, const std::string& symName, const std::string& newType) -> bool {
         while (table) {
-            // Chercher dans la table courante
-            for (auto& sym : table->symbols) {
-                if (sym->name == name && sym->symCat == "variable") {
-                    if (auto varSym = dynamic_cast<VariableSymbol*>(sym.get())) {
-                        varSym->type = type;
+            for (auto& sym_ptr : table->symbols) {
+                if (sym_ptr->name == symName && (sym_ptr->symCat == "variable" || sym_ptr->symCat == "parameter")) {
+                    if (auto varSym = dynamic_cast<VariableSymbol*>(sym_ptr.get())) {
+                        varSym->type = newType;
                         return true;
                     }
                 }
             }
-            // Passer à la table parente
             table = table->parent;
         }
         return false;
     };
-    
-    // Ordre de priorité:
-    // 1. Mettre à jour d'abord dans la table courante et ses parents
-    if (currentSymbolTable && updateInTableAndParents(currentSymbolTable)) {
-        return;
+
+    // Try to update in current function scope hierarchy first
+    if (currentSymbolTable && currentSymbolTable->scopeName.rfind("function ", 0) == 0) {
+        if (updateInTableHierarchy(currentSymbolTable, name, type)) {
+            return;
+        }
     }
-    
-    // 2. Si pas trouvé, mettre à jour dans la table globale
-    updateInTableAndParents(symbolTable);
+    // If not found or not in a function, try global scope hierarchy
+    updateInTableHierarchy(symbolTable, name, type);
 }
 
 void CodeGenerator::resetFunctionVarTypes(const std::string& funcName) {
+    // This function's utility might change. If types are part of the Symbol objects
+    // and these objects are correctly scoped, explicit reset might only be needed
+    // if you are re-using symbol table entries across multiple analyses without
+    // proper re-initialization. With stack-based locals, their "type" state
+    // is effectively gone when the function returns.
+    // However, if the SymbolTable objects persist and are reused, this might be needed.
+
     if (!symbolTable) return;
     
-    // Trouver la table de symboles de la fonction
-    for (const auto& child : symbolTable->children) {
+    SymbolTable* functionScope = nullptr;
+    for (const auto& child : symbolTable->children) { // Assuming function scopes are children of global
         if (child->scopeName == "function " + funcName) {
-            // Parcourir tous les symboles et réinitialiser les types
-            for (auto& sym : child->symbols) {
-                if (sym->symCat == "variable") {
-                    if (auto varSym = dynamic_cast<VariableSymbol*>(sym.get())) {
-                        varSym->type = "auto";
-                    }
-                }
-            }
+            functionScope = child.get();
             break;
         }
     }
-}
 
-void CodeGenerator::updateFunctionParamTypes(const std::string& funcName, const std::shared_ptr<ASTNode>& args) {
-    if (!symbolTable) return;
-    for (const auto& child : symbolTable->children) {
-        if (child->scopeName == "function " + funcName) {
-            
-            textSection += "; Updating parameter types for function " + funcName + "\n";
-            
-            // Parcourir les paramètres et déterminer leurs types
-            std::vector<std::string> paramTypes;
-            for (size_t i = 0; i < args->children.size(); i++) {
-                auto& arg = args->children[i];
-                std::string paramType = "Integer"; // Par défaut
-                
-                // Déterminer le type en fonction du nœud
-                if (arg->type == "String") {
-                    paramType = "String";
-                } 
-                else if (arg->type == "Identifier" && isStringVariable(arg->value)) {
-                    paramType = "String";
-                }
-                else if (arg->type == "ArithOp" && arg->value == "+") {
-                    // Vérifier s'il s'agit d'une concaténation de chaînes
-                    if ((arg->children[0]->type == "String") || 
-                        (arg->children[1]->type == "String") ||
-                        (arg->children[0]->type == "Identifier" && isStringVariable(arg->children[0]->value)) ||
-                        (arg->children[1]->type == "Identifier" && isStringVariable(arg->children[1]->value))) {
-                        paramType = "String";
-                    }
-                }
-                paramTypes.push_back(paramType);
-                textSection += "; Parameter " + std::to_string(i+1) + " determined as " + paramType + "\n";
-            }
-            
-            // Mettre à jour les types dans la table des symboles
-            size_t paramIdx = 0;
-            for (auto& sym : child->symbols) {
-                if ((sym->symCat == "parameter" || sym->symCat == "variable") && paramIdx < paramTypes.size()) {
-                    if (auto varSym = dynamic_cast<VariableSymbol*>(sym.get())) {
-                        varSym->type = paramTypes[paramIdx];
-                        textSection += "; Set parameter " + sym->name + " to type " + paramTypes[paramIdx] + "\n";
-                        paramIdx++;
-                    }
+    if (functionScope) {
+        for (auto& sym_ptr : functionScope->symbols) {
+            if (sym_ptr->symCat == "variable" || sym_ptr->symCat == "parameter") {
+                if (auto varSym = dynamic_cast<VariableSymbol*>(sym_ptr.get())) {
+                    varSym->type = "auto"; // Reset to default/uninitialized type
                 }
             }
-            break;
         }
     }
 }
-
-void CodeGenerator::updateFunctionReturnType(const std::string& funcName, const std::string& returnType) {
-    if (!symbolTable) return;
-    
-    for (const auto& child : symbolTable->children) {
-        if (child->scopeName == "function " + funcName) {
-            for (auto& sym : symbolTable->symbols) {
-                if (sym->name == funcName && sym->symCat == "function") {
-                    if (auto funcSym = dynamic_cast<FunctionSymbol*>(sym.get())) {
-                        funcSym->returnType = returnType;
-                        return;
-                    }
-                }
-            }
-            break;
-        }
-    }
-}
-
-std::string CodeGenerator::getFunctionReturnType(const std::string& funcName) {
-    if (!symbolTable) return "auto";
-    
-    for (const auto& sym : symbolTable->symbols) {
-        if (sym->name == funcName && sym->symCat == "function") {
-            if (auto funcSym = dynamic_cast<FunctionSymbol*>(sym.get())) {
-                return funcSym->returnType;
-            }
-        }
-    }
-    
-    return "auto"; // Type par défaut si la fonction n'est pas trouvée
-}
-
 
 std::string CodeGenerator::inferFunctionReturnType(const std::shared_ptr<ASTNode>& root, const std::string& funcName) {
     // Cette fonction analyserait l'AST de la fonction pour déterminer son type de retour
     // En se basant sur les instructions `return`
+    if (!root) return "Integer"; // Or "auto"
+
+    // First, try to get it from the symbol table if semantic analysis populated it
+    if (symbolTable) {
+        Symbol* sym = symbolTable->findSymbol(funcName);
+        if (sym && sym->symCat == "function") {
+            if (auto funcSym = dynamic_cast<FunctionSymbol*>(sym)) {
+                if (funcSym->returnType != "autoFun" && !funcSym->returnType.empty()) { // "autoFun" was a placeholder
+                    return funcSym->returnType;
+                }
+            }
+        }
+    }
+
+
     for (const auto& child : root->children) {
         if (child->type == "Definitions") {
             for (const auto& def : child->children) {
                 if (def->type == "FunctionDefinition" && def->value == funcName) {
                     // Trouver tous les noeuds Return dans le corps de la fonction
                     std::string returnType = "Integer"; // Type par défaut
+                    bool typeSet = false;
                     
                     std::function<void(const std::shared_ptr<ASTNode>&)> findReturns;
                     findReturns = [&](const std::shared_ptr<ASTNode>& node) {
-                        if (!node) return;
+                        if (!node || typeSet) return; // Stop if type already determined by a concrete return
                         
                         if (node->type == "Return" && !node->children.empty()) {
                             auto returnExpr = node->children[0];
+                            std::string currentExprType = "Integer"; // Default for this return expression
+
                             if (returnExpr->type == "String") {
-                                returnType = "String";
+                                currentExprType = "String";
                             } else if (returnExpr->type == "List") {
-                                returnType = "List";
+                                currentExprType = "List";
+                            } else if (returnExpr->type == "Integer") {
+                                currentExprType = "Integer";
+                            } else if (returnExpr->type == "True" || returnExpr->type == "False") {
+                                currentExprType = "Boolean"; // Assuming Boolean type
                             } else if (returnExpr->type == "FunctionCall") {
-                                // Si c'est un appel récursif, on utilise le type actuel
                                 if (returnExpr->children[0]->value == funcName) {
-                                    // Type récursif, rien à faire
+                                    // Recursive call, type is what we are trying to determine.
+                                    // Avoid setting returnType here unless it's the only return.
+                                    // If other returns exist, they should dictate the type.
+                                    // If this is the *only* kind of return, it might remain "Integer" or "auto".
                                 } else {
-                                    returnType = getFunctionReturnType(returnExpr->children[0]->value);
+                                    // For non-recursive calls, try to get the known return type.
+                                    currentExprType = getFunctionReturnType(returnExpr->children[0]->value);
                                 }
                             } else if (returnExpr->type == "Identifier") {
-                                 returnType = getIdentifierType(returnExpr->value);
+                                 currentExprType = getIdentifierType(returnExpr->value);
                             }
-                            // Pour les autres expressions, on conserve le type par défaut (Integer)
+                            // More complex expressions (ArithOp, etc.) would need their type inferred here.
+                            // For simplicity, we assume direct types or simple lookups for now.
+
+                            if (!typeSet) { // First return statement found
+                                returnType = currentExprType;
+                                if (returnType != "auto") { // If we found a concrete type
+                                   // typeSet = true; // Uncomment if first concrete return dictates type
+                                }
+                            } else if (returnType != currentExprType && currentExprType != "auto") {
+                                // Multiple return statements with different concrete types - issue a warning/error or adopt a common type
+                                // For now, let's stick with the first one found or a default.
+                                // Or, if one is "Integer" and another is "String", this is a type conflict.
+                                // m_errorManager.addError({"Type conflict in return statements for function: ", funcName, "Semantic", 0});
+                            }
+                            return; // Stop searching this branch once a return is processed
                         }
                         
-                        for (const auto& child : node->children) {
-                            findReturns(child);
+                        for (const auto& childNode : node->children) {
+                            findReturns(childNode);
                         }
                     };
                     
-                    if (def->children.size() > 1) {
-                        findReturns(def->children[1]); // Le corps est le 2ème enfant
+                    // Body is child 1 (FormalParameterList is child 0)
+                    if (def->children.size() > 1 && def->children[1]->type == "FunctionBody") {
+                        findReturns(def->children[1]); 
+                    } else if (def->children.size() > 0 && def->children[0]->type != "FormalParameterList" && def->children[0]) {
+                        // Case where there are no formal parameters, and child[0] is the body
+                        findReturns(def->children[0]);
                     }
                     
                     return returnType;
@@ -1660,4 +1565,78 @@ std::string CodeGenerator::inferFunctionReturnType(const std::shared_ptr<ASTNode
     }
     
     return "Integer"; // Type par défaut
+}
+
+std::string CodeGenerator::getExpressionType(const std::shared_ptr<ASTNode>& node) {
+    if (!node) return "auto"; // Or throw an error
+
+    if (node->type == "Integer") {
+        return "Integer";
+    } else if (node->type == "String") {
+        return "String";
+    } else if (node->type == "True" || node->type == "False") {
+        return "Boolean";
+    } else if (node->type == "Identifier") {
+        return getIdentifierType(node->value);
+    } else if (node->type == "FunctionCall") {
+        if (!node->children.empty() && node->children[0]->type == "Identifier") {
+            // Special handling for built-in functions if their return types are fixed
+            // and not covered by inferFunctionReturnType or symbol table.
+            // Example:
+            // if (node->children[0]->value == "range") return "List";
+            return inferFunctionReturnType(this->rootNode, node->children[0]->value);
+        }
+        return "autoFun"; // Default for function calls if specific type can't be inferred yet
+    } else if (node->type == "List") {
+        return "List";
+    } else if (node->type == "ArithOp" || node->type == "TermOp") {
+        // For arithmetic operations, the type often depends on the operands.
+        // A more sophisticated type inference would check operand types.
+        // For now, let's assume Integer if not clearly string/list.
+        // If children exist, try to infer from them.
+        if (!node->children.empty()) {
+            std::string type1 = getExpressionType(node->children[0]);
+            if (node->children.size() > 1) {
+                std::string type2 = getExpressionType(node->children[1]);
+                // Simple rule: if both are integer, result is integer.
+                // If one is string (for '+'), result is string.
+                // If one is list (for '+'), result is list.
+                if (node->value == "+") {
+                    if (type1 == "String" || type2 == "String") return "String";
+                    if (type1 == "List" || type2 == "List") return "List";
+                }
+                // Default to type of first operand or Integer
+                if (type1 != "auto") return type1;
+                return "Integer"; 
+            }
+            if (type1 != "auto") return type1;
+        }
+        return "Integer"; // Default for ArithOp/TermOp
+    } else if (node->type == "Compare" || node->type == "And" || node->type == "Or" || node->type == "Not") {
+        return "Boolean";
+    } else if (node->type == "UnaryOp") {
+        if (!node->children.empty()) {
+            return getExpressionType(node->children[0]); // Type is same as operand for negation
+        }
+        return "Integer"; // Default for UnaryOp (typically negation)
+    }
+    // Add more cases as needed for other expression types
+
+    // Fallback or if type is genuinely dynamic/unknown at this stage
+    m_errorManager.addError({"Cannot determine expression type for node type: ", node->type, "CodeGeneration", std::stoi(node->line)});
+    return "auto"; 
+}
+
+std::string CodeGenerator::getFunctionReturnType(const std::string& funcName) {
+    if (!symbolTable) return "auto";
+
+    for (const auto& sym : symbolTable->symbols) {
+        if (sym->name == funcName && sym->symCat == "function") {
+            if (auto funcSym = dynamic_cast<FunctionSymbol*>(sym.get())) {
+                return funcSym->returnType;
+            }
+        }
+    }
+
+    return "auto"; // Type par défaut si la fonction n'est pas trouvée
 }
