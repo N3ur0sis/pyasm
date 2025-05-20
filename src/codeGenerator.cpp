@@ -956,7 +956,7 @@ void CodeGenerator::genFor(const std::shared_ptr<ASTNode>& node) {
     std::string loopVarName = loopVarNode->value;
     std::string loopVarMem = getIdentifierMemoryOperand(loopVarName);
 
-    // Currently, only 'for x in range(N)' is supported
+    auto type = getExpressionType(iterableNode);
     if (iterableNode->type == "FunctionCall" && 
         !iterableNode->children.empty() &&
         iterableNode->children[0]->type == "Identifier" &&
@@ -1007,7 +1007,45 @@ void CodeGenerator::genFor(const std::shared_ptr<ASTNode>& node) {
         textSection += endLabel + ":\n";
         textSection += "    add rsp, 8        ; Pop range limit N from stack\n";
 
-    } else {
+    } 
+    else if (type == "List"){
+        std::string startLabel = newLabel("for_list_start");
+        std::string endLabel = newLabel("for_list_end");
+        
+        visitNode(iterableNode);
+        
+        textSection += "    ; Itération sur liste\n";
+        textSection += "    push rax          ; Sauvegarder l'adresse de la liste\n";
+        textSection += "    mov rbx, rax      ; rbx = adresse de la liste\n";
+        textSection += "    xor rcx, rcx      ; rcx = 0 (compteur d'itération)\n";
+        
+        textSection += startLabel + ":\n";
+        textSection += "    mov rbx, [rsp]    ; rbx = adresse de la liste (depuis la pile)\n";
+        textSection += "    mov rdx, [rbx]    ; rdx = taille de la liste\n";
+        textSection += "    cmp rcx, rdx      ; comparer compteur avec taille\n";
+        textSection += "    jge " + endLabel + "    ; si compteur >= taille, sortir\n";
+        
+        textSection += "    ; Récupérer l'élément courant\n";
+        textSection += "    lea r8, [rbx + 8]   ; r8 = adresse du premier élément\n";
+        textSection += "    mov r9, rcx        ; r9 = index courant\n";
+        textSection += "    imul r9, 8         ; r9 = décalage en octets (index * 8)\n";
+        textSection += "    mov rax, [r8 + r9] ; rax = liste[rcx] (élément courant)\n";
+        textSection += "    mov " + loopVarMem + ", rax ; assigner à la variable de boucle\n";
+        
+        textSection += "    push rcx           ; Sauvegarder le compteur d'itération\n";
+        
+        textSection += "    ; Corps de la boucle for\n";
+        visitNode(bodyNode);
+        
+        textSection += "    pop rcx            ; Restaurer le compteur\n";
+        
+        textSection += "    inc rcx            ; Incrémenter l'index\n";
+        textSection += "    jmp " + startLabel + "\n";
+        
+        textSection += endLabel + ":\n";
+        textSection += "    add rsp, 8        ; Libérer l'adresse de la liste\n";
+    }
+    else {
         m_errorManager.addError({"Unsupported iterable in for loop. Only range() is supported.", iterableNode->type, "CodeGeneration", std::stoi(iterableNode->line)});
     }
 }
