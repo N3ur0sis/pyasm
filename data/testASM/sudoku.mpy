@@ -1,0 +1,105 @@
+
+def find_empty(tab):
+    for p in range(81):            
+        if tab[p] == 0:
+            return p
+    return -1                       
+
+def is_valid(tab, num, row_a, col_a):
+    row_start = 0
+    for _ in range(row_a):
+        row_start = row_start + 9
+    col_idx = 0
+    for _ in range(col_a):
+        col_idx = col_idx + 1
+    for j in range(9):
+        if tab[row_start + j] == num:
+            return False
+    idx = col_idx
+    for _ in range(9):
+        if tab[idx] == num:
+            return False
+        idx = idx + 9
+    row_mod = 0
+    for _ in range(row_a):
+        row_mod = row_mod + 1
+        if row_mod == 3:
+            row_mod = 0
+    block_top = row_start
+    if row_mod == 1:
+        block_top = block_top - 9
+    if row_mod == 2:
+        block_top = block_top - 18
+    col_mod = 0
+    for _ in range(col_a):
+        col_mod = col_mod + 1
+        if col_mod == 3:
+            col_mod = 0
+    block_left = col_idx
+    if col_mod == 1:
+        block_left = block_left - 1
+    if col_mod == 2:
+        block_left = block_left - 2
+    for r_off in range(3):
+        base = block_top + r_off*9
+        for c_off in range(3):
+            if tab[base + (block_left + c_off)] == num:
+                return False
+    return True
+
+def solve_inner(tab):
+    p = find_empty(tab)
+    if p == -1:
+        return True
+    row_i = p // 9
+    col_i = p - row_i*9
+    for k in range(9):
+        n = k + 1
+        if is_valid(tab, n, row_i, col_i):
+            tab[p] = n
+            if solve_inner(tab):
+                return True
+            tab[p] = 0
+    return False
+
+def solve(board):
+    size = len(board)
+    tab = list(range(size))        
+    i = 0
+    for v in board:
+        tab[i] = v
+        i = i + 1
+    if solve_inner(tab):
+        i = 0
+        for v in tab:              
+            board[i] = v
+            i = i + 1
+        return True
+    return False
+
+initial_board = [5,3,0,0,7,0,0,0,0,6,0,0,1,9,5,0,0,0,0,9,8,0,0,0,0,6,0,8,0,0,0,6,0,0,0,3,4,0,0,8,0,3,0,0,1,7,0,0,0,2,0,0,0,6,0,6,0,0,0,0,2,8,0,0,0,0,4,1,9,0,0,5,0,0,0,0,8,0,0,7,9]
+print(" ")
+print("Grille initiale :")
+print(" ")
+print("+---+---+---+---+---+---+---+---+---+")
+for i in range(9):
+    print("|",initial_board[i*9+0]," ",initial_board[i*9+1]," ",initial_board[i*9+2],"|",initial_board[i*9+3]," ",initial_board[i*9+4]," ",initial_board[i*9+5],"|",initial_board[i*9+6]," ",initial_board[i*9+7]," ",initial_board[i*9+8],"|")
+    ind = i+1
+    if (ind%3) == 0:
+        print("+---+---+---+---+---+---+---+---+---+")
+    else:
+        print("+           +           +           +")
+if solve(initial_board):
+    print(" ")
+    print("Grille résolue :")
+    print(" ")
+    print("+---+---+---+---+---+---+---+---+---+")
+    for i in range(9):
+        print("|",initial_board[i*9+0]," ",initial_board[i*9+1]," ",initial_board[i*9+2],"|",initial_board[i*9+3]," ",initial_board[i*9+4]," ",initial_board[i*9+5],"|",initial_board[i*9+6]," ",initial_board[i*9+7]," ",initial_board[i*9+8],"|")
+        ind = i+1
+        if (ind%3) == 0:
+            print("+---+---+---+---+---+---+---+---+---+")
+        else:
+            print("+           +           +           +")
+else:
+    print("Pas de solution.")
