@@ -2,7 +2,6 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
-// UTIL
 
 
 Parser::Parser(const std::vector<Token>& tokens, ErrorManager& errorManager) 
@@ -41,7 +40,6 @@ bool Parser::expectR(TokenType type) {
         next();
         return true;
     }
-    //std::cerr << "Expected " << Lexer::tokenTypeToString(type) << std::endl;
     m_errorManager.addError(Error{"Expected ", Lexer::tokenTypeToString(type), "Syntax", peek().line});
     continueParsing();
     return false;
@@ -66,8 +64,8 @@ void Parser::continueParsing(){
     }
 }
 
-//FONCTIONS PARSEUR 
 
+//FONCTIONS PARSEUR 
 
 // file -> N D stmt S eof .
 // N -> NEWLINE .
@@ -134,7 +132,7 @@ std::shared_ptr<ASTNode> Parser::parseDefinition() {
         expectR(TokenType::IDF);
         expectR(TokenType::CAR_LPAREN);
         auto formal_param_list = std::make_shared<ASTNode>("FormalParameterList");
-        formal_param_list->line = std::to_string(peek().line); // affecter le numéro de ligne
+        formal_param_list->line = std::to_string(peek().line); 
         tok = peek();
         if (expect(TokenType::IDF)) {
             auto idNode = std::make_shared<ASTNode>("Identifier", tok.value);
@@ -250,7 +248,7 @@ std::shared_ptr<ASTNode> Parser::parsePrimary() {
             node->children.push_back(parseExpr());
             expectR(TokenType::CAR_RBRACKET);
             
-            if (expect(TokenType::OP_EQ)) {                                     // test -> "=" expr .
+            if (expect(TokenType::OP_EQ)) {                                     
                 auto opNode = std::make_shared<ASTNode>("Affect", "=");
                 opNode->line = std::to_string(tok.line);
                 opNode->children.push_back(node);
@@ -278,10 +276,9 @@ std::shared_ptr<ASTNode> Parser::parsePrimary() {
         return notNode;
     }
 
-    //std::cerr << "Unexpected token: " << tok.value << std::endl;
+
     m_errorManager.addError(Error{"Unexpected ", Lexer::tokenTypeToString(tok.type), "Syntax", tok.line});
     continueParsing();
-    //m_errorManager.addError("Parser: Unexpected token: " + tok.value + " (line:" + std::to_string(tok.line) + ")");
     return nullptr;
 }
 
@@ -559,7 +556,6 @@ std::shared_ptr<ASTNode> Parser::parseSimpleStmt() {
         returnNode->children.push_back(parseExpr());
         return returnNode;
     }
-    // Removed old KW_PRINT handling here as it's now covered by parsePrint() at the start.
     if (expect(TokenType::OP_MINUS)) {
         auto defNode = std::make_shared<ASTNode>("Negative", "-");
         defNode->line = std::to_string(tok.line);
@@ -589,7 +585,7 @@ std::shared_ptr<ASTNode> Parser::parseSimpleStmt() {
 
 
 
-// test -> "=" expr .                                               # Locally Implemented in parseSimpleStmt
+// test -> "=" expr .                           
 // test -> expr_prime term_prime arith_expr_prime comp_expr_prime and_expr_prime or_expr_prime .
 // Fonction réutilisée pour compléter la 4e règle de simple_stmt
 std::shared_ptr<ASTNode> Parser::parseTest(const std::shared_ptr<ASTNode>& idNode) {
