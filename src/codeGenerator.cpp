@@ -993,6 +993,10 @@ void CodeGenerator::genFor(const std::shared_ptr<ASTNode>& node) {
         m_errorManager.addError({"For loop variable must be an Identifier.", "", "CodeGeneration", std::stoi(loopVarNode->line)});
         return;
     }
+    auto typeIter = getExpressionType(iterableNode);
+    if (typeIter == "String" || typeIter == "Integer") {
+        m_errorManager.addError({"For loop iterable must be a list or a range.", "", "CodeGeneration", std::stoi(iterableNode->line)});
+    }
     std::string loopVarName = loopVarNode->value;
     std::string loopVarMem = getIdentifierMemoryOperand(loopVarName);
 

@@ -1,3 +1,4 @@
-def add(a,a):
-    return a+a 
-print(add(3,3))
+x = 0
+s = "aaa"
+for i in s:
+    x=1
