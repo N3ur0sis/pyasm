@@ -182,8 +182,6 @@ void SymbolTableGenerator::buildScopesAndSymbols(const std::shared_ptr<ASTNode>&
             std::shared_ptr<ASTNode> rhsNode = node->children[1];
             
             std::string rhsInferredType = "auto"; // Default
-            printf("Affect pour la variable: %s\n", varName.c_str());
-            printf("rhsNode type: %s\n", rhsNode->type.c_str());
             if (rhsNode->type == "List") {
                 rhsInferredType = "List";
             } else if (rhsNode->type == "String") { 
