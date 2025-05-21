@@ -1,4 +1,0 @@
-def add(a,b):
-    return a+b+c
-c = 5
-print(add(1,1))
