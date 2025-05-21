@@ -775,110 +775,109 @@ void CodeGenerator::endAssembly() {
     textSection += "    ret\n\n";
 
         // --- revised print_not_string ----------------------------------------
-    // Remplacer la fonction print_not_string par celle-ci:
 
-textSection += "; Function to print a list (elements separated by space, enclosed in brackets)\n";
-textSection += "print_not_string:          ; RAX = address of list\n";
-textSection += "    push rbp\n";
-textSection += "    mov  rbp, rsp\n";
-textSection += "    push rbx\n";
-textSection += "    push r12            ; will be our loop-counter\n";
-textSection += "    push rdx\n";
-textSection += "    push rsi\n";
-textSection += "    push rdi\n";
-textSection += "    push r8\n";
-textSection += "    push r9\n";
+    textSection += "; Function to print a list (elements separated by space, enclosed in brackets)\n";
+    textSection += "print_not_string:          ; RAX = address of list\n";
+    textSection += "    push rbp\n";
+    textSection += "    mov  rbp, rsp\n";
+    textSection += "    push rbx\n";
+    textSection += "    push r12            ; will be our loop-counter\n";
+    textSection += "    push rdx\n";
+    textSection += "    push rsi\n";
+    textSection += "    push rdi\n";
+    textSection += "    push r8\n";
+    textSection += "    push r9\n";
 
-textSection += "    mov  rbx, rax          ; rbx = base address of the list structure\n";
-textSection += "    mov  r12, [rbx]        ; r12 = size of the list\n";
-textSection += "    add  rbx, 8            ; rbx -> first element\n";
+    textSection += "    mov  rbx, rax          ; rbx = base address of the list structure\n";
+    textSection += "    mov  r12, [rbx]        ; r12 = size of the list\n";
+    textSection += "    add  rbx, 8            ; rbx -> first element\n";
 
-// print '['
-textSection += "    mov  rax, 1\n";
-textSection += "    mov  rdi, 1\n";
-textSection += "    mov  rsi, open_bracket\n";
-textSection += "    mov  rdx, 1\n";
-textSection += "    syscall\n";
+    // print '['
+    textSection += "    mov  rax, 1\n";
+    textSection += "    mov  rdi, 1\n";
+    textSection += "    mov  rsi, open_bracket\n";
+    textSection += "    mov  rdx, 1\n";
+    textSection += "    syscall\n";
 
-textSection += ".print_list_loop:\n";
-textSection += "    cmp  r12, 0\n";
-textSection += "    je   .print_list_done\n";
+    textSection += ".print_list_loop:\n";
+    textSection += "    cmp  r12, 0\n";
+    textSection += "    je   .print_list_done\n";
 
-textSection += "    mov  r8, [rbx]         ; element -> r8\n";
-textSection += "    ; Check if element is a likely pointer (above certain address threshold)\n";
-textSection += "    cmp  r8, 0x1000        ; Addresses below this are likely integers\n";
-textSection += "    jb   .print_as_number\n";
+    textSection += "    mov  r8, [rbx]         ; element -> r8\n";
+    textSection += "    ; Check if element is a likely pointer (above certain address threshold)\n";
+    textSection += "    cmp  r8, 0x1000        ; Addresses below this are likely integers\n";
+    textSection += "    jb   .print_as_number\n";
 
-textSection += "    mov  rax, r8\n";
-textSection += "    ; Try to read the first byte safely\n";
-textSection += "    push rcx\n";
-textSection += "    mov  rcx, r8\n";
-textSection += "    shr  rcx, 48           ; Get top 16 bits - if non-zero, likely invalid addr\n";
-textSection += "    cmp  rcx, 0\n";
-textSection += "    jne  .not_a_string\n";
-textSection += "    pop  rcx\n";
+    textSection += "    mov  rax, r8\n";
+    textSection += "    ; Try to read the first byte safely\n";
+    textSection += "    push rcx\n";
+    textSection += "    mov  rcx, r8\n";
+    textSection += "    shr  rcx, 48           ; Get top 16 bits - if non-zero, likely invalid addr\n";
+    textSection += "    cmp  rcx, 0\n";
+    textSection += "    jne  .not_a_string\n";
+    textSection += "    pop  rcx\n";
 
-textSection += "    ; Now test if this might be a string (has ASCII characters and null-terminator)\n";
-textSection += "    push rcx\n";
-textSection += "    xor  rcx, rcx\n";
-textSection += ".check_string_loop:\n";
-textSection += "    cmp  rcx, 20           ; Limite max: 20 caractères à vérifier\n";
-textSection += "    jge  .not_a_string\n";
-textSection += "    mov  r9b, byte [rax+rcx]\n";
-textSection += "    cmp  r9b, 0            ; Fin de la chaîne?\n";
-textSection += "    je   .print_as_string\n";
-textSection += "    cmp  r9b, 32\n";
-textSection += "    jl   .not_a_string\n";
-textSection += "    cmp  r9b, 126\n";
-textSection += "    jg   .not_a_string\n";
-textSection += "    inc  rcx\n";
-textSection += "    jmp  .check_string_loop\n";
+    textSection += "    ; Now test if this might be a string (has ASCII characters and null-terminator)\n";
+    textSection += "    push rcx\n";
+    textSection += "    xor  rcx, rcx\n";
+    textSection += ".check_string_loop:\n";
+    textSection += "    cmp  rcx, 20           ; Limite max: 20 caractères à vérifier\n";
+    textSection += "    jge  .not_a_string\n";
+    textSection += "    mov  r9b, byte [rax+rcx]\n";
+    textSection += "    cmp  r9b, 0            ; Fin de la chaîne?\n";
+    textSection += "    je   .print_as_string\n";
+    textSection += "    cmp  r9b, 32\n";
+    textSection += "    jl   .not_a_string\n";
+    textSection += "    cmp  r9b, 126\n";
+    textSection += "    jg   .not_a_string\n";
+    textSection += "    inc  rcx\n";
+    textSection += "    jmp  .check_string_loop\n";
 
-textSection += ".not_a_string:\n";
-textSection += "    pop  rcx\n";
-textSection += "    jmp  .print_as_number\n";
+    textSection += ".not_a_string:\n";
+    textSection += "    pop  rcx\n";
+    textSection += "    jmp  .print_as_number\n";
 
-textSection += ".print_as_string:\n";
-textSection += "    pop  rcx\n";
-textSection += "    mov  rax, r8\n";
-textSection += "    call print_string\n";
-textSection += "    jmp  .after_element_print\n";
+    textSection += ".print_as_string:\n";
+    textSection += "    pop  rcx\n";
+    textSection += "    mov  rax, r8\n";
+    textSection += "    call print_string\n";
+    textSection += "    jmp  .after_element_print\n";
 
-textSection += ".print_as_number:\n";
-textSection += "    mov  rax, r8\n";
-textSection += "    call print_number\n";
+    textSection += ".print_as_number:\n";
+    textSection += "    mov  rax, r8\n";
+    textSection += "    call print_number\n";
 
-textSection += ".after_element_print:\n";
-textSection += "    add  rbx, 8\n";
-textSection += "    dec  r12\n";
-textSection += "    cmp  r12, 0\n";
-textSection += "    je   .print_list_done\n";
+    textSection += ".after_element_print:\n";
+    textSection += "    add  rbx, 8\n";
+    textSection += "    dec  r12\n";
+    textSection += "    cmp  r12, 0\n";
+    textSection += "    je   .print_list_done\n";
 
-// print ", "
-textSection += "    mov  rax, 1\n";
-textSection += "    mov  rdi, 1\n";
-textSection += "    mov  rsi, comma_space\n";
-textSection += "    mov  rdx, 2\n";
-textSection += "    syscall\n";
-textSection += "    jmp  .print_list_loop\n";
+    // print ", "
+    textSection += "    mov  rax, 1\n";
+    textSection += "    mov  rdi, 1\n";
+    textSection += "    mov  rsi, comma_space\n";
+    textSection += "    mov  rdx, 2\n";
+    textSection += "    syscall\n";
+    textSection += "    jmp  .print_list_loop\n";
 
-textSection += ".print_list_done:\n";
-// print ']'
-textSection += "    mov  rax, 1\n";
-textSection += "    mov  rdi, 1\n";
-textSection += "    mov  rsi, close_bracket\n";
-textSection += "    mov  rdx, 1\n";
-textSection += "    syscall\n";
+    textSection += ".print_list_done:\n";
+    // print ']'
+    textSection += "    mov  rax, 1\n";
+    textSection += "    mov  rdi, 1\n";
+    textSection += "    mov  rsi, close_bracket\n";
+    textSection += "    mov  rdx, 1\n";
+    textSection += "    syscall\n";
 
-textSection += "    pop  r9\n";
-textSection += "    pop  r8\n";
-textSection += "    pop  rdi\n";
-textSection += "    pop  rsi\n";
-textSection += "    pop  rdx\n";
-textSection += "    pop  r12\n";
-textSection += "    pop  rbx\n";
-textSection += "    pop  rbp\n";
-textSection += "    ret\n";
+    textSection += "    pop  r9\n";
+    textSection += "    pop  r8\n";
+    textSection += "    pop  rdi\n";
+    textSection += "    pop  rsi\n";
+    textSection += "    pop  rdx\n";
+    textSection += "    pop  r12\n";
+    textSection += "    pop  rbx\n";
+    textSection += "    pop  rbp\n";
+    textSection += "    ret\n";
 
     bool aliasExists = textSection.find("print_list:\n    jmp print_not_string") != std::string::npos;
     if (!aliasExists) { 
