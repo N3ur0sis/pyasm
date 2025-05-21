@@ -1,0 +1,76 @@
+# Fonctions redéfinies
+def foo(x):
+    return x
+
+def foo(y):  # ERREUR : redéfinition de la fonction foo
+    return y + 1
+
+# Utilisation de noms réservés
+def print(a):  # ERREUR : redéfinition d'un nom réservé
+    return a
+
+# Paramètres dupliqués
+def doublon(x, x):  # ERREUR : paramètres avec le même nom
+    return x
+
+# Arity mismatch
+def add(a, b):
+    return a + b
+
+# Shadowing variable locale <-> paramètre
+def conflict(a):
+    a = 3  # ERREUR : shadowing avec le paramètre
+    return a
+
+z = add(5)  # ERREUR : mauvaise arité
+x = foo(z)
+x = doublon(1, 2)  # ERREUR : mauvaise arité
+
+# Built-in avec mauvaise arité
+x = range()       # ERREUR : arité incorrecte (0 param)
+y = len(1, 2)     # ERREUR : arité incorrecte (2 params)
+z = list(1, 2)    # ERREUR : arité incorrecte (2 params)
+print()  # ERREUR : arité incorrecte (0 param)
+
+# Fonction utilisée sans être déclarée
+result = undeclared_function(4)  # ERREUR : fonction non déclarée
+
+# Shadowing boucle
+a = 5
+for a in range(5):  # ERREUR : shadowing avec une variable existante
+    pass
+
+for i in range(5):
+    for i in range(3):  # ERREUR : shadowing boucle imbriquée
+        pass
+
+# Return hors fonction
+return 3  # ERREUR : return en dehors d'une fonction
+
+# Division par zéro (statiquement connue)
+a = 5 // 0  # ERREUR : division par zéro
+
+# Variable non initialisée
+print(uninit_var)  # ERREUR : variable non déclarée / initialisée
+
+# Types incorrects
+a = -"hello"     # ERREUR : opération unaire sur string
+b = [1, 2] + 3    # ERREUR : addition list + int (type incompatible en 2e position)
+c = 3 - "a"       # ERREUR : soustraction avec string
+d = 3 * [1,2]     # ERREUR : multiplication avec list
+e = 4 // "x"      # ERREUR : int div avec string
+f = 10 % [1,2,3]  # ERREUR : modulo avec list
+
+# Réaffectation à un type différent (cas litigieux)
+a = 5
+a = "hello"  # ERREUR selon le code actuel (mais attendu sans erreur ?)
+
+# Vérification type dans range()
+range("abc")  # ERREUR : mauvaise utilisation de range
+
+# Mauvaise inférence dans affectation ?
+a = 5 + [1,2]  # ERREUR : types incompatibles
+
+# Mauvaise affectation détectée ?
+b = "hello"
+b = 42  # ERREUR (actuellement levée mais devrait être autorisée ?)

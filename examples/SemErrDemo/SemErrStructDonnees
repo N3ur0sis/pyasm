@@ -1,0 +1,14 @@
+
+# ===============================
+# 2.5 STRUCTURES DE DONNÉES
+# ===============================
+
+# Index hors limites
+lst = [1, 2]
+a = lst[5]  # Erreur : index hors borne
+
+lst[-1] = 5 # Erreur : index négatif hors borne
+
+# Mauvaise concaténation
+lst2 = [1] + "a"  # Erreur : concat list/str
+
