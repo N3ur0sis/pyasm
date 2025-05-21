@@ -1,6 +1,9 @@
 def add(a, b):
     return a + b
 
+def add_global(a,b):
+    return a+b+var_glob
+
 def moyenne(liste):
     somme = 0
     for element in liste:
@@ -48,7 +51,7 @@ print(" ")
 # ── globals & data ─────────────────────────────
 a = 10
 b = 5
-
+var_glob = 1
 
 unsorted = [9, 3, 1, 6, 4, 2]
 ind = 0
@@ -185,4 +188,5 @@ print("Appel Simple : add(5, 8)  =", add(5, 8))
 print("Moyenne de la Liste : ",r, " = ",moyenne(r))
 print("Tri de la Liste ",unsorted, " : ", sel_sort(unsorted))
 print("Recursivité Simple : fact(6) = ", fact(6), " |  gcd(48,18) =", gcd(48, 18))                 
-print("Récursivité Double fib(7) = ", fib(7))                   
+print("Récursivité Double fib(7) = ", fib(7))    
+print("Accès à une variable globale : ",add_global(1,1))               

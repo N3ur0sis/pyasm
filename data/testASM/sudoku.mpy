@@ -103,3 +103,4 @@ if solve(initial_board):
             print("+           +           +           +")
 else:
     print("Pas de solution.")
+
