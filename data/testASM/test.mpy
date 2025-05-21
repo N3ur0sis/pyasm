@@ -28,8 +28,13 @@ def gcd(a, b):
     return gcd(b % a, a)
 
 # ── selection-sort (only one-arg range) ────────
-def sel_sort(L):
-    n = len(L)
+def sel_sort(Liste):
+    n = len(Liste)
+    L = list(range(n))
+    k = 0
+    for e in Liste:
+        L[k] = e
+        k = k+1
     for i in range(n):
         min_i = i
         for j in range(n):        # single-arg range
