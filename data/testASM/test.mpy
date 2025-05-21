@@ -70,7 +70,7 @@ print(" ")
 print("=============Liste=============")
 print("Affichage Liste : " , unsorted)
 print("Concaténation de Liste: ", unsorted , " + ", extra, " = ",unsorted+extra)
-print("Accès à l'élément ",ind," de la liste ", unsorted, " : ", unsorted[ind])
+print("Accès à l'élément ",ind+5-b*2+6," de la liste ", unsorted, " : ", unsorted[ind+5-b*2+6])
 ind = 3
 unsorted[ind] = 99
 print("Modification de l'élément  ",ind," de la liste ", unsorted, " : ", unsorted)

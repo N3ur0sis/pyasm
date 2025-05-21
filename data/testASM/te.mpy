@@ -1,4 +1,3 @@
-x = 0
-s = "aaa"
-for i in s:
-    x=1
+L = [1,2,6,5]
+x = 2
+print(L[1*2+1-x])
