@@ -984,7 +984,6 @@ void CodeGenerator::genAffect(const std::shared_ptr<ASTNode>& node) {
     
     // Update type of the variable in the symbol table
     std::string valueType = getExpressionType(rightValueNode);
-	printf("Value type: %s\n", valueType.c_str());
 	
     if (valueType != "auto" && valueType != "autoFun") { // Only update if a concrete type is known
         updateSymbolType(varName, valueType);
@@ -1072,7 +1071,7 @@ void CodeGenerator::genFor(const std::shared_ptr<ASTNode>& node) {
         textSection += "    add rsp, 8        ; Pop range limit N from stack\n";
 
     } 
-    else if (type == "List"){
+    else{
         std::string startLabel = newLabel("for_list_start");
         std::string endLabel = newLabel("for_list_end");
         
@@ -1109,9 +1108,7 @@ void CodeGenerator::genFor(const std::shared_ptr<ASTNode>& node) {
         textSection += endLabel + ":\n";
         textSection += "    add rsp, 8        ; Libérer l'adresse de la liste\n";
     }
-    else {
-        m_errorManager.addError({"Unsupported iterable in for loop. Only range() is supported.", iterableNode->type, "CodeGeneration", std::stoi(iterableNode->line)});
-    }
+    
 }
 
 void CodeGenerator::genIf(const std::shared_ptr<ASTNode>& node) {
@@ -1337,38 +1334,47 @@ void CodeGenerator::genFunctionCall(const std::shared_ptr<ASTNode>& node) {
                 type0 = inferFunctionReturnType(this->rootNode, param->children[0]->value);
                 
             }
-    if (type0 == "auto") {
-        // Assume it's a list that we don't know the static type of yet.
-        textSection += "    mov rax, [rax]      ; len(auto-list)\n";
-        return;
-    }
-            if (type0 != "String" && type0 != "List") {
+            if (type0 == "auto") {
+                // Assume it's a list that we don't know the static type of yet.
+                textSection += "    mov rax, [rax]      ; len(auto-list)\n";
+                return;
+            }
+                    if (type0 != "String" && type0 != "List") {
+                        m_errorManager.addError(Error{
+                            "len Error; ", 
+                            "Used len on non-list or non-string variable",
+                            "Semantics", 
+                            std::stoi(node->line)
+                        });
+                        return;
+                    }
+
+
+
+                if (type0 == "List") {
+                    textSection += "mov rax, [rax]  ; Taille de la liste\n";
+                } else { // String
+                    textSection += "mov rsi, rax    ; rsi = adresse de la chaîne\n";
+                    textSection += "mov rax, 0      ; rax = compteur\n";
+                    textSection += ".len_strlen_loop:\n";
+                    textSection += "cmp byte [rsi+rax], 0\n";
+                    textSection += "je .len_strlen_done\n";
+                    textSection += "inc rax\n";
+                    textSection += "jmp .len_strlen_loop\n";
+                    textSection += ".len_strlen_done:\n";
+                }
+                
+                return; 
+            }
+            else{
                 m_errorManager.addError(Error{
                     "len Error; ", 
-                    "Used len on non-list or non-string variable",
+                    "Too many arguments for len()",
                     "Semantics", 
                     std::stoi(node->line)
                 });
                 return;
             }
-
-
-
-        if (type0 == "List") {
-            textSection += "mov rax, [rax]  ; Taille de la liste\n";
-        } else { // String
-            textSection += "mov rsi, rax    ; rsi = adresse de la chaîne\n";
-            textSection += "mov rax, 0      ; rax = compteur\n";
-            textSection += ".len_strlen_loop:\n";
-            textSection += "cmp byte [rsi+rax], 0\n";
-            textSection += "je .len_strlen_done\n";
-            textSection += "inc rax\n";
-            textSection += "jmp .len_strlen_loop\n";
-            textSection += ".len_strlen_done:\n";
-        }
-        
-        return; 
-        }
     }
     
     int argCount = 0;
@@ -1396,7 +1402,8 @@ void CodeGenerator::genFunctionCall(const std::shared_ptr<ASTNode>& node) {
         alignment_padding_added = true;
     }
     
-    // Push arguments in reverse order (right to left)
+
+    
     if (argListPtr && argCount > 0) {
         for (auto it = argListPtr->rbegin(); it != argListPtr->rend(); ++it) {
             visitNode(*it); // Evaluate argument, result in rax
@@ -1414,8 +1421,9 @@ void CodeGenerator::genFunctionCall(const std::shared_ptr<ASTNode>& node) {
     if (alignment_padding_added) {
         textSection += "    add rsp, 8           ; Remove stack alignment padding\n";
     }
-}
 
+}
+    
 void CodeGenerator::genReturn(const std::shared_ptr<ASTNode>& node) {
     // Evaluate return expression if any
     if (!node->children.empty()) {
@@ -1545,7 +1553,6 @@ void CodeGenerator::resetFunctionVarTypes(const std::string& funcName) {
     // proper re-initialization. With stack-based locals, their "type" state
     // is effectively gone when the function returns.
     // However, if the SymbolTable objects persist and are reused, this might be needed.
-
     if (!symbolTable) return;
     
     SymbolTable* functionScope = nullptr;
@@ -1572,7 +1579,7 @@ std::string CodeGenerator::inferFunctionReturnType(const std::shared_ptr<ASTNode
     // En se basant sur les instructions `return`
     if (!root) return "Integer"; // Or "auto"
 
-    // First, try to get it from the symbol table if semantic analysis populated it
+   
     if (symbolTable) {
         Symbol* sym = symbolTable->findSymbol(funcName);
         if (sym && sym->symCat == "function") {
@@ -1620,7 +1627,7 @@ std::string CodeGenerator::inferFunctionReturnType(const std::shared_ptr<ASTNode
                                     currentExprType = getFunctionReturnType(returnExpr->children[0]->value);
                                 }
                             } else if (returnExpr->type == "Identifier") {
-                                 currentExprType = getIdentifierType(returnExpr->value);
+                                currentExprType = getIdentifierType(returnExpr->value);
                             }
                             // More complex expressions (ArithOp, etc.) would need their type inferred here.
                             // For simplicity, we assume direct types or simple lookups for now.
@@ -1768,7 +1775,7 @@ void CodeGenerator::updateFunctionParamTypes(
     std::size_t argIdx = 0;
     for (auto &symPtr : funcScope->symbols) {
         if (argIdx >= actualArgs.size()) break;          // too many formals
-        if (symPtr->symCat != "parameter")   continue;   // locals start here
+        //if (symPtr->symCat != "parameter")   continue;   // locals start here
 
         auto *param = dynamic_cast<VariableSymbol*>(symPtr.get());
         if (!param) continue;                           // safety
@@ -1788,5 +1795,6 @@ void CodeGenerator::updateFunctionParamTypes(
             param->type = argType;
 
         ++argIdx;
+        if (argIdx >= actualArgs.size()) break; // too many formals
     }
 }
