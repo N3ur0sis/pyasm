@@ -152,7 +152,7 @@ std::string CodeGenerator::newLabel(const std::string& base) {
     return "." + base + "_" + std::to_string(this->labelCounter++); 
 }
 
-/* Met reg à 0/1 selon sa « véracité » ; ne détruit pas les drapeaux ZF/SF */
+/* Met reg à 0/1 selon sa « véracité » ; ne détruit pas les flags ZF/SF */
 void CodeGenerator::toBool(const std::string& reg) {
     textSection += "    cmp " + reg + ", 0\n";   // ZF = 1 ssi reg == 0
     textSection += "    setne al\n";             // al = (reg != 0)
