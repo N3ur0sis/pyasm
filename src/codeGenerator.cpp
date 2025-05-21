@@ -296,6 +296,11 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
 		
 
         if (node->value == "+") {
+            if (typeL != typeR) {
+                m_errorManager.addError({"Type mismatch for '+': ", typeL + ", " + typeR, "CodeGeneration", std::stoi(node->line)});
+                textSection += "    mov rax, 0 ; Error for + op\n";
+                return;
+            }
 			if (typeL == "auto")  typeL = "Integer";
 if (typeR == "auto")  typeR = "Integer";
             if (typeL == "List" || typeR == "List") { // Promote to list concat if either is list

@@ -90,7 +90,7 @@ void SymbolTable::print(std::ostream& out, int indent) const {
 
     for (const auto& sPtr : symbols) {
         Symbol* s = sPtr.get();
-        out << indentStr << "  " << s->symCat << " : " << s->name;
+        out << indentStr << "  " << s->category << " : " << s->name;
         if (auto vs = dynamic_cast<VariableSymbol*>(s)) {
             out << " (type=" << vs->type << ", global=" << (vs->isGlobal ? "true" : "false") 
                 << ", offset: " << vs->offset << ")";
@@ -159,7 +159,6 @@ void SymbolTableGenerator::buildScopesAndSymbols(const std::shared_ptr<ASTNode>&
             paramOffset += 8; 
         }
     }
-    
     // Trouver les variables locales et leur attribuer des offsets
     int localStartOffset = -8;
     if (node->children.size() > 1 && node->children[1]->type == "FunctionBody") {
@@ -192,6 +191,8 @@ void SymbolTableGenerator::buildScopesAndSymbols(const std::shared_ptr<ASTNode>&
             std::shared_ptr<ASTNode> rhsNode = node->children[1];
             
             std::string rhsInferredType = "auto"; // Default
+            printf("Affect pour la variable: %s\n", varName.c_str());
+            printf("rhsNode type: %s\n", rhsNode->type.c_str());
             if (rhsNode->type == "List") {
                 rhsInferredType = "List";
             } else if (rhsNode->type == "String") { // Assuming AST node type "String" for string literals
@@ -231,11 +232,69 @@ void SymbolTableGenerator::buildScopesAndSymbols(const std::shared_ptr<ASTNode>&
                 if (rhsNode->type == "Compare" || rhsNode->type == "And" || rhsNode->type == "Or" || rhsNode->type == "Not") {
                     rhsInferredType = "Boolean";
                 } else {
-                    // For ArithOp, TermOp, UnaryOp, default to Integer or keep auto if operands are mixed/unknown
-                    // This part can be expanded significantly. For the patch's purpose (l = [1,2,3,4]), this is less critical.
-                    // A simple approach: if any operand is string for '+', it's string. If list for '+', it's list. Else integer.
-                    // This is a placeholder for more robust expression type inference.
-                    rhsInferredType = "Integer"; // Default for other expressions for now
+                    // Pour ArithOp et TermOp, déterminer le type en fonction des opérandes
+                    rhsInferredType = "Integer"; // Type par défaut
+                    
+                    // Fonction récursive pour déterminer le type d'une expression
+                    std::function<std::string(const std::shared_ptr<ASTNode>&)> inferExprType = 
+                        [&](const std::shared_ptr<ASTNode>& expr) -> std::string {
+                            if (!expr) return "auto";
+                            
+                            if (expr->type == "Integer") return "Integer";
+                            if (expr->type == "String") return "String";
+                            if (expr->type == "List") return "List";
+                            if (expr->type == "True" || expr->type == "False") return "Boolean";
+                            
+                            if (expr->type == "Identifier") {
+                                Symbol* s = currentScopeTable->findSymbol(expr->value);
+                                if (s && dynamic_cast<VariableSymbol*>(s)) {
+                                    return dynamic_cast<VariableSymbol*>(s)->type;
+                                }
+                                return "auto";
+                            }
+                            
+                            if (expr->type == "FunctionCall" && !expr->children.empty() && 
+                                expr->children[0]->type == "Identifier") {
+                                std::string funcName = expr->children[0]->value;
+                                if (funcName == "list") return "List";
+                                if (funcName == "len") return "Integer";
+                                
+                                Symbol* s = globalTable->findSymbol(funcName);
+                                if (s && dynamic_cast<FunctionSymbol*>(s)) {
+                                    return dynamic_cast<FunctionSymbol*>(s)->returnType;
+                                }
+                            }
+                            
+                            // Cas récursifs pour les expressions
+                            if ((expr->type == "ArithOp" || expr->type == "TermOp") && !expr->children.empty()) {
+                                std::string leftType = "auto", rightType = "auto";
+                                if (expr->children.size() > 0) leftType = inferExprType(expr->children[0]);
+                                if (expr->children.size() > 1) rightType = inferExprType(expr->children[1]);
+                                
+                                // Priorité des types: List > String > Integer > auto
+                                if (leftType == "List" || rightType == "List") {
+                                    if (expr->value == "+") return "List"; // Concaténation de listes
+                                    return "Integer";  // Autres opérations sur liste -> entier (comme len)
+                                }
+                                if (leftType == "String" || rightType == "String") {
+                                    if (expr->value == "+") return "String"; // Concaténation de chaînes
+                                    return "Integer";  // Autres opérations sur chaînes -> entier
+                                }
+                                if (leftType == "Integer" && rightType == "Integer") return "Integer";
+                                
+                                return "Integer"; // Par défaut, on suppose que c'est un entier
+                            }
+                            
+                            if (expr->type == "UnaryOp" && !expr->children.empty()) {
+                                // Pour les opérations unaires, le type est généralement conservé
+                                return inferExprType(expr->children[0]);
+                            }
+                            
+                            return "auto";
+                        };
+                    
+                    // Analyser l'expression pour déterminer son type
+                    rhsInferredType = inferExprType(rhsNode);
                 }
             }
 

@@ -1,6 +1,5 @@
 # ───────────────────────────────────────────────
 #  Demo program for the mini-Python compiler
-#  (only single-arg range, no nested defs)       
 # ───────────────────────────────────────────────
 
 # ── helpers ─────────────────────────────────────
