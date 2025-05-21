@@ -1,25 +1,19 @@
 #include "symbolTable.h"
-#include "parser.h" // Assuming ASTNode might be fully defined here
-#include "errorManager.h" // For m_errorManager
+#include "parser.h" 
+#include "errorManager.h" 
 #include <sstream>
 #include <set>
-#include <algorithm> // For std::find_if
-#include <functional> // For std::function
+#include <algorithm> 
+#include <functional> 
 
-// Global nextTableId is now a member of SymbolTableGenerator: nextTableIdCounter
-// Global definedFunctions is now a member of SymbolTableGenerator: processedFunctionNames
-// Global AUTO_OFFSET seems unused for stack frames, can be removed.
 
 #define RED "\033[31m"
 #define RESET "\033[0m"
 
 
 void SymbolTable::addSymbol(const Symbol& symbol) {
-    // Check for redefinition in the current scope only
     for (const auto& symPtr : symbols) {
         if (symPtr->name == symbol.name) {
-            // Optionally, throw an error or update the existing symbol based on language rules
-            // For now, let's prevent adding if already exists to avoid duplicate entries.
             return;
         }
     }
@@ -32,13 +26,10 @@ void SymbolTable::addSymbol(const Symbol& symbol) {
     } else if (auto as = dynamic_cast<const ArraySymbol*>(&symbol)) {
         symClone = std::make_unique<ArraySymbol>(*as);
     } else {
-        // Fallback for base Symbol or other derived types if any
         symClone = std::make_unique<Symbol>(symbol);
     }
     
-    // Offset assignment is now handled by SymbolTableGenerator during scope creation
-    // and layout assignment. The old nextOffset logic here is removed.
-    // SymbolTable::nextDataOffset is for globals in .data section.
+
 
     symbols.push_back(std::move(symClone));
 }
@@ -117,11 +108,11 @@ void SymbolTable::print(std::ostream& out, int indent) const {
 SymbolTableGenerator::SymbolTableGenerator(ErrorManager& em) : m_errorManager(em), nextTableIdCounter(0) {}
 
 std::unique_ptr<SymbolTable> SymbolTableGenerator::generate(const std::shared_ptr<ASTNode>& root) {
-    nextTableIdCounter = 0; // Reset for each generation run
+    nextTableIdCounter = 0; 
     processedFunctionNames.clear();
     auto globalTable = std::make_unique<SymbolTable>("global", nullptr, nextTableIdCounter++);
     
-    if (root) { // Ensure root is not null
+    if (root) { 
         for (const auto& childNode : root->children) {
             buildScopesAndSymbols(childNode, globalTable.get(), globalTable.get());
         }
@@ -195,17 +186,17 @@ void SymbolTableGenerator::buildScopesAndSymbols(const std::shared_ptr<ASTNode>&
             printf("rhsNode type: %s\n", rhsNode->type.c_str());
             if (rhsNode->type == "List") {
                 rhsInferredType = "List";
-            } else if (rhsNode->type == "String") { // Assuming AST node type "String" for string literals
+            } else if (rhsNode->type == "String") { 
                 rhsInferredType = "String";
             } else if (rhsNode->type == "Integer") {
                 rhsInferredType = "Integer";
             } else if (rhsNode->type == "True" || rhsNode->type == "False") {
                 rhsInferredType = "Boolean";
             } else if (rhsNode->type == "Identifier") {
-                Symbol* s = currentScopeTable->findSymbol(rhsNode->value); // findSymbol checks current and then parents
+                Symbol* s = currentScopeTable->findSymbol(rhsNode->value);
                 if (s) {
                     if(auto vs = dynamic_cast<VariableSymbol*>(s)) rhsInferredType = vs->type;
-                    else if(auto fs = dynamic_cast<FunctionSymbol*>(s)) rhsInferredType = fs->returnType; // type of a function name is its return type
+                    else if(auto fs = dynamic_cast<FunctionSymbol*>(s)) rhsInferredType = fs->returnType; 
                 }
             } else if (rhsNode->type == "FunctionCall") {
                 if (!rhsNode->children.empty() && rhsNode->children[0]->type == "Identifier") {
@@ -220,15 +211,13 @@ void SymbolTableGenerator::buildScopesAndSymbols(const std::shared_ptr<ASTNode>&
                         if (s && dynamic_cast<FunctionSymbol*>(s)) {
                             rhsInferredType = dynamic_cast<FunctionSymbol*>(s)->returnType;
                         } else {
-                            // If not in global, it might be a method or a nested function not yet fully supported for inference here
-                            // For now, fallback if not found in global. A more complex lookup might be needed.
-                            rhsInferredType = "auto"; // Or a more specific "unknown_function_return"
+
+                            rhsInferredType = "auto"; 
                         }
                     }
                 }
             } else if (rhsNode->type == "ArithOp" || rhsNode->type == "TermOp" || rhsNode->type == "Compare" || rhsNode->type == "And" || rhsNode->type == "Or" || rhsNode->type == "Not" || rhsNode->type == "UnaryOp") {
-                // For complex expressions, ideally, a full expression type inference would run.
-                // For now, if it's an operation that results in boolean:
+
                 if (rhsNode->type == "Compare" || rhsNode->type == "And" || rhsNode->type == "Or" || rhsNode->type == "Not") {
                     rhsInferredType = "Boolean";
                 } else {
@@ -360,7 +349,7 @@ void SymbolTableGenerator::buildScopesAndSymbols(const std::shared_ptr<ASTNode>&
     const std::string& listName = node->children[0]->value;      // L in  L[i]
     if (Symbol* s = currentScopeTable->findSymbol(listName)) {
         if (auto *vs = dynamic_cast<VariableSymbol*>(s)) {
-            vs->type = "List";                                    // promote to List
+            vs->type = "List";                                    
         }
     }
 } else {
@@ -368,9 +357,8 @@ void SymbolTableGenerator::buildScopesAndSymbols(const std::shared_ptr<ASTNode>&
                                  "", "Semantic", std::stoi(node->line)});
     }
 } 
-    else { // For other node types, recurse if they can contain definitions or scopes
+    else { 
         for (const auto& child : node->children) {
-            // Pass currentScopeTable, or a new child scope if this node type creates one (e.g., a 'for' loop scope)
             buildScopesAndSymbols(child, globalTable, currentScopeTable);
         }
     }
@@ -382,23 +370,22 @@ void SymbolTableGenerator::discoverLocalsAndAssignOffsets(const std::shared_ptr<
     if (bodyNode->type == "Affect") {
         if (bodyNode->children.size() >= 1 && bodyNode->children[0]->type == "Identifier") {
             std::string varName = bodyNode->children[0]->value;
-            // Check if it's already a parameter or a previously declared local in this function
             std::shared_ptr<ASTNode> rhsNode = bodyNode->children[1];
             
-            std::string rhsInferredType = "auto"; // Default
+            std::string rhsInferredType = "auto";
             if (rhsNode->type == "List") {
                 rhsInferredType = "List";
-            } else if (rhsNode->type == "String") { // Assuming AST node type "String" for string literals
+            } else if (rhsNode->type == "String") { 
                 rhsInferredType = "String";
             } else if (rhsNode->type == "Integer") {
                 rhsInferredType = "Integer";
             } else if (rhsNode->type == "True" || rhsNode->type == "False") {
                 rhsInferredType = "Boolean";
             } else if (rhsNode->type == "Identifier") {
-                Symbol* s = functionScopeTable->findSymbol(rhsNode->value); // findSymbol checks current and then parents
+                Symbol* s = functionScopeTable->findSymbol(rhsNode->value);
                 if (s) {
                     if(auto vs = dynamic_cast<VariableSymbol*>(s)) rhsInferredType = vs->type;
-                    else if(auto fs = dynamic_cast<FunctionSymbol*>(s)) rhsInferredType = fs->returnType; // type of a function name is its return type
+                    else if(auto fs = dynamic_cast<FunctionSymbol*>(s)) rhsInferredType = fs->returnType; 
                 }
             } else if (rhsNode->type == "FunctionCall") {
                 if (!rhsNode->children.empty() && rhsNode->children[0]->type == "Identifier") {
@@ -413,28 +400,21 @@ void SymbolTableGenerator::discoverLocalsAndAssignOffsets(const std::shared_ptr<
                         if (s && dynamic_cast<FunctionSymbol*>(s)) {
                             rhsInferredType = dynamic_cast<FunctionSymbol*>(s)->returnType;
                         } else {
-                            // If not in global, it might be a method or a nested function not yet fully supported for inference here
-                            // For now, fallback if not found in global. A more complex lookup might be needed.
-                            rhsInferredType = "auto"; // Or a more specific "unknown_function_return"
+                            rhsInferredType = "auto"; 
                         }
                     }
                 }
             } else if (rhsNode->type == "ArithOp" || rhsNode->type == "TermOp" || rhsNode->type == "Compare" || rhsNode->type == "And" || rhsNode->type == "Or" || rhsNode->type == "Not" || rhsNode->type == "UnaryOp") {
-                // For complex expressions, ideally, a full expression type inference would run.
-                // For now, if it's an operation that results in boolean:
+
                 if (rhsNode->type == "Compare" || rhsNode->type == "And" || rhsNode->type == "Or" || rhsNode->type == "Not") {
                     rhsInferredType = "Boolean";
                 } else {
-                    // For ArithOp, TermOp, UnaryOp, default to Integer or keep auto if operands are mixed/unknown
-                    // This part can be expanded significantly. For the patch's purpose (l = [1,2,3,4]), this is less critical.
-                    // A simple approach: if any operand is string for '+', it's string. If list for '+', it's list. Else integer.
-                    // This is a placeholder for more robust expression type inference.
-                    rhsInferredType = "Integer"; // Default for other expressions for now
+                    rhsInferredType = "Integer"; 
                 }
             }
 
             if (!functionScopeTable->findImmediateSymbol(varName)) {
-                VariableSymbol localVar(varName, rhsInferredType /*TODO: infer type*/, "variable", false, currentLocalOffset); // Corrected: assign currentLocalOffset
+                VariableSymbol localVar(varName, rhsInferredType, "variable", false, currentLocalOffset); 
                 functionScopeTable->addSymbol(localVar);
                 currentLocalOffset -= 8; // Next local goes further down the stack
             }
@@ -443,38 +423,28 @@ void SymbolTableGenerator::discoverLocalsAndAssignOffsets(const std::shared_ptr<
         if (bodyNode->children.size() >= 1 && bodyNode->children[0]->type == "Identifier") {
             std::string loopVarName = bodyNode->children[0]->value;
             if (!functionScopeTable->findImmediateSymbol(loopVarName)) {
-                 // VariableSymbol loopVar(loopVarName, "auto", "variable", false, currentLocalOffset); // Changed "loop variable" to "variable"
-                 // The patch suggests "Integer" type for loop variable
+
                  VariableSymbol lv(loopVarName, "Integer", "variable", false, currentLocalOffset);
                  functionScopeTable->addSymbol(lv);
                  currentLocalOffset -= 8;
             }
         }
-        // discover locals in the loop body as usual
+
         if (bodyNode->children.size() > 2 && bodyNode->children[2]) { // Assuming body is child 2
              discoverLocalsAndAssignOffsets(bodyNode->children[2], functionScopeTable, currentLocalOffset);
         }
-        // Also traverse iterable if it can contain expressions that declare things (unlikely for simple lang)
-        // The patch implies only the body needs discovery after loop var.
-        // if (bodyNode->children.size() > 1) {
-        //      discoverLocalsAndAssignOffsets(bodyNode->children[1], functionScopeTable, currentLocalOffset);
-        // }
-        return; // Handled children of 'For' specifically to ensure correct traversal order
-    }
-    // Add other statements that might declare local variables (e.g. explicit 'var x;' syntax)
 
-    // Generic recursion for children of the current bodyNode
+        return; 
+    }
+
     for (const auto& child : bodyNode->children) {
         discoverLocalsAndAssignOffsets(child, functionScopeTable, currentLocalOffset);
     }
 }
 
 
-// findFunctionDefNode might be used by a semantic analyzer pass later.
-// For symbol table generation, direct processing of FunctionDefinition nodes is preferred.
 std::shared_ptr<ASTNode> SymbolTableGenerator::findFunctionDefNode(const std::shared_ptr<ASTNode>& astRoot, const std::string& funcName) {
     if (!astRoot) return nullptr;
-    // This assumes all function definitions are direct children of astRoot or a specific "definitions" node.
     for (const auto& node : astRoot->children) {
         if (node->type == "FunctionDefinition" && node->value == funcName) {
             return node;
@@ -484,25 +454,24 @@ std::shared_ptr<ASTNode> SymbolTableGenerator::findFunctionDefNode(const std::sh
 }
 
 std::string SymbolTableGenerator::inferFunctionReturnType(const std::shared_ptr<ASTNode>& funcDefNode, SymbolTable* functionScope) {
-    std::string inferredType = "autoFun"; // Default return type if no explicit return is found
+    std::string inferredType = "autoFun"; 
     
-    // Function to recursively find return statements in the function body
+
     std::function<void(const std::shared_ptr<ASTNode>&)> findReturns = 
         [&](const std::shared_ptr<ASTNode>& node) {
             if (!node) return;
             
             if (node->type == "Return") {
-                // If return has no expression, it's a void return
+
                 if (node->children.empty()) {
                     inferredType = "void";
                     return;
                 }
-                
-                // Get the expression type from the return statement
+            
+
                 std::shared_ptr<ASTNode> returnExpr = node->children[0];
-                std::string exprType = "auto"; // Default
-                
-                // Infer the type based on the return expression
+                std::string exprType = "auto";
+
                 if (returnExpr->type == "List") {
                     exprType = "List";
                 } else if (returnExpr->type == "String") {
@@ -512,7 +481,7 @@ std::string SymbolTableGenerator::inferFunctionReturnType(const std::shared_ptr<
                 } else if (returnExpr->type == "True" || returnExpr->type == "False") {
                     exprType = "Boolean";
                 } else if (returnExpr->type == "Identifier") {
-                    // Get type from symbol table
+
                     Symbol* s = functionScope->findSymbol(returnExpr->value);
                     if (s) {
                         if (auto vs = dynamic_cast<VariableSymbol*>(s))
@@ -522,14 +491,13 @@ std::string SymbolTableGenerator::inferFunctionReturnType(const std::shared_ptr<
                     }
                 } else if (returnExpr->type == "FunctionCall") {
                     if (!returnExpr->children.empty() && returnExpr->children[0]->type == "Identifier") {
-                        // Handle built-in functions first
+
                         std::string funcName = returnExpr->children[0]->value;
                         if (funcName == "list") {
                             exprType = "List";
                         } else if (funcName == "len") {
                             exprType = "Integer";
                         } else {
-                            // For user-defined functions, look up in the global scope
                             Symbol* s = functionScope->parent->findSymbol(funcName);
                             if (s && dynamic_cast<FunctionSymbol*>(s)) {
                                 exprType = dynamic_cast<FunctionSymbol*>(s)->returnType;
@@ -537,20 +505,16 @@ std::string SymbolTableGenerator::inferFunctionReturnType(const std::shared_ptr<
                         }
                     }
                 } else if (returnExpr->type == "ArithOp" || returnExpr->type == "TermOp") {
-                    exprType = "Integer"; // Arithmetic operations typically return Integer
+                    exprType = "Integer"; 
                 } else if (returnExpr->type == "Compare" || returnExpr->type == "And" || 
                            returnExpr->type == "Or" || returnExpr->type == "Not") {
-                    exprType = "Boolean"; // Logical operations return Boolean
+                    exprType = "Boolean";
                 }
                 
-                // Update the inferred type if we found something more specific
                 if (exprType != "auto" && inferredType == "autoFun") {
                     inferredType = exprType;
                 } else if (exprType != "auto" && inferredType != exprType && inferredType != "autoFun") {
-                    // Found multiple different return types - handling strategy:
-                    // For simplicity, we'll use a common type or stick with the first one
-                    // A more advanced implementation could use type hierarchies or union types
-                    // For now, we'll keep the first non-auto type found
+
                 }
             }
             
