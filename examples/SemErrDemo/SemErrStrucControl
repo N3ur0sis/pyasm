@@ -1,0 +1,16 @@
+
+# ===============================
+# 2.4 STRUCTURES DE CONTRÔLE
+# ===============================
+
+# range utilisé avec mauvais type
+for i in "abc":  # Erreur : itération sur str
+    print(i)
+
+# range avec plusieurs args
+for i in range(1, 5):  # Erreur : trop d'arguments à range
+    print(i)
+
+# if avec type non bool convertible (accepté implicitement en Python mais testé ici)
+if "hello":  # Erreur : expression non bool - test sur string
+    print("list")

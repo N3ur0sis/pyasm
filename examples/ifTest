@@ -1,33 +1,8 @@
+def foo(x):
+    a = x * z
+    print(z)
+    return a
 
-y = [5,a,"hello", 7, 8, 9, 10]
-assert(x == 8, y)
 
-for i in range(2):  # Profondeur 1
-    x = 9
-    y = 10
-    
-    if x > y:
-        for j in range(2):  # Profondeur 2
-            if x > 8:  # Profondeur 3
-                x = 8
-                t = 9
-                for k in range(2):  # Profondeur 4
-                    if y > 8:  # Profondeur 5
-                        z = 7
-                    else:
-                        y = 18
-                        a = 15
-                        z = 6
-            else:
-                y = 8
-    else:
-        for j in range(2):  # Profondeur 2
-            if y > 9:  # Profondeur 3
-                for k in range(2):  # Profondeur 4
-                    if x < 10:  # Profondeur 5
-                        d = 9
-                    else:
-                        d = 8
-            else:
-                d = 7
-
+b = foo(7)
+print(b)

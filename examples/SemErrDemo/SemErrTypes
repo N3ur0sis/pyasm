@@ -1,0 +1,28 @@
+
+# ===============================
+# 2.3 CONTRÔLES DE TYPES
+# ===============================
+
+# Incompatibilité des opérandes
+a = 1 + "2"  # Erreur : int + str
+
+# Addition entre types différents
+a = [1] + 3  # Erreur : list + int
+
+# Opérations non-entiers
+a = "hello" - "h"  # Erreur : - sur str
+
+# Division par zéro
+a = 5 % 0  # Erreur : modulo par zéro
+
+# - sur mauvais type
+a = -"hello"  # Erreur : - sur str
+
+# Multiplication avec mauvais type
+a = 5 * "hello"  # Erreur : int * str
+
+# Division entière avec mauvais type
+a = 5 // "hello"  # Erreur : int // str
+
+# Modulo avec mauvais type
+a = 5 % True  # Erreur : int % bool

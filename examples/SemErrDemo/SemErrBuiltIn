@@ -1,0 +1,19 @@
+
+# ===============================
+# 2.6 BUILT-IN
+# ===============================
+
+# list avec mauvais argument
+a = list(3)  # Erreur : list non construite avec range()
+
+# list sans argument
+a = list()  # Erreur : aucun argument
+
+# len avec mauvais type
+a = len(5)  # Erreur : len sur int
+
+# len avec trop d'arguments
+a = len([1], [2])  # Erreur : trop d’arguments
+
+# range sans argument
+a = range()  # Erreur : aucun argument

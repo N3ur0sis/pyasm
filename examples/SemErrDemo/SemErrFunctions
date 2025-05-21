@@ -1,0 +1,42 @@
+# ===============================
+# 2.1 CONTRÔLES LIÉS AUX FONCTIONS
+# ===============================
+
+# Définition : redéfinition
+def foo(x):
+    return x
+
+def foo(y):  # Erreur : redéfinition de foo
+    return y
+
+# Définition : nom réservé
+def print(x):  # Erreur : nom réservé
+    return x
+
+def range(x):  # Erreur : nom réservé
+    return x
+
+def len(x):  # Erreur : nom réservé
+    return x
+
+def list(x):  # Erreur : nom réservé
+    return x
+
+def add(x,y):
+    return x + y
+
+# Définition : paramètres dupliqués
+def bar(a, a):  # Erreur : paramètre dupliqué
+    return a
+
+# Appel : fonction non définie
+not_declared(1)  # Erreur : fonction inconnue
+
+# Appel : mauvaise arité
+foo()  # Erreur : pas assez d’arguments
+
+add(1, 2, 3)  # Erreur : trop d’arguments
+
+range() # Erreur : pas assez d’arguments
+list() # Erreur : pas assez d’arguments
+len() # Erreur : pas assez d’arguments
