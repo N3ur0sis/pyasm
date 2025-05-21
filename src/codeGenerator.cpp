@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <sstream>
 #include <functional>
+#include <unordered_set>
 
 static std::string asmCode; // Stores the final assembly code
 
@@ -1177,9 +1178,22 @@ void CodeGenerator::genFunction(const std::shared_ptr<ASTNode>& node) {
     textSection += "    push r14\n";
     textSection += "    push r15\n";
 
+    //check if function has no double parameters
+    auto args = node->children[0];
+    if (args && args->type == "FormalParameterList") {
+        std::unordered_set<std::string> paramSet;
+        for (const auto& param : args->children) {
+            if (paramSet.find(param->value) != paramSet.end()) {
+                m_errorManager.addError({"Duplicate parameter: ", param->value, "CodeGeneration", std::stoi(param->line)});
+            }
+            paramSet.insert(param->value);
+        }
+    }
     // Generate function body
     // Parameters are accessed via [rbp + offset]
     // Locals are accessed via [rbp - offset]
+    
+
     if (node->children.size() > 1 && node->children[1] && node->children[1]->type == "FunctionBody") {
          visitNode(node->children[1]);
     } else if (node->children.size() > 0 && node->children[0]->type != "FormalParameterList" && node->children[0]) {
