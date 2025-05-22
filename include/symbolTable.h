@@ -41,6 +41,11 @@ public:
     // 'cat' can be "variable" for locals, or "parameter" for function parameters
     VariableSymbol(const std::string& n, const std::string& t, const std::string& cat, bool global = false, int off = 0)
         : Symbol(n, cat, off, "variable"), isGlobal(global), type(t) {}
+
+    // used when duplicating symbol tables for parameter type inference
+    std::unique_ptr<VariableSymbol> clone() const {
+        return std::make_unique<VariableSymbol>(name, type, category, isGlobal, offset);
+    }
 };
 
 // Derived class for functions
@@ -54,6 +59,11 @@ public:
     // Parameterized constructor
     FunctionSymbol(const std::string& n, const std::string& retType, int nParams, int tID, int off = 0, int fSize = 0)
         : Symbol(n, "function", off, "function"), numParams(nParams), returnType(retType), tableID(tID), frameSize(fSize) {}
+
+    // used when duplicating symbol tables (parameter type inference)
+    std::unique_ptr<FunctionSymbol> clone() const {
+        return std::make_unique<FunctionSymbol>(name, returnType, numParams, tableID, offset, frameSize);
+    }
 };
 
 // Derived class for array/list types
@@ -112,6 +122,10 @@ private:
     ErrorManager& m_errorManager;
     int nextTableIdCounter;
     std::set<std::string> processedFunctionNames; 
+
+    // after initial symbol table is created, loop over AST several time to infer types
+    std::string statementInference(const std::shared_ptr<ASTNode>& def, SymbolTable* globalTable, const std::shared_ptr<ASTNode>& node, SymbolTable* currentTable, std::string type);
+    void inferTypes(const std::shared_ptr<ASTNode>& root, SymbolTable* globalTable);
 
     // Main recursive function to build symbol tables and assign layout
     void buildScopesAndSymbols(const std::shared_ptr<ASTNode>& node, SymbolTable* globalTable, SymbolTable* currentScopeTable);

@@ -125,6 +125,9 @@ std::unique_ptr<SymbolTable> SymbolTableGenerator::generate(const std::shared_pt
             buildScopesAndSymbols(childNode, globalTable.get(), globalTable.get());
         }
     }
+
+    inferTypes(root, globalTable.get());
+
     return globalTable;
 }
 
@@ -183,7 +186,7 @@ void SymbolTableGenerator::buildScopesAndSymbols(const std::shared_ptr<ASTNode>&
         
         addedFuncSym->frameSize = localsTotalSize + padding_needed;
 
-        globalTable->children.push_back(std::move(functionScope)); 
+        globalTable->children.push_back(std::move(functionScope));
 
     } else if (node->type == "Affect") {
         if (node->children.size() >= 2 && node->children[0]->type == "Identifier") {
@@ -372,4 +375,258 @@ std::shared_ptr<ASTNode> SymbolTableGenerator::findFunctionDefNode(const std::sh
         }
     }
     return nullptr;
+}
+
+
+std::string SymbolTableGenerator::statementInference(const std::shared_ptr<ASTNode>& def, SymbolTable* globalTable, const std::shared_ptr<ASTNode>& node, SymbolTable* currentTable, std::string type) {
+    std::cout << std::endl << node->type << " " << node->value << " " << type << std::endl;
+    if (node->type == "Integer") return "Integer";
+    else if (node->type == "String") return "String";
+    else if (node->type == "List") {
+        for (const auto& c : node->children) statementInference(def, globalTable, c, currentTable, "auto");
+        return "List";
+    }
+    else if (node->type == "True" or node->type == "False") return "Boolean";
+    else if (node->type == "Or" or node->type == "And") {
+        statementInference(def, globalTable, node->children[0], currentTable, "auto");
+        statementInference(def, globalTable, node->children[1], currentTable, "auto");
+        return "Boolean";
+    }
+    else if (node->type == "Or" or node->type == "Not") {
+        statementInference(def, globalTable, node->children[0], currentTable, "auto");
+        return "Boolean";
+    }
+    else if (node->type == "None") return "auto";
+    else if (node->type == "Identifier") {
+        auto symb = dynamic_cast<VariableSymbol*>(currentTable->findSymbol(node->value));
+        if (symb->type == "auto") symb->type = type;
+        std::cout << node->value << " " << symb->type << std::endl;
+        return symb->type;
+    }
+    else if (node->type == "TermOp") {
+        statementInference(def, globalTable, node->children[0], currentTable, "Integer");
+        statementInference(def, globalTable, node->children[1], currentTable, "Integer");
+        return "Integer";
+    }
+    else if (node->type == "UnaryOp") {
+        statementInference(def, globalTable, node->children[0], currentTable, "Integer");
+        return "Integer";
+    }
+    else if (node->type == "ArithOp") {
+        if (node->value == "+") {
+            std::string ret1 = statementInference(def, globalTable, node->children[0], currentTable, type);
+            std::string ret2 = statementInference(def, globalTable, node->children[1], currentTable, type);
+            if (ret1 == "auto" and ret2 != "auto") {
+                statementInference(def, globalTable, node->children[0], currentTable, ret2);
+                return ret2;
+            }
+            else if (ret1 != "auto" and ret2 == "auto") {
+                statementInference(def, globalTable, node->children[1], currentTable, ret1);
+                return ret1;
+            }
+            else return ret1;
+        }
+        else {
+            statementInference(def, globalTable, node->children[0], currentTable, "Integer");
+            statementInference(def, globalTable, node->children[1], currentTable, "Integer");
+            return "Integer";
+        }
+    }
+    else if (node->type == "ListCall") {
+        statementInference(def, globalTable, node->children[0], currentTable, "List");
+        statementInference(def, globalTable, node->children[1], currentTable, "Integer");
+        return "Integer";
+    }
+    else if (node->type == "Return") {
+        if (!node->children.empty()) {
+            std::string v = statementInference(def, globalTable, node->children[0], currentTable, "auto");
+            if (v != "auto") {
+                dynamic_cast<FunctionSymbol*>(globalTable->findSymbol(currentTable->scopeName.substr(9)))->returnType = v;
+            }
+        }
+        return "auto";
+    }
+    else if (node->type == "Affect") {
+        auto v = statementInference(def, globalTable, node->children[1], currentTable, "auto");
+        statementInference(def, globalTable, node->children[0], currentTable, v);
+        return v;
+    }
+    else if (node->type == "FunctionCall") {
+        if (node->children[0]->value == "list") {
+            for (const auto& param : node->children[1]->children) {
+                statementInference(def, globalTable, param, currentTable, "auto");
+            }
+            return "List";
+        }
+        else if (node->children[0]->value == "range") {
+            for (const auto& param : node->children[1]->children) {
+                statementInference(def, globalTable, param, currentTable, "Integer");
+            }
+            return "List";
+        }
+        else if (node->children[0]->value == "len") {
+            for (const auto& param : node->children[1]->children) {
+                statementInference(def, globalTable, param, currentTable, "List");
+            }
+            return "Integer";
+        }
+        else {
+            // obtention TDS de fonction
+            SymbolTable* TDS;
+            for (const auto& tds : globalTable->children) {
+                if (tds->scopeName == "function " + node->children[0]->value) {
+                    TDS = tds.get();
+                    break;
+                }
+            }
+            // obtention FunctionDefinition
+            std::shared_ptr<ASTNode> FDEF;
+            for (const auto& fdef : def->children) {
+                if (fdef->value == node->children[0]->value) {
+                    FDEF = fdef;
+                    break;
+                }
+            }
+            // parcours paramètres
+            std::vector<std::string> param_types;
+            bool CREATE_NEW = false;
+            int i = 0;
+            for (const auto& p : node->children[1]->children) {
+                // évaluation
+                std::string v = statementInference(def, globalTable, p, currentTable, "auto");
+                param_types.push_back(v);
+
+                if (dynamic_cast<VariableSymbol*>(TDS->findSymbol(FDEF->children[0]->children[i]->value))->type == "auto" and v != "auto")
+                    CREATE_NEW = true;
+
+                i++;
+            }
+            std::cout << "got here" << std::endl;
+            // si AU MOINS UN param auto obtient qqch de mieux après résolution
+            if (CREATE_NEW) {
+                // check if function already created
+                // parcours des fonctions
+                for (const auto& fdef : def->children) {
+                    // si même "lignée" de fonctions
+                    if (fdef->children[0] == FDEF->children[0]) {
+                        // obtenir la tds de fdef
+                        SymbolTable* fdef_tds;
+                        for (const auto& tds : globalTable->children) {
+                            if (tds->scopeName == "function " + fdef->value) {
+                                fdef_tds = tds.get();
+                                break;
+                            }
+                        }
+                        // comparer les types des paramètres
+                        int i = 0;
+                        bool all_good = true;
+                        for (const auto& param_ident : fdef->children[0]->children) {
+                            if ( dynamic_cast<VariableSymbol*>(fdef_tds->findSymbol(param_ident->value))->type != param_types[i]) {
+                                all_good = false;
+                                break;
+                            }
+
+                            i++;
+                        }
+
+                        if (all_good) {
+                            // ça y est, on peut utiliser cette fonction directement (early return)
+                            // simplement modifier l'appel actuel pour qu'il appelle cette fonction déjà existante
+                            node->children[0]->value = fdef->value;
+                            return dynamic_cast<FunctionSymbol*>(globalTable->findSymbol(fdef->value))->returnType;
+                        }
+                    }
+                }
+                std::cout << "got here!" << std::endl;
+                // sinon création nouvelle fonction : modif AST
+                // ajout FunctionDefinition
+                std::string NEW_F_NAME = FDEF->value + std::to_string(nextTableIdCounter);
+                auto new_def = std::make_shared<ASTNode>("FunctionDefinition", NEW_F_NAME);
+                new_def->children.push_back(FDEF->children[0]);
+                new_def->children.push_back(FDEF->children[1]);
+                def->children.push_back(new_def);
+                // modif FunctionCall
+                node->children[0]->value = NEW_F_NAME;
+                // copie TDS
+                auto TDS_copy = std::make_unique<SymbolTable>("function " + NEW_F_NAME, globalTable, nextTableIdCounter++);
+                for (const auto& symb : TDS->symbols) {
+                    TDS_copy->symbols.push_back(dynamic_cast<VariableSymbol*>(symb.get())->clone());
+                }
+                // upgrade les types
+                int i = 0;
+                for (const auto& param : FDEF->children[0]->children) {
+                    dynamic_cast<VariableSymbol*>(TDS_copy->findSymbol(param->value))->type = param_types[i];
+                    i++;
+                }
+                // modifie la globalTable
+                globalTable->children.push_back(std::move(TDS_copy));
+
+
+                auto& tmp = globalTable->symbols;
+
+
+                auto funcSymb = dynamic_cast<FunctionSymbol*>(globalTable->findSymbol(FDEF->value))->clone();
+                funcSymb->name = NEW_F_NAME;
+                tmp.insert(tmp.begin(), std::move(funcSymb)); // std::move à vérifier ?
+
+                return dynamic_cast<FunctionSymbol*>(globalTable->findSymbol(NEW_F_NAME))->returnType;
+            }
+            else {
+                return dynamic_cast<FunctionSymbol*>(globalTable->findSymbol(FDEF->value))->returnType;
+            }
+        }
+    }
+    else {
+        for (const auto& c : node->children) {
+            statementInference(def, globalTable, c, currentTable, "auto");
+        }
+        return "auto";
+    }
+
+}
+
+// TODO penser à vérifier l'existence des enfants avant d'y accéder (pour graceful shutdown si l'input est incorrect)
+
+void SymbolTableGenerator::inferTypes(const std::shared_ptr<ASTNode>& root, SymbolTable* globalTable) {
+
+    // réinitialise les types
+    for (const auto& symb : globalTable->symbols) {
+        if (FunctionSymbol* v = dynamic_cast<FunctionSymbol*>(symb.get())) {
+            v->returnType = "auto";
+        }
+        else {
+            dynamic_cast<VariableSymbol*>(symb.get())->type = "auto";
+        }
+    }
+
+    for (const auto& tds : globalTable->children) {
+        for (const auto& symb : tds->symbols) {
+            dynamic_cast<VariableSymbol*>(symb.get())->type = "auto";
+        }
+    }
+
+    // 10 hard codé, peut être augmenté si nécessaire
+    for (auto i = 0; i<5; ++i) {
+
+        for (const auto& node : root->children[0]->children) {
+            for (const auto& tds : globalTable->children) {
+                if (tds->scopeName == "function " + node->value) {
+                    statementInference(root->children[0], globalTable, node->children[1], tds.get(), "auto");
+                    break;
+                }
+            }
+        }
+
+        statementInference(root->children[0], globalTable, root->children[1], globalTable, "auto");
+
+    }
+
+    // remplace les auto par autoFun
+    for (const auto& symb : globalTable->symbols) {
+        auto v = dynamic_cast<FunctionSymbol*>(symb.get());
+        if (v and v->returnType == "auto") {
+            v->returnType = "autoFun";
+        }
+    }
+
 }
