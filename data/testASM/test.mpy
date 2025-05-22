@@ -185,7 +185,7 @@ if L:
 print(" ")
 print("=============Fonction=============")
 print("Appel Simple : add(5, 8)  =", add(5, 8))
-print("Exemple inférence : add('abc', 'def') =", add("abc", "def"))
+print("Exemple inférence : add('abc', 'def') =", add("abc", "def"), " | add(",[6,9,6,3],",",extra,") =",add([6,9,6,3],extra))
 print("Moyenne de la Liste : ",r, " = ",moyenne(r))
 print("Tri de la Liste ",unsorted, " : ", sel_sort(unsorted))
 print("Recursivité Simple : fact(6) = ", fact(6), " |  gcd(48,18) =", gcd(48, 18))                 
