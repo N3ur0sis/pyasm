@@ -539,7 +539,10 @@ std::string SymbolTableGenerator::statementInference(const std::shared_ptr<ASTNo
     if (node->type == "Integer") return "Integer";
     else if (node->type == "String") return "String";
     else if (node->type == "List") {
-        for (const auto& c : node->children) statementInference(def, globalTable, c, currentTable, "auto");
+        for (const auto& c : node->children) {
+            if (c)
+                statementInference(def, globalTable, c, currentTable, "auto");
+        }
         return "List";
     }
     else if (node->type == "True" or node->type == "False") return "Boolean";
@@ -594,7 +597,7 @@ std::string SymbolTableGenerator::statementInference(const std::shared_ptr<ASTNo
         return "Integer";
     }
     else if (node->type == "Return") {
-        if (!node->children.empty()) {
+        if (!node->children.empty() and node->children[0]) {
             std::string v = statementInference(def, globalTable, node->children[0], currentTable, "auto");
             if (v != "auto") {
                 dynamic_cast<FunctionSymbol*>(globalTable->findSymbol(currentTable->scopeName.substr(9)))->returnType = v;
@@ -610,19 +613,22 @@ std::string SymbolTableGenerator::statementInference(const std::shared_ptr<ASTNo
     else if (node->type == "FunctionCall") {
         if (node->children[0]->value == "list") {
             for (const auto& param : node->children[1]->children) {
-                statementInference(def, globalTable, param, currentTable, "auto");
+                if (param)
+                    statementInference(def, globalTable, param, currentTable, "auto");
             }
             return "List";
         }
         else if (node->children[0]->value == "range") {
             for (const auto& param : node->children[1]->children) {
-                statementInference(def, globalTable, param, currentTable, "Integer");
+                if (param)
+                    statementInference(def, globalTable, param, currentTable, "Integer");
             }
             return "List";
         }
         else if (node->children[0]->value == "len") {
             for (const auto& param : node->children[1]->children) {
-                statementInference(def, globalTable, param, currentTable, "List");
+                if (param)
+                    statementInference(def, globalTable, param, currentTable, "List");
             }
             return "Integer";
         }
@@ -649,15 +655,16 @@ std::string SymbolTableGenerator::statementInference(const std::shared_ptr<ASTNo
             int i = 0;
             for (const auto& p : node->children[1]->children) {
                 // évaluation
-                std::string v = statementInference(def, globalTable, p, currentTable, "auto");
-                param_types.push_back(v);
+                if (p) {
+                    std::string v = statementInference(def, globalTable, p, currentTable, "auto");
+                    param_types.push_back(v);
 
-                if (dynamic_cast<VariableSymbol*>(TDS->findSymbol(FDEF->children[0]->children[i]->value))->type == "auto" and v != "auto")
-                    CREATE_NEW = true;
+                    if (dynamic_cast<VariableSymbol*>(TDS->findSymbol(FDEF->children[0]->children[i]->value))->type == "auto" and v != "auto")
+                        CREATE_NEW = true;
 
-                i++;
+                    i++;
+                }
             }
-            std::cout << "got here" << std::endl;
             // si AU MOINS UN param auto obtient qqch de mieux après résolution
             if (CREATE_NEW) {
                 // check if function already created
@@ -693,7 +700,6 @@ std::string SymbolTableGenerator::statementInference(const std::shared_ptr<ASTNo
                         }
                     }
                 }
-                std::cout << "got here!" << std::endl;
                 // sinon création nouvelle fonction : modif AST
                 // ajout FunctionDefinition
                 std::string NEW_F_NAME = FDEF->value + std::to_string(nextTableIdCounter);
@@ -734,7 +740,8 @@ std::string SymbolTableGenerator::statementInference(const std::shared_ptr<ASTNo
     }
     else {
         for (const auto& c : node->children) {
-            statementInference(def, globalTable, c, currentTable, "auto");
+            if (c)
+                statementInference(def, globalTable, c, currentTable, "auto");
         }
         return "auto";
     }
@@ -761,16 +768,17 @@ void SymbolTableGenerator::inferTypes(const std::shared_ptr<ASTNode>& root, Symb
         }
     }
 
-    // 10 hard codé, peut être augmenté si nécessaire
+    // 5 hard codé, peut être augmenté si nécessaire
     for (auto i = 0; i<5; ++i) {
 
         for (const auto& node : root->children[0]->children) {
-            for (const auto& tds : globalTable->children) {
-                if (tds->scopeName == "function " + node->value) {
-                    statementInference(root->children[0], globalTable, node->children[1], tds.get(), "auto");
-                    break;
+            if (node)
+                for (const auto& tds : globalTable->children) {
+                    if (tds->scopeName == "function " + node->value) {
+                        statementInference(root->children[0], globalTable, node->children[1], tds.get(), "auto");
+                        break;
+                    }
                 }
-            }
         }
 
         statementInference(root->children[0], globalTable, root->children[1], globalTable, "auto");
