@@ -1,16 +1,15 @@
-# ───────────────────────────────────────────────
-#  Demo program for the mini-Python compiler
-#  (only single-arg range, no nested defs)       
-# ───────────────────────────────────────────────
-
-# ── helpers ─────────────────────────────────────
 def add(a, b):
     return a + b
 
-def sub(a, b):
-    return a - b
+def add_global(a,b):
+    return a+b+var_glob
 
-# ── recursion: factorial & fibonacci ───────────
+def moyenne(liste):
+    somme = 0
+    for element in liste:
+        somme = somme + element
+    return somme // len(liste)
+
 def fact(n):
     if n < 2:
         return 1
@@ -21,53 +20,173 @@ def fib(n):
         return n
     return fib(n - 1) + fib(n - 2)
 
-# ── Euclid gcd (uses %) ────────────────────────
 def gcd(a, b):
     if a == 0:
         return b
     return gcd(b % a, a)
 
-# ── selection-sort (only one-arg range) ────────
-def sel_sort(L):
-    n = len(L)
+def sel_sort(Liste):
+    n = len(Liste)
+    L = list(range(n))
+    k = 0
+    for e in Liste:
+        L[k] = e
+        k = k+1
     for i in range(n):
         min_i = i
-        for j in range(n):        # single-arg range
+        for j in range(n):       
             if j > i and L[j] < L[min_i]:
                 min_i = j
         tmp = L[i]
         L[i] = L[min_i]
         L[min_i] = tmp
-    return L      # same list, now sorted
+    return L      
 
-# ── power_of_two without nested def ────────────
-def power_of_two(k):
-    if k == 0:
-        return 1
-    return 2 * power_of_two(k - 1)
+print(" ")
+print("=========================================")
+print("Demo program for the mini-Python compiler")
+print("=========================================")
+print(" ")
 
 # ── globals & data ─────────────────────────────
-g_int    = 7
+a = 10
+b = 5
+var_glob = 1
+
 unsorted = [9, 3, 1, 6, 4, 2]
+ind = 0
 extra    = [10, 0]
+n = 10
+r = list(range(n))    
+print("=============Print=============")
+print("a = ", a, " ; ", " b = ", b)
+print(" ")
+print("=============Opération=============")
+print("a+b =", a+b, "| a-b =", a-b, "| b-a =", b-a, "| a//b =", a//b, "| a%b =", a%b)
+print(" ")
+print("=============String=============")
+str1 = "Hello "
+str2 = "World !"
+print("Concaténation de String : ",str1 , " + ", str2, " = ",str1+str2)
+print("Utilisation de la fonction intégrée : len(",str1,") = ",len(str1))
+print(" ")
+print("=============Liste=============")
+print("Affichage Liste : " , unsorted)
+print("Concaténation de Liste: ", unsorted , " + ", extra, " = ",unsorted+extra)
+print("Accès à l'élément ",ind+5-b*2+6," de la liste ", unsorted, " : ", unsorted[ind+5-b*2+6])
+ind = 3
+unsorted[ind] = 99
+print("Modification de l'élément  ",ind," de la liste ", unsorted, " : ", unsorted)
+print("Utilisation de la fonction intégrée : list(range(",n,")) = ",r)
+print("Utilisation de la fonction intégrée : len(",r,") = ",len(r))
+print(" ")
+print("=============For=============")
+x = 0
+y = 0
+print("Itération via range :")
+for i in range(10):
+    print("Variable d'itération : ",i)
+    x = x + i
+    y = y + 5
+print("x = ",x)
+print("y = ",y)
 
-# ── demo prints ────────────────────────────────
-print("g_int =", g_int)                        # 7
-print("add(5, 8)  =", add(5, 8))               # 13
-print("fact(6)    =", fact(6))                 # 720
-print("fib(7)     =", fib(7))                  # 13
-print("gcd(48,18) =", gcd(48, 18))             # 6
+L = [19,5,4,5,910,1]
+k = 0
+print("Itération sur une liste :")
+for j in L:
+    print("Element " ,k , " de L : ", j)
+    k = k+1
+print(" ")
+print("==== Comparaison ====")
+a = 5
+b = 10
+c = 5
+print("a =", a, "b =", b, "c =", c)
 
-print("unsorted         =", unsorted)
-print("sorted           =", sel_sort(unsorted))
-print("unsorted again   =", unsorted)          # verify in-place sort
+print("a == c:", a == c)  # True
+print("a != b:", a != b)  # True
+print("a < b:", a < b)    # True
+print("a > b:", a > b)    # False
+print("a <= c:", a <= c)  # True
+print("b >= a:", b >= a)  # True
+print(" ")
+print("==== Expressions complexes ====")
+print("(a < b) and (c == a):", (a < b) and (c == a))  # True
+print("(a > b) or (c == a):", (a > b) or (c == a))    # True
+print("not (a == b):", not (a == b))                  # True
+print("not (a < b) or not (c == a):", not (a < b) or not (c == a))  # False
+print(" ")
+print("==== Imbrication ====")
+if (a < b):
+    if (a == c):
+        print("Imbrication correcte: a < b et a == c")
+    else:
+        print("Erreur d'imbrication: a < b mais a != c")
+else:
+    if (a == c):
+        print("Erreur d'imbrication: a >= b mais a == c")
+    else:
+        print("Erreur d'imbrication: a >= b et a != c")
 
-print("concat           =", unsorted + extra)  # list concatenation
+print(" ")
+print("==== Valeurs numériques dans conditions ====")
+x = 1
+y = 0
+if x:
+    print("x est considéré comme vrai")
+else:
+    print("x est considéré comme faux")
 
-unsorted[0] = 99                               # mutate by index
-print("after mutate     =", unsorted)
+if y:
+    print("y est considéré comme vrai")
+else:
+    print("y est considéré comme faux")
+print(" ")
+print("==== Valeurs booléennes ====")
+print("True:", True)
+print("False:", False)
+print("not True:", not True)
+print("not False:", not False)
+print(" ")
+print("==== Opérateurs AND et OR ====")
+print("True and True:", True and True)
+print("True and False:", True and False)
+print("False and True:", False and True)
+print("False and False:", False and False)
+print("True or True:", True or True)
+print("True or False:", True or False)
+print("False or True:", False or True)
+print("False or False:", False or False)
+print(" ")
+print("==== Court-circuit ====")
+d = 0
+if True or d//0: 
+    print("OR court-circuit fonctionne")
 
-r = list(range(10))                            # built-ins range, list
-print("range list       =", r)
-print("len(r)           =", len(r))            # 10
-print("power_of_two(5)  =", power_of_two(5))   # 32
+if False and d//0: 
+    print("AND court-circuit ne devrait pas s'afficher")
+print("AND court-circuit fonctionne")
+print(" ")
+print("==== Conventions  ====")
+L = [1]
+str = ""
+Liste_Vide = []
+if Liste_Vide :
+    print("Liste Vide != False")
+else:
+    print("Liste Vide == False")
+if str:
+    print("String Vide != False")
+else:
+    print("String Vide == False")
+if L:
+    print("Liste Non Vide == True")
+print(" ")
+print("=============Fonction=============")
+print("Appel Simple : add(5, 8)  =", add(5, 8))  
+print("Moyenne de la Liste : ",r, " = ",moyenne(r))
+print("Tri de la Liste ",unsorted, " : ", sel_sort(unsorted))
+print("Recursivité Simple : fact(6) = ", fact(6), " |  gcd(48,18) =", gcd(48, 18))                 
+print("Récursivité Double fib(7) = ", fib(7))    
+print("Accès à une variable globale : ",add_global(1,1))               

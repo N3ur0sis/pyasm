@@ -135,4 +135,6 @@ private:
     
     // Kept if still used by other parts of your system, e.g. semantic analysis for return type inference
     std::shared_ptr<ASTNode> findFunctionDefNode(const std::shared_ptr<ASTNode>& astRoot, const std::string& funcName);
-};
+    std::string inferFunctionReturnType(const std::shared_ptr<ASTNode>& funcDefNode, SymbolTable* functionScope);
+
+    };

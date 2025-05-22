@@ -1,0 +1,28 @@
+
+# ===============================
+# 2.2 CONTRÔLES LIÉS AUX VARIABLES
+# ===============================
+
+# Utilisation avant initialisation
+def test_var_use():
+    print(z)  # Erreur : variable locale non initialisée
+    z = 5
+
+# Shadowing avec paramètre
+def test_shadow(a):
+    a = 5       # Erreur : shadowing de paramètre interdit
+    b = 2
+    a = b  
+    b = 3
+
+test_var_use()  # Variable non initialisée
+
+# Redéfinition dans boucle
+x = 0
+for x in range(3):  # Erreur : x défini globalement
+    print(x)
+
+# Variable de boucle redéfinie
+for i in range(3):
+    i = 7  # Erreur : modification de la variable d’itération
+    x = i +1

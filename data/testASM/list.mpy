@@ -1,18 +1,69 @@
-def test():
-    A =  [1,2]
-    return A
-L = [1,2,"aha"]
-A = [2]
-B = []
-print(B)
-print(A + L)
-print(L)
-L[0] = 5
-print(L)
-B = list(range(5))
-print(B)
-print(list(range(5)))
-s = "string"
-print(len(s))
-print(len(L))
-print(len(test()))
+def tri_selection(liste):
+    n = len(liste)
+    resultat = list(range(n))  # Créer une liste de la même taille
+    
+    # Copier les éléments
+    i = 0
+    for e in liste:
+        resultat[i] = e
+        i = i + 1
+    
+    # Algorithme de tri
+    for i in range(n):
+        min_i = i
+        for j in range(n):
+            if j > i and resultat[j] < resultat[min_i]:
+                min_i = j
+        
+        # Échanger les éléments
+        temp = resultat[i]
+        resultat[i] = resultat[min_i]
+        resultat[min_i] = temp
+    
+    return resultat
+
+# Création de listes de différentes manières
+vide = []                         # Liste vide
+nombres = [10, 20, 30, 40, 50]    # Liste avec valeurs littérales
+sequence = list(range(5))         # Liste créée avec range(5) -> [0,1,2,3,4]
+
+# Affichage des listes
+print("Liste vide:", vide)
+print("Liste de nombres:", nombres)
+print("Séquence:", sequence)
+
+# Accès aux éléments
+print("Premier élément:", nombres[0])
+print("Dernier élément:", nombres[4])
+
+# Modification d'éléments
+nombres[0] = 99
+print("Après modification:", nombres)
+
+# Longueur d'une liste
+print("Longueur de nombres:", len(nombres))
+
+# Concaténation
+combinee = nombres + sequence
+print("Liste combinée:", combinee)
+
+# Itération sur une liste
+print("Parcours de la liste nombres:")
+sum = 0
+k = 0
+for item in nombres:
+    print("Element k ", k, " de nombres : ",item)
+    sum = sum + item
+    k = k + 1
+print("Somme de nombres = ",sum)
+# Tri par sélection
+non_triee = [5, 2, 8, 1, 9]
+print("Liste non triée:", non_triee)
+
+# Implémentation d'un tri par sélection
+
+
+triee = tri_selection(non_triee)
+print("Liste triée:", triee)
+print("Original inchangée:", non_triee)
+

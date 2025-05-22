@@ -1,0 +1,62 @@
+def find_empty(tab, n):
+    for i in range(n):
+        if tab[i] == -1:
+            return i
+    return -1
+
+def is_valid(tab, current_row, col, n):
+    for prev_row in range(current_row):
+        prev_col = tab[prev_row]
+        if prev_col == col:
+            return False  
+        if (prev_row + prev_col) == (current_row + col):
+            return False 
+        if (prev_row - prev_col) == (current_row - col):
+            return False 
+    return True
+
+def solve_inner(tab, n, row):
+    if row == n:
+        return True
+    for col in range(n):
+        if is_valid(tab, row, col, n):
+            tab[row] = col
+            if solve_inner(tab, n, row + 1):
+                return True
+            tab[row] = -1
+    return False
+
+def solve(n):
+    tab = list(range(n))
+    k = 0
+    for i in range(n):
+        tab[k] = -1
+        k=k+1
+    if solve_inner(tab, n, 0):
+        return tab
+    else:
+        return []
+
+def print_board(tab, n):
+    print(" ")
+    print("Solution pour", n, "dames :")
+    print(" ")
+    for row in range(n):
+        ind = tab[row]
+        ligne = list(range(n))
+        for i in range(ind):
+            ligne[i] = "."
+        ligne[ind] = "Q"
+        for k in range(n-ind-1):
+            num = k + ind+1
+            ligne[num] = "."
+        print(ligne)
+        
+
+# Lancer pour 8 dames
+n = 8
+solution = solve(n)
+if solution is not None:
+    print_board(solution, n)
+else:
+    print("Pas de solution")
