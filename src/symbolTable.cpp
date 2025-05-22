@@ -535,7 +535,6 @@ std::string SymbolTableGenerator::inferFunctionReturnType(const std::shared_ptr<
 
 
 std::string SymbolTableGenerator::statementInference(const std::shared_ptr<ASTNode>& def, SymbolTable* globalTable, const std::shared_ptr<ASTNode>& node, SymbolTable* currentTable, std::string type) {
-    std::cout << std::endl << node->type << " " << node->value << " " << type << std::endl;
     if (node->type == "Integer") return "Integer";
     else if (node->type == "String") return "String";
     else if (node->type == "List") {
@@ -559,7 +558,6 @@ std::string SymbolTableGenerator::statementInference(const std::shared_ptr<ASTNo
     else if (node->type == "Identifier") {
         auto symb = dynamic_cast<VariableSymbol*>(currentTable->findSymbol(node->value));
         if (symb->type == "auto") symb->type = type;
-        std::cout << node->value << " " << symb->type << std::endl;
         return symb->type;
     }
     else if (node->type == "TermOp") {
