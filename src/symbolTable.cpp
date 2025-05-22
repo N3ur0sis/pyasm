@@ -545,7 +545,8 @@ std::string SymbolTableGenerator::statementInference(const std::shared_ptr<ASTNo
         return "List";
     }
     else if (node->type == "True" or node->type == "False") return "Boolean";
-    else if (node->type == "Or" or node->type == "And") {
+    // todo : Compare pourrait être plus informatif (mais on n'a pas les routines assembleurs pour comparer string/list donc pour l'instant...)
+    else if (node->type == "Or" or node->type == "And" or node->type == "Compare") {
         statementInference(def, globalTable, node->children[0], currentTable, "auto");
         statementInference(def, globalTable, node->children[1], currentTable, "auto");
         return "Boolean";

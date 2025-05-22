@@ -651,9 +651,11 @@ void CodeGenerator::endAssembly() {
     textSection += "    ; Save input strings\n";
     textSection += "    mov r12, rdi        ; r12 = str1\n";
     textSection += "    mov r13, rsi        ; r13 = str2\n";
+
     textSection += "    mov r14, concat_buffer\n";
-    textSection += "    mov rbx, [concat_offset]\n";
-    textSection += "    add r14, rbx        ; r14 = destination address (buffer + offset)\n";
+    textSection += "    mov rbx, 0\n";
+    // textSection += "    mov rbx, [concat_offset]\n";
+    // textSection += "    add r14, rbx        ; r14 = destination address (buffer + offset)\n";
 
     // Label ID pour éviter les conflits
     static int concatId = 0;
