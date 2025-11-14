@@ -3,7 +3,7 @@ file -> N D stmt S eof .
 N -> NEWLINE .
 N -> .
 
-D -> "def" ident "(" I ")" ":" suite D .
+D -> "def" ident "(" I ")" ":" suite_def D .
 D -> .
 
 I -> ident I_prime .
@@ -15,12 +15,16 @@ I_prime -> .
 S -> stmt S .
 S -> .
 
+suite_def -> simple_stmt NEWLINE .
+suite_def -> NEWLINE BEGIN D stmt S END .
+
 suite -> simple_stmt NEWLINE .
 suite -> NEWLINE BEGIN stmt S END .
 
 stmt -> simple_stmt NEWLINE .
 stmt -> if expr ":" suite stmt_seconde .
 stmt -> for ident in expr ":" suite .
+stmt -> while expr ":" suite .
 
 stmt_seconde -> else ":" suite .
 stmt_seconde -> .

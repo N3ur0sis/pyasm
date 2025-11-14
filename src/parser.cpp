@@ -284,10 +284,12 @@ std::shared_ptr<ASTNode> Parser::parsePrimary() {
 
 // E -> expr E_prime . || .
 std::shared_ptr<ASTNode> Parser::parseE() {
-    auto exprNode = parseExpr(); 
-    auto ePrimeNode = parseEPrime(); 
     auto listNode = std::make_shared<ASTNode>("List");
     listNode->line = std::to_string(peek().line);
+    // E can be replaced with nothing!!
+    if (peek().type == TokenType::CAR_RBRACKET) return listNode;
+    auto exprNode = parseExpr(); 
+    auto ePrimeNode = parseEPrime(); 
     listNode->children.push_back(exprNode);
     if (ePrimeNode) {
         auto currentNode = ePrimeNode;

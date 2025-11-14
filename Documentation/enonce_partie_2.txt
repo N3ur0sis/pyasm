@@ -1,0 +1,11 @@
+ 
+
+- reprendre le code de votre projet PCL de l'an dernier,
+
+- rajouter dans la grammaire les productions permettant de traiter des instructions while,
+des définitions de fonctions imbriquées avec déclarations de variables locales dans ces fonctions,
+des listes imbriquées.
+
+- vous complèterez ainsi le compilateur depuis l'analyse lexicale,
+jusqu'à la génération de code (donc modifications de l'analyseur syntaxique, de l'AST et TDS, et ajout des contrôles sémantiques adéquats).
+

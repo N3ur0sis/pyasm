@@ -16,7 +16,7 @@ Lexer::Lexer(std::string src, ErrorManager& errorManager)
         {"False", TokenType::KW_FALSE}, {"in", TokenType::KW_IN},
         {"not", TokenType::KW_NOT}, {"or", TokenType::KW_OR},
         {"print", TokenType::KW_PRINT}, {"return", TokenType::KW_RETURN},
-        {"None", TokenType::KW_NONE},
+        {"None", TokenType::KW_NONE}, {"while", TokenType::KW_WHILE}
     };
 
     m_ope_simple = {
@@ -306,6 +306,7 @@ std::string Lexer::tokenTypeToString(TokenType type) {
         case TokenType::KW_PRINT: return "Keyword: print";
         case TokenType::KW_RETURN: return "Keyword: return";
         case TokenType::KW_NONE: return "Keyword: none";
+        case TokenType::KW_WHILE: return "Keyword: while";
         case TokenType::OP_PLUS: return "Operator: +";
         case TokenType::OP_MINUS: return "Operator: -";
         case TokenType::OP_MUL: return "Operator: *";
