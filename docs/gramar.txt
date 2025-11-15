@@ -74,14 +74,17 @@ unary -> "-" .
 unary -> .
 
 primary -> const .
-primary -> ident expr_prime .
+primary -> ident transition .
 primary -> "(" expr ")" .
 primary -> "[" E "]" .
 primary -> not primary .
 
 
+transition -> "(" E ")" .
+transition -> "[" expr "]" inner_listcall .
+transition -> .
+
 expr_prime -> "(" E ")" .
-expr_prime -> inner_listcall .
 expr_prime -> .
 
 E -> expr E_prime .
