@@ -115,7 +115,7 @@ std::shared_ptr<ASTNode> Parser::parseRoot() {
     return root;
 }
 
-// D -> "def" ident "(" I ")" ":" suite D .
+// D -> "def" ident "(" I ")" ":" suite_def D .
 // D -> .
 // I -> ident I_prime .
 // I-> .
@@ -149,15 +149,59 @@ std::shared_ptr<ASTNode> Parser::parseDefinition() {
         expectR(TokenType::CAR_RPAREN);
         expectR(TokenType::CAR_COLON);
         def_root->children.push_back(formal_param_list);
-        auto suite = parseSuite();
-        suite->line = std::to_string(peek().line);
+
+        auto [defs,suite] = parseSuiteDef();
+        defs->line = std::to_string(peek().line);
+        defs->type = "Definitions";
+        def_root->children.push_back(defs);
+        suite->line = std::to_string(peek().line); // because of the news definitions, this value is incorrect, but i don't think it's used anyways so...
         suite->type = "FunctionBody";
         def_root->children.push_back(suite);
+
         return def_root;
     }
     else return nullptr;
 }
 
+
+// suite_def -> simple_stmt NEWLINE .
+// suite_def -> NEWLINE BEGIN D stmt S END .
+// toute la différence avec parseSuite tient dans ce petit D 
+// idem, plus de tolérance pour les newlines que ce qui est rigoureusement spécifié
+std::pair<std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>> Parser::parseSuiteDef() {
+    auto suite_root = std::make_shared<ASTNode>("");
+    auto DEF = std::make_shared<ASTNode>("");
+    if (expect(TokenType::NEWLINE)) {
+        skipNewlines();
+        expectR(TokenType::BEGIN);
+
+        skipNewlines();
+        auto def = parseDefinition();
+        while ( def != nullptr ) {
+            DEF->children.push_back(def);
+            skipNewlines();
+            def = parseDefinition();
+        }
+
+        skipNewlines();
+        auto old_pos = pos-1;
+        while (peek().type != TokenType::END and old_pos < pos) {
+            old_pos = pos;
+            auto expr = parseStmt();
+            if (expr) suite_root->children.push_back(expr);
+            skipNewlines();
+        }
+        expectR(TokenType::END);
+    }
+    else {
+        suite_root->children.push_back(parseSimpleStmt());
+        if (!expect(TokenType::NEWLINE)) {
+            m_errorManager.addError(Error{"Expected newline", "", "Syntax", peek().line});
+            continueParsing();
+        }
+    }
+    return {DEF, suite_root};
+}
 
 // suite -> simple_stmt NEWLINE .
 // suite -> NEWLINE BEGIN stmt S END .
@@ -427,6 +471,7 @@ std::shared_ptr<ASTNode> Parser::parseExprPrime() {
 //stmt -> simple_stmt NEWLINE .
 //stmt -> if expr ":" suite stmt_seconde .
 //stmt -> for ident in expr ":" suite .
+//stmt -> while expr ":" suite .
 std::shared_ptr<ASTNode> Parser::parseStmt() {
     Token tok = peek();
     if (expect(TokenType::KW_IF)) {
@@ -460,6 +505,16 @@ std::shared_ptr<ASTNode> Parser::parseStmt() {
         m_errorManager.addError(Error{"Unexpected ", Lexer::tokenTypeToString(tok.type), "Syntax", tok.line});
         continueParsing();
         //m_errorManager.addError("Lexer: Unexpected token: " + tok.value + " (line:" + std::to_string(tok.line) + ")");
+    }
+    if (expect(TokenType::KW_WHILE)) {
+        auto whileNode = std::make_shared<ASTNode>("While");
+        whileNode->line = std::to_string(tok.line);
+        whileNode->children.push_back(parseExpr());
+        expectR(TokenType::CAR_COLON);
+        auto suite = parseSuite();
+        suite->type = "WhileBody";
+        whileNode->children.push_back(suite);
+        return whileNode;
     }
     auto simpleStmt = parseSimpleStmt();
     if (simpleStmt) {

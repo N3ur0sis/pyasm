@@ -1,6 +1,7 @@
 #pragma once
 #include <memory>
 #include <vector>
+#include <utility>
 #include "lexer.h"
 #include "errorManager.h"
 
@@ -51,6 +52,7 @@ private:
     std::shared_ptr<ASTNode> parseStmtSeconde();
     std::shared_ptr<ASTNode> parseStmt();
     std::shared_ptr<ASTNode> parseDefinition();
+    std::pair<std::shared_ptr<ASTNode>, std::shared_ptr<ASTNode>> parseSuiteDef();
     std::shared_ptr<ASTNode> parseSuite();
     void handleInvalidNewlines(TokenType closingToken);
 };

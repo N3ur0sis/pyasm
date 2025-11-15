@@ -8,6 +8,8 @@ def factorial(n):
 
 def fibonacci(n):
     if n <= 1:
+        4+5
+        a = 3
         return n
     return fibonacci(n-1) + fibonacci(n-2)
 # ===== Multiple parameters =====
@@ -39,12 +41,12 @@ message = greeting + name   # String concatenation
 print("===== Strings =====")
 print(message)
 print("Length:", len(message))
-print("Repeated:", greeting * 3)
+# print("Repeated:", greeting * 3)
 
 # ===== Lists =====
 print("===== Lists =====")
 numbers = [1, 2, 3, 4, 5]
-mixed = [42, "text", [1, 2]]
+mixed = [42, "text", [1, 2, [3,4, [5,6]]]]
 empty_list = []
 
 print("Original list:", numbers)
@@ -119,3 +121,4 @@ print("is_active OR is_complete:", is_active or is_complete)
 seq = generate_sequence()
 print("Generated sequence:", seq)
 print("End of test program")
+
