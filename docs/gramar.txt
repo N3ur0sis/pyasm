@@ -29,11 +29,14 @@ stmt -> while expr ":" suite .
 stmt_seconde -> else ":" suite .
 stmt_seconde -> .
 
-simple_stmt -> ident test .
+simple_stmt -> ident inner_listcall test .
 simple_stmt -> "return" expr .
 simple_stmt -> "print" "(" expr ")" .
 simple_stmt -> "-" ident expr_prime term_prime arith_expr_prime comp_expr_prime and_expr_prime or_expr_prime  .
 
+
+inner_listcall -> "[" expr "]" inner_listcall .
+inner_listcall -> . 
 
 test -> "=" expr .
 test -> expr_prime term_prime arith_expr_prime comp_expr_prime and_expr_prime or_expr_prime  .
@@ -78,6 +81,7 @@ primary -> not primary .
 
 
 expr_prime -> "(" E ")" .
+expr_prime -> inner_listcall .
 expr_prime -> .
 
 E -> expr E_prime .

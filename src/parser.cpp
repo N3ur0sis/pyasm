@@ -291,7 +291,12 @@ std::shared_ptr<ASTNode> Parser::parsePrimary() {
             node->children.push_back(idNode);
             node->children.push_back(parseExpr());
             expectR(TokenType::CAR_RBRACKET);
-            
+
+            while (expect(TokenType::CAR_LBRACKET)){
+                node->children.push_back(parseExpr());
+                expectR(TokenType::CAR_RBRACKET);
+            }
+
             if (expect(TokenType::OP_EQ)) {                                     
                 auto opNode = std::make_shared<ASTNode>("Affect", "=");
                 opNode->line = std::to_string(tok.line);
@@ -592,7 +597,12 @@ std::shared_ptr<ASTNode> Parser::parseSimpleStmt() {
             node->children.push_back(idNode);
             node->children.push_back(parseExpr());
             expectR(TokenType::CAR_RBRACKET);
-            
+
+            while (expect(TokenType::CAR_LBRACKET)){
+                node->children.push_back(parseExpr());
+                expectR(TokenType::CAR_RBRACKET);
+            }
+
             if (expect(TokenType::OP_EQ)) {                                     // test -> "=" expr .
                 auto opNode = std::make_shared<ASTNode>("Affect", "=");
                 opNode->line = std::to_string(tok.line);

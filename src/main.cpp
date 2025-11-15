@@ -44,14 +44,14 @@ int main(int argc, char* argv[]) {
         parser.print(ast);
 
         SymbolTableGenerator symGen(errorManager);
-        auto symTable = symGen.generate(ast);
+        //auto symTable = symGen.generate(ast);
 
         // 1) Check for lexical/syntax errors or Symbol Table generation errors
         if (errorManager.hasErrors()) {
             std::cout << std::endl;
             errorManager.displayErrors();
         }
-        // 2) Launch semantic analysis
+        /*/ 2) Launch semantic analysis
         {
             SemanticAnalyzer semAnalyzer(errorManager);
             semAnalyzer.checkSemantics(ast, symTable.get());
@@ -76,6 +76,7 @@ int main(int argc, char* argv[]) {
         }
         
         std::cout << "Assembly code generated in output.asm" << std::endl;
+        //*/
 
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
