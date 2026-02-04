@@ -43,19 +43,20 @@ int main(int argc, char* argv[]) {
         std::cout << "Abstract Syntax Tree:" << std::endl;
         parser.print(ast);
 
+        SemanticAnalyzer semAnalyzer(errorManager);
+        ast = semAnalyzer.firstPass(ast);
+        parser.generateDotFile(ast, "ast2.dot");
+
         SymbolTableGenerator symGen(errorManager);
-        //auto symTable = symGen.generate(ast);
+        auto symTable = symGen.generate(ast);
 
         // 1) Check for lexical/syntax errors or Symbol Table generation errors
         if (errorManager.hasErrors()) {
             std::cout << std::endl;
             errorManager.displayErrors();
         }
-        /*/ 2) Launch semantic analysis
-        {
-            SemanticAnalyzer semAnalyzer(errorManager);
-            semAnalyzer.checkSemantics(ast, symTable.get());
-        }
+        // 2) Launch semantic analysis
+        semAnalyzer.checkSemantics(ast, symTable.get());
         // 3) Check for semantic errors
         if (errorManager.hasErrors()) {
             std::cout << std::endl;

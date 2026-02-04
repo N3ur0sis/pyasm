@@ -7,6 +7,10 @@ std::vector<std::string> loopVariables;
 // Liste des noms de fonctions déjà définies
 std::vector<std::string> definedFunctionsNames;
 
+const std::shared_ptr<ASTNode>& SemanticAnalyzer::firstPass(const std::shared_ptr<ASTNode>& root) {
+    return root;
+}
+
 // Lance l’analyse sémantique à partir de la racine de l’AST
 void SemanticAnalyzer::checkSemantics(const std::shared_ptr<ASTNode>& root, SymbolTable* globalTable) {
     // Démarre l’analyse depuis la racine de l’arbre syntaxique et la table des symboles globale

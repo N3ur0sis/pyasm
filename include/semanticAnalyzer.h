@@ -11,7 +11,8 @@ public:
     explicit SemanticAnalyzer(ErrorManager& errMgr)
         : m_errorManager(errMgr) {}
 
-    // Point d’entrée de l’analyse
+    // Points d’entrée de l’analyse
+    const std::shared_ptr<ASTNode>& firstPass(const std::shared_ptr<ASTNode>& root);
     void checkSemantics(const std::shared_ptr<ASTNode>& root, SymbolTable* globalTable);
 
 private:

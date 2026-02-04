@@ -60,6 +60,7 @@ private:
     void genAffect(const std::shared_ptr<ASTNode>& node);
     void genFor(const std::shared_ptr<ASTNode>& node);
     void genIf(const std::shared_ptr<ASTNode>& node);
+    void genWhile(const std::shared_ptr<ASTNode>& node);
     void genFunction(const std::shared_ptr<ASTNode>& node);
     void genFunctionCall(const std::shared_ptr<ASTNode>& node);
     void genReturn(const std::shared_ptr<ASTNode>& node);

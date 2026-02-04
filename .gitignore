@@ -38,7 +38,8 @@ build/*
 # fichiers temporaires pour la visualisation de l'ast
 ast.dot
 ast.pdf
-
+ast2.dot
+ast2.pdf
 
 cmake-build-debug/*
 cmake-build-release/*

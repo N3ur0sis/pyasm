@@ -19,6 +19,15 @@ else
     echo "No ast.dot file found. Skipping PDF generation."
 fi
 
+# Convert ast2.dot if exists
+if [ -f "ast2.dot" ]; then
+    echo "Generating AST PDF..."
+    dot -Tpdf ast2.dot -o ast2.pdf
+    echo "AST visualization saved as ast2.pdf"
+else
+    echo "No ast2.dot file found. Skipping PDF generation."
+fi
+
 # Execute the generated ASM file if it exists
 if [ -f "output.asm" ]; then
     echo -e "\nAssembling and executing output.asm..."

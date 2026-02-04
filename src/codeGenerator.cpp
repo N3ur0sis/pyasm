@@ -210,6 +210,8 @@ void CodeGenerator::visitNode(const std::shared_ptr<ASTNode>& node) {
         genIf(node);
     } else if (node->type == "For") {
         genFor(node);
+    } else if (node->type == "While") {
+        genWhile(node);
     } else if (node->type == "Print") {
         if (!node->children.empty()) {
             for (size_t i = 0; i < node->children.size(); ++i) {
@@ -424,7 +426,7 @@ if (typeR == "auto") typeR = "Integer";
     else if (node->type == "Program" || node->type == "Definitions" || node->type == "Instructions" ||
              node->type == "FunctionBody" || node->type == "FormalParameterList" ||
              node->type == "ActualParameterList" || node->type == "ParameterList" || // ParameterList is used by parser for func calls
-             node->type == "IfBody" || node->type == "ElseBody" || node->type == "ForBody" ) {
+             node->type == "IfBody" || node->type == "ElseBody" || node->type == "ForBody" || node->type == "WhileBody" ) {
         for (auto &child : node->children) {
             visitNode(child);
         }
@@ -1149,6 +1151,45 @@ void CodeGenerator::genIf(const std::shared_ptr<ASTNode>& node) {
     
     textSection += endLabel + ":\n";
 }
+
+void CodeGenerator::genWhile(const std::shared_ptr<ASTNode>& node) {
+    std::string whileId = std::to_string(this->ifLabelCounter++);
+    std::string startLabel = ".while_" + whileId;
+    std::string endLabel   = ".endwhile_" + whileId;
+
+    textSection += startLabel + ":\n";
+    textSection += "; While condition\n";
+
+    auto condNode = node->children[0];
+    std::string condType = getExpressionType(condNode);
+
+    visitNode(condNode); // rax <- valeur
+
+    // L = [] ou L = "" ou L = 0 => false
+    if (condType == "List") {
+        textSection += "    ; Check if list is empty\n";
+        textSection += "    cmp qword [rax], 0    ; Check size at first qword\n";
+        textSection += "    setnz al              ; al = 1 if list is not empty (size > 0)\n";
+        textSection += "    movzx rax, al         ; rax = 0/1\n";
+    } else if (condType == "String") {
+        textSection += "    ; Check if string is empty\n";
+        textSection += "    cmp byte [rax], 0     ; Check if first byte is null\n";
+        textSection += "    setnz al              ; al = 1 if string is not empty\n";
+        textSection += "    movzx rax, al         ; rax = 0/1\n";
+    } else {
+        toBool("rax");            // rax <- 0 / 1
+    }   
+
+    textSection += "    cmp rax, 0\n";
+    textSection += "    je " + endLabel + "\n";
+
+    textSection += "; While body\n";
+    visitNode(node->children[1]);
+
+    textSection += "    jmp " + startLabel + "\n";
+    textSection += endLabel + ":\n";
+}
+
 
 void CodeGenerator::genFunction(const std::shared_ptr<ASTNode>& node) {
     std::string funcName = node->value;
