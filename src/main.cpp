@@ -40,15 +40,19 @@ int main(int argc, char* argv[]) {
             return EXIT_FAILURE;
         }
         parser.generateDotFile(ast, "ast.dot");
-        std::cout << "Abstract Syntax Tree:" << std::endl;
-        parser.print(ast);
+        //std::cout << "Abstract Syntax Tree:" << std::endl;
+        //parser.print(ast);
+
 
         SemanticAnalyzer semAnalyzer(errorManager);
         ast = semAnalyzer.firstPass(ast);
         parser.generateDotFile(ast, "ast2.dot");
 
+
         SymbolTableGenerator symGen(errorManager);
+        std::cout << "CAME HERE" << std::endl;
         auto symTable = symGen.generate(ast);
+        std::cout << "CAME HERE" << std::endl;
 
         // 1) Check for lexical/syntax errors or Symbol Table generation errors
         if (errorManager.hasErrors()) {

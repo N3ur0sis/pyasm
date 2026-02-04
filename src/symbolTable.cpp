@@ -118,7 +118,7 @@ std::unique_ptr<SymbolTable> SymbolTableGenerator::generate(const std::shared_pt
         }
     }
 
-    inferTypes(root, globalTable.get());
+    // inferTypes(root, globalTable.get());
 
     return globalTable;
 }

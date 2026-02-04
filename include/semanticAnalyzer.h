@@ -20,6 +20,9 @@ private:
 
     ErrorManager& m_errorManager;
 
+    void smallhelpR(const std::shared_ptr<ASTNode>& node, const std::shared_ptr<ASTNode>& defnode, const std::shared_ptr<ASTNode>& parentnode, const int n, std::string suffixe);
+    void bighelpR(const std::shared_ptr<ASTNode>& defnode, const std::shared_ptr<ASTNode>& parentnode, const int n, std::string suffixe);
+
     // Visite récursive des nœuds de l'AST
     void visit(const std::shared_ptr<ASTNode>& node, SymbolTable* currentScope);
 

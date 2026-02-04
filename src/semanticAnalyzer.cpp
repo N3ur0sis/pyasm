@@ -7,7 +7,108 @@ std::vector<std::string> loopVariables;
 // Liste des noms de fonctions déjà définies
 std::vector<std::string> definedFunctionsNames;
 
+
+std::vector<std::string> ACCESSIBLE_GLOB;
+std::shared_ptr<ASTNode> NEW_DEF;
+
+void SemanticAnalyzer::smallhelpR(const std::shared_ptr<ASTNode>& node, const std::shared_ptr<ASTNode>& defnode, const std::shared_ptr<ASTNode>& parentnode, const int n, std::string suffixe) {
+    if (node->type == "FunctionCall") {
+        if  (defnode != nullptr) {
+            // si défini dans le self même : += suffixe + name + "_"
+            for (auto& d : defnode->children[1]->children) {
+                if (node->children[0]->value == d->value) {
+                    node->children[0]->value = suffixe + defnode->value + "_" + node->children[0]->value;
+                    goto recurNOW;
+                }
+            }
+            // si == à self name : += suffixe + "_"
+            if (node->children[0]->value == defnode->value) {
+                node->children[0]->value = suffixe + "_" + node->children[0]->value;
+                goto recurNOW;
+            }
+        }
+        if (parentnode != nullptr) {
+            // si défini dans parent : += suffixe + "_"
+            int i = 0;
+            for (auto& d : parentnode->children[1]->children) {
+                if (i >= n) break;
+                if (suffixe + "_" + node->children[0]->value == d->value) {
+                    node->children[0]->value = suffixe + "_" + node->children[0]->value;
+                    goto recurNOW;
+                }
+                ++i;
+            }
+        }
+        // si dans ACCESSIBLE_GLOB : += "_"
+        if (std::find(ACCESSIBLE_GLOB.begin(), ACCESSIBLE_GLOB.end(), node->children[0]->value) != ACCESSIBLE_GLOB.end()) {
+            node->children[0]->value = std::string("_") + node->children[0]->value;
+            goto recurNOW;
+        }
+        // sinon erreur sémantique (et pas de modification)
+        m_errorManager.addError({
+            "Call to nonexistent/inaccessible function.",
+            "",
+            "Semantic",
+            std::stoi(node->line)
+        });   
+    }
+
+    //std::cout << "HERE FDP" << std::endl;
+
+    // parcours récursif
+    recurNOW:
+    for (auto& child : node->children) {
+        if (child) smallhelpR(child, defnode, parentnode, n, suffixe);
+    }
+}
+
+void SemanticAnalyzer::bighelpR(const std::shared_ptr<ASTNode>& defnode, const std::shared_ptr<ASTNode>& parentnode, const int n, std::string suffixe) {
+    // parcours des functioncalls
+    smallhelpR(defnode->children[2], defnode, parentnode, n, suffixe);
+    // parcours enfants
+    int i = 0;
+    for (auto& child : defnode->children[1]->children) {
+        bighelpR(child, defnode, i, suffixe + defnode->value);
+        ++i;
+    }
+    // renommage
+    defnode->value = suffixe + std::string("_") + defnode->value;
+    // suppression du noeud definition
+    defnode->children.erase(defnode->children.begin() + 1);
+    // ajout dans NEW_DEF
+    NEW_DEF->children.push_back(defnode);
+}
+
 const std::shared_ptr<ASTNode>& SemanticAnalyzer::firstPass(const std::shared_ptr<ASTNode>& root) {
+    NEW_DEF = std::make_shared<ASTNode>("Definitions");
+
+    //std::cout << "HERE 1" << std::endl;
+
+    for (auto& defnode : root->children[0]->children) {
+        // parcours des functioncalls
+        smallhelpR(defnode->children[2], defnode, nullptr, 0, "");
+        // parcours enfants
+        //std::cout << "HERE 2" << std::endl;
+        int i = 0;
+        for (auto& child : defnode->children[1]->children) {
+            bighelpR(child, defnode, i, defnode->value);
+            ++i;
+        }
+        // ajout dans ACCESSIBLE_GLOB
+        ACCESSIBLE_GLOB.push_back(defnode->value);
+        // renommage
+        defnode->value = "_" + defnode->value;
+        // suppression du noeud definition
+        defnode->children.erase(defnode->children.begin() + 1);
+        // ajout dans NEW_DEF
+        NEW_DEF->children.push_back(defnode);
+    }
+
+    //std::cout << "HERE 3" << std::endl;
+
+    smallhelpR(root->children[1], nullptr, nullptr, 0, "");
+    root->children[0] = NEW_DEF;
+
     return root;
 }
 

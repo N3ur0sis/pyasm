@@ -14,6 +14,30 @@ def testDefs(n,m):
 	return n+m+a(n,m)
 
 
+def B():
+	def X():
+		def u():
+			u()
+			v()
+			return 0
+		def v():
+			u()
+			v()
+			return 1
+	def Y():
+		def m():
+			A()
+			return 2
+		def n():
+			B()
+			Y()
+			u()
+			return 3
+		u()
+		m()
+		n()
+		Y()
+
 L = [[1,2],[3,4],[5,6,[7],8,9,10]]
 L[2][L[0][1]] = L[2][L[0][1]] - 1
 print(L[2][2])

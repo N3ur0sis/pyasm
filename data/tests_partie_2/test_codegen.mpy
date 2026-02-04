@@ -1,0 +1,25 @@
+
+a = 10
+
+def A(n):
+	def helper_facto(n):
+		if n == 1:
+			return 1
+		else:
+			return n*helper_facto(n-1)
+	def C(i):
+		b = 0
+		while a <= i:
+			b = b + helper_facto(a)
+			a = a + 1
+		return b
+	return C(n)+C(n+1)+C(n+2)
+
+
+L = [[1,2,3],[4,5,6]]
+
+print("test pour n = 4: ", A(4))
+
+print("test liste : ", L[1][0], L[1][1])
+
+
